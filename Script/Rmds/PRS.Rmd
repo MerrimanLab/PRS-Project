@@ -1,0 +1,46 @@
+---
+title: "Full PRS Script"
+author: "Nick Sumpter"
+date: "`r Sys.Date()`"
+knit: (function(inputFile, encoding) { 
+      rmarkdown::render(inputFile,
+                        encoding = encoding, 
+                        output_file = here::here("Output/HTMLs", "PRS.html")) })
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, warning = FALSE, message = FALSE}
+# Libraries
+library(here)
+library(lubridate)
+library(meta)
+library(knitr)
+library(rsq)
+library(car)
+library(vroom)
+library(pastecs)
+library(qqman)
+library(ggrepel)
+library(kableExtra)
+library(janitor)
+library(MASS)
+library(viridis)
+library(sciplot)
+library(tidyverse)
+# library(viridisLite)
+
+theme_set(theme_bw())
+
+# Functions
+#source(here("Script/Functions", ""))
+```
+
+```{r child = here("Script/Rmds", "PRS_GWAS.Rmd")}
+
+```
+
+```{r child = here("Script/Rmds", "PRS_Dataprep.Rmd")}
+
+```

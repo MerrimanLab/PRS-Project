@@ -1,0 +1,444 @@
+
+
+```{r dataprep, message = F, warning = F, cache = T}
+# Datasets
+load(here("Output/anz_euro_pheno_prs.RData"))
+load(here("Output/clear_lasso_euro_pheno_prs.RData"))
+load(here("Output/control_anz_euro_pheno_prs.RData"))
+load(here("Output/control_eastpoly_pheno_prs.RData"))
+load(here("Output/control_westpoly_pheno_prs.RData"))
+load(here("Output/crystal_euro_pheno_prs.RData"))
+load(here("Output/eastpoly_pheno_prs.RData"))
+load(here("Output/eurogout_euro_pheno_prs.RData"))
+load(here("Output/lasso_other_euro_pheno_prs.RData"))
+load(here("Output/light_euro_pheno_prs.RData"))
+load(here("Output/westpoly_pheno_prs.RData"))
+load(here("Output/ukbb_euro_pheno_prs.RData"))
+load(here("Output/ukbb_poly_pheno_prs.RData"))
+
+load(here("Output/UKBB_Gene_OR.RData"))
+load(here("Output/Poly_Gene_OR.RData"))
+
+
+# European cohort prep
+anz_gout <- anz_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Aus/NZ") %>% 
+  select(-Geno.SampleID)
+
+anz_control <- control_anz_euro_pheno_prs %>%
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         GOUT = FALSE,
+         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
+         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
+  rename(IID = Pheno.SampleID,
+         AGECOL = Pheno.Age,
+         COHORT = Pheno.Study,
+         PC1 = Geno.PCVector1,
+         PC2 = Geno.PCVector2,
+         PC3 = Geno.PCVector3,
+         PC4 = Geno.PCVector4,
+         PC5 = Geno.PCVector5,
+         PC6 = Geno.PCVector6,
+         PC7 = Geno.PCVector7,
+         PC8 = Geno.PCVector8,
+         PC9 = Geno.PCVector9,
+         PC10 = Geno.PCVector10) %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408, PRS_std)
+
+tmp <- anz_gout %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408, PRS_std)
+
+anz_full <- rbind(tmp, anz_control) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+eurogout <- eurogout_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "EuroGout") %>% 
+  select(-Geno.SampleID)
+
+
+ardea_clear_lasso <- clear_lasso_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Ardea - CLEAR/LASSO (ULT)") %>% 
+  select(-Geno.SampleID)
+
+
+ardea_lasso_other <- lasso_other_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Ardea - LASSO (other)") %>% 
+  select(-Geno.SampleID)
+
+
+ardea_crystal <- crystal_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Ardea - CRYSTAL") %>% 
+  select(-Geno.SampleID)
+
+
+ardea_light <- light_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Ardea - LIGHT") %>% 
+  select(-Geno.SampleID)
+  
+
+allgout <- rbind(anz_gout, eurogout, ardea_clear_lasso, ardea_crystal, ardea_lasso_other, ardea_light) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+rm(anz_euro_pheno_prs, clear_lasso_euro_pheno_prs, control_anz_euro_pheno_prs, crystal_euro_pheno_prs, eurogout_euro_pheno_prs, lasso_other_euro_pheno_prs, light_euro_pheno_prs, tmp)
+
+
+# Polynesian cohort prep
+eastpoly_gout <- eastpoly_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE)) %>% 
+  select(-Geno.SampleID)
+
+eastpoly_gout_tophi <- eastpoly_gout %>% 
+  filter(TOPHIGOUT == TRUE)
+
+eastpoly_gout_flare <- eastpoly_gout %>% 
+  filter(FLAREHIGH == TRUE)
+
+eastpoly_gout_onset <- eastpoly_gout %>% 
+  filter(AGE1ATK < 40)
+
+eastpoly_control <- control_eastpoly_pheno_prs %>%
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         GOUT = FALSE,
+         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
+         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
+  rename(IID = Pheno.SampleID,
+         AGECOL = Pheno.Age,
+         COHORT = Pheno.Study,
+         PC1 = Geno.PCVector1,
+         PC2 = Geno.PCVector2,
+         PC3 = Geno.PCVector3,
+         PC4 = Geno.PCVector4,
+         PC5 = Geno.PCVector5,
+         PC6 = Geno.PCVector6,
+         PC7 = Geno.PCVector7,
+         PC8 = Geno.PCVector8,
+         PC9 = Geno.PCVector9,
+         PC10 = Geno.PCVector10,
+         PC1_Oc = Geno.PCVector1_Oc,
+         PC2_Oc = Geno.PCVector2_Oc,
+         PC3_Oc = Geno.PCVector3_Oc,
+         PC4_Oc = Geno.PCVector4_Oc,
+         PC5_Oc = Geno.PCVector5_Oc,
+         PC6_Oc = Geno.PCVector6_Oc,
+         PC7_Oc = Geno.PCVector7_Oc,
+         PC8_Oc = Geno.PCVector8_Oc,
+         PC9_Oc = Geno.PCVector9_Oc,
+         PC10_Oc = Geno.PCVector10_Oc) %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+
+tmp <- eastpoly_gout %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+
+eastpoly_full <- rbind(tmp, eastpoly_control) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+westpoly_gout <- westpoly_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE)) %>% 
+  select(-Geno.SampleID)
+
+westpoly_control <- control_westpoly_pheno_prs %>%
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         GOUT = FALSE,
+         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
+         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
+  rename(IID = Pheno.SampleID,
+         AGECOL = Pheno.Age,
+         COHORT = Pheno.Study,
+         PC1 = Geno.PCVector1,
+         PC2 = Geno.PCVector2,
+         PC3 = Geno.PCVector3,
+         PC4 = Geno.PCVector4,
+         PC5 = Geno.PCVector5,
+         PC6 = Geno.PCVector6,
+         PC7 = Geno.PCVector7,
+         PC8 = Geno.PCVector8,
+         PC9 = Geno.PCVector9,
+         PC10 = Geno.PCVector10,
+         PC1_Oc = Geno.PCVector1_Oc,
+         PC2_Oc = Geno.PCVector2_Oc,
+         PC3_Oc = Geno.PCVector3_Oc,
+         PC4_Oc = Geno.PCVector4_Oc,
+         PC5_Oc = Geno.PCVector5_Oc,
+         PC6_Oc = Geno.PCVector6_Oc,
+         PC7_Oc = Geno.PCVector7_Oc,
+         PC8_Oc = Geno.PCVector8_Oc,
+         PC9_Oc = Geno.PCVector9_Oc,
+         PC10_Oc = Geno.PCVector10_Oc) %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+
+tmp <- westpoly_gout %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+
+westpoly_full <- rbind(tmp, westpoly_control) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+rm(control_eastpoly_pheno_prs, control_westpoly_pheno_prs, eastpoly_pheno_prs, westpoly_pheno_prs, tmp)
+
+
+# UK Biobank prep
+ukbb_gout <- ukbb_euro_pheno_prs %>% 
+  filter(GOUT == TRUE,
+         !is.na(PRS)) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = NA,
+         NUMATK = NA,
+         TOPHIGOUT = NA,
+         AGE1ATK = NA,
+         DURATION = NA,
+         PC1 = NA,
+         PC2 = NA,
+         PC3 = NA,
+         PC4 = NA,
+         PC5 = NA,
+         PC6 = NA,
+         PC7 = NA,
+         PC8 = NA,
+         PC9 = NA,
+         PC10 = NA) %>% 
+  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:PRS_std, FLAREHIGH)
+
+ukbb_control <- ukbb_euro_pheno_prs %>% 
+  filter(GOUT == FALSE,
+         !is.na(PRS)) %>%
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = NA,
+         NUMATK = NA,
+         TOPHIGOUT = NA,
+         AGE1ATK = NA,
+         DURATION = NA,
+         PC1 = NA,
+         PC2 = NA,
+         PC3 = NA,
+         PC4 = NA,
+         PC5 = NA,
+         PC6 = NA,
+         PC7 = NA,
+         PC8 = NA,
+         PC9 = NA,
+         PC10 = NA,
+         ULT = NA) %>% 
+  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:PRS_std, FLAREHIGH)
+
+ukbb <- rbind(ukbb_gout, ukbb_control) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+rm(ukbb_euro_pheno_prs)
+
+
+# Model results
+load(here("Output/GoutvsPRS.RData"))
+load(here("Output/Meta3traitsvsPRS.RData"))
+load(here("Output/PooledvsPRS.RData"))
+load(here("Output/CollidervsPRS.RData"))
+load(here("Output/GoutvsPRS_Poly.RData"))
+load(here("Output/PooledvsPRS_Poly.RData"))
+load(here("Output/CollidervsPRS_Poly.RData"))
+# load(here("Output/GoutvsPRS_noULT.RData"))
+# load(here("Output/Meta3traitsvsPRS_noULT.RData"))
+# load(here("Output/PooledvsPRS_noULT.RData"))
+# load(here("Output/CollidervsPRS_noULT.RData"))
+# load(here("Output/GoutvsPRS_Poly_noULT.RData"))
+# load(here("Output/PooledvsPRS_Poly_noULT.RData"))
+# load(here("Output/CollidervsPRS_Poly_noULT.RData"))
+```
+
+```{r functions}
+# Functions 
+male <- function(x){
+  paste0(length(x$SEX), " (", sprintf((mean(x$SEX == "Male") * 100), fmt = "%#.1f"), ")")
+}
+
+report <- function(x) {
+    if(sum(is.na(x)) != length(x)) {
+      paste0(sprintf(mean(x, na.rm = TRUE), fmt = "%#.1f"), " ± ", sprintf(sd(x, na.rm = TRUE), fmt = "%#.1f"))
+    } else {
+      paste0("NA")
+    }
+}
+
+sumreport <- function(x) {
+  if(sum(is.na(x)) != length(x)){
+    paste0(sum(x, na.rm = TRUE), " (", sprintf((mean(x, na.rm = TRUE) * 100), fmt = "%#.1f"), ")")
+  } else {
+      paste0("NA")
+  }
+}
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    rownames_to_column() %>%
+    as_tibble()
+  return(t_df)
+}
+
+
+maketable <- function(x, outname){
+  assign("tmp", x %>% mutate(quintile = ntile(PRS, 5)))
+  
+  tmp1 <- tmp %>% filter(quintile == 1)
+  tmp2 <- tmp %>% filter(quintile == 2)
+  tmp3 <- tmp %>% filter(quintile == 3)
+  tmp4 <- tmp %>% filter(quintile == 4)
+  tmp5 <- tmp %>% filter(quintile == 5)
+  
+  cohortstring <- c("First PRS quintile",
+                    "Second PRS quintile",
+                    "Third PRS quintile",
+                    "Fourth PRS quintile",
+                    "Fifth PRS quintile")
+  
+  data_list <- list(tmp1, tmp2, tmp3, tmp4, tmp5)
+  
+  quintile_table <- tibble("Cohort" = cohortstring,
+                           "N (% male)" = unlist(lapply(data_list, male)),
+                           "Mean age (sd) (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
+                           "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
+                           "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
+                           "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
+                           "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                           "Flares > 1 (%)" = unlist(lapply(data_list, function(x) sumreport(x$FLAREHIGH))),
+                           "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))),
+                           "Mean disease duration (sd)" = unlist(lapply(data_list, function(x) report(x$DURATION))))
+  
+  quintile_table <- transpose_df(quintile_table) %>% 
+    row_to_names(row_number = 1) %>% 
+    column_to_rownames(var = "Cohort")
+  
+  assign(paste0(outname, "_quintiletable"), quintile_table, envir = .GlobalEnv)
+}
+```
+
+```{r Table1}
+cohortstring <- c("UK Biobank  - gout",
+                  "UK Biobank  - controls",
+                  "Aus/NZ European - gout",
+                  "Aus/NZ European - controls",
+                  "GlobalGout",
+                  "Ardea - CLEAR/LASSO (ULT)",
+                  "Ardea - CRYSTAL",
+                  "Ardea - LASSO (no ULT)",
+                  "Ardea - LIGHT",
+                  "Pooled gout (excluding UK Biobank)")
+
+data_list <- list(ukbb_gout, ukbb_control, anz_gout, anz_control, eurogout, ardea_clear_lasso, ardea_crystal, ardea_lasso_other, ardea_light, allgout)
+
+table1 <- tibble("Cohort" = cohortstring, 
+                 "N (% male)" = unlist(lapply(data_list, male)),
+                 "Mean age (sd) (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
+                 "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
+                 "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
+                 "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
+                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "Flares > 1 (%)" = unlist(lapply(data_list, function(x) sumreport(x$FLAREHIGH))),
+                 "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))),
+                 "Mean disease duration (sd)" = unlist(lapply(data_list, function(x) report(x$DURATION))))
+
+table1 <- transpose_df(table1) %>% 
+  row_to_names(row_number = 1) %>% 
+  column_to_rownames(var = "Cohort")
+
+kable_styling(kable(table1))
+```
+
+The main cohort differences are the following:
+
+1. Control cohorts have far fewer males, are younger, have lower SU, have lower PRS
+
+2. UK Biobank, Aus/NZ, and GlobalGout seem to be the most similar gout cohorts
+
+    - Aus/NZ has 7% fewer females, is ~ 4 years older, has slightly lower SU
+    
+    - GlobalGout has highest SU and most on ULT
+    
+    - All three have similar PRS
+    
+    - Compared to GlobalGout, Aus/NZ has 2 years older age at onset and 10% fewer active flares, but also 2 years longer disease duration and 4% more tophi
+    
+3. Collectively, the Ardea cohorts have fewer females, younger age at collection, higher SU, earlier age at onset, more flares, and higher PRS than GlobalGout/AusNZ
+
+    - CRYSTAL has fewest females, earliest age at onset, all had tophi, longest disease duration
+    
+    - LIGHT has most females, oldest age, latest onset, highest PRS (weird), second highest SU, second most tophi, second longest disease duration
+
+```{r PRSQuintiles_Pooled}
+maketable(allgout, "AllGout")
+
+kable_styling(kable(AllGout_quintiletable))
+```
+
+The above table shows the metrics for each quintile of PRS within the pooled gout cohort. 
+
+1. Increasing PRS quintile associates with: more males, younger cases, increased SU, increased ULT usage, younger age at onset, slightly more tophi, more flares, longer disease duration
+
+```{r pooledmalesvfemales}
+maketable(filter(allgout, SEX == "Male"), "AllGoutMale")
+
+kable_styling(kable(AllGoutMale_quintiletable))
+
+maketable(filter(allgout, SEX == "Female"), "AllGoutFemale")
+
+kable_styling(kable(AllGoutFemale_quintiletable))
+```
+
+The results of the male vs female analysis suggests the following:
+
+1. All of the above observations are more pronounced in males vs females
+
+2. Females seem to have the opposite disease duration pattern to males (lower PRS = longer duration)
+
+3. The sigmoidal relationship between PRS and age at onset (also SU) seems to be more pronounced when the cohort is split into males and females
+
+```{r individualcohorts}
+# Aus/NZ cohort
+maketable(anz_gout, "Aus_NZ")
+
+kable_styling(kable(Aus_NZ_quintiletable))
+
+# GlobalGout cohort
+maketable(eurogout, "GlobalGout")
+
+kable_styling(kable(GlobalGout_quintiletable))
+
+# Ardea - CLEAR/LASSO cohort
+maketable(ardea_clear_lasso, "Ardea_CLEAR_LASSO")
+
+kable_styling(kable(Ardea_CLEAR_LASSO_quintiletable))
+
+# Ardea - CRYSTAL cohort
+maketable(ardea_crystal, "Ardea_CRYSTAL")
+
+kable_styling(kable(Ardea_CRYSTAL_quintiletable))
+
+# Ardea - LASSO (other) cohort
+maketable(ardea_lasso_other, "Ardea_LASSO_other")
+
+kable_styling(kable(Ardea_LASSO_other_quintiletable))
+
+# Ardea - LIGHT cohort
+maketable(ardea_light, "Ardea_LIGHT")
+
+kable_styling(kable(Ardea_LIGHT_quintiletable))
+```
+
+This individual cohort analysis suggests the following:
+
+1. In the Aus/NZ cohort, only age at onset seems to consistently decrease with PRS, though the correlations seen in the pooled cohort are present to a less consistent degree
+
+2. In the GlobalGout cohort, the age at onset phenotype seems to be the only 

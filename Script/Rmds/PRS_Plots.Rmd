@@ -1,0 +1,2508 @@
+
+
+```{r dataprep, message = F, warning = F, cache = T}
+# Datasets
+load(here("Output/anz_euro_pheno_prs.RData"))
+load(here("Output/clear_lasso_euro_pheno_prs.RData"))
+load(here("Output/control_anz_euro_pheno_prs.RData"))
+load(here("Output/control_eastpoly_pheno_prs.RData"))
+load(here("Output/control_westpoly_pheno_prs.RData"))
+load(here("Output/crystal_euro_pheno_prs.RData"))
+load(here("Output/eastpoly_pheno_prs.RData"))
+load(here("Output/eurogout_euro_pheno_prs.RData"))
+load(here("Output/lasso_other_euro_pheno_prs.RData"))
+load(here("Output/light_euro_pheno_prs.RData"))
+load(here("Output/westpoly_pheno_prs.RData"))
+load(here("Output/ukbb_euro_pheno_prs.RData"))
+load(here("Output/ukbb_poly_pheno_prs.RData"))
+
+load(here("Output/UKBB_Gene_OR.RData"))
+load(here("Output/Poly_Gene_OR.RData"))
+
+
+# European cohort prep
+anz_gout <- anz_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Aus/NZ") %>% 
+  select(-Geno.SampleID)
+
+anz_control <- control_anz_euro_pheno_prs %>%
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         GOUT = FALSE,
+         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
+         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
+  rename(IID = Pheno.SampleID,
+         AGECOL = Pheno.Age,
+         COHORT = Pheno.Study,
+         PC1 = Geno.PCVector1,
+         PC2 = Geno.PCVector2,
+         PC3 = Geno.PCVector3,
+         PC4 = Geno.PCVector4,
+         PC5 = Geno.PCVector5,
+         PC6 = Geno.PCVector6,
+         PC7 = Geno.PCVector7,
+         PC8 = Geno.PCVector8,
+         PC9 = Geno.PCVector9,
+         PC10 = Geno.PCVector10) %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408, PRS_std)
+
+tmp <- anz_gout %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408, PRS_std)
+
+anz_full <- rbind(tmp, anz_control) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+eurogout <- eurogout_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "EuroGout") %>% 
+  select(-Geno.SampleID)
+
+
+ardea_clear_lasso <- clear_lasso_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Ardea - CLEAR/LASSO (ULT)") %>% 
+  select(-Geno.SampleID)
+
+
+ardea_lasso_other <- lasso_other_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Ardea - LASSO (other)") %>% 
+  select(-Geno.SampleID)
+
+
+ardea_crystal <- crystal_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Ardea - CRYSTAL") %>% 
+  select(-Geno.SampleID)
+
+
+ardea_light <- light_euro_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
+         COHORT2 = "Ardea - LIGHT") %>% 
+  select(-Geno.SampleID)
+  
+
+allgout <- rbind(anz_gout, eurogout, ardea_clear_lasso, ardea_crystal, ardea_lasso_other, ardea_light) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+allgout_tophi <- allgout %>% 
+  filter(TOPHIGOUT)
+
+allgout_flare <- allgout %>% 
+  filter(FLAREHIGH)
+
+allgout_onset <- allgout %>% 
+  filter(AGE1ATK < 40)
+
+rm(anz_euro_pheno_prs, clear_lasso_euro_pheno_prs, control_anz_euro_pheno_prs, crystal_euro_pheno_prs, eurogout_euro_pheno_prs, lasso_other_euro_pheno_prs, light_euro_pheno_prs, tmp)
+
+
+# Polynesian cohort prep
+eastpoly_gout <- eastpoly_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE)) %>% 
+  select(-Geno.SampleID)
+
+eastpoly_gout_tophi <- eastpoly_gout %>% 
+  filter(TOPHIGOUT == TRUE)
+
+eastpoly_gout_flare <- eastpoly_gout %>% 
+  filter(FLAREHIGH == TRUE)
+
+eastpoly_gout_onset <- eastpoly_gout %>% 
+  filter(AGE1ATK < 40)
+
+eastpoly_control <- control_eastpoly_pheno_prs %>%
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         GOUT = FALSE,
+         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
+         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
+  rename(IID = Pheno.SampleID,
+         AGECOL = Pheno.Age,
+         COHORT = Pheno.Study,
+         PC1 = Geno.PCVector1,
+         PC2 = Geno.PCVector2,
+         PC3 = Geno.PCVector3,
+         PC4 = Geno.PCVector4,
+         PC5 = Geno.PCVector5,
+         PC6 = Geno.PCVector6,
+         PC7 = Geno.PCVector7,
+         PC8 = Geno.PCVector8,
+         PC9 = Geno.PCVector9,
+         PC10 = Geno.PCVector10,
+         PC1_Oc = Geno.PCVector1_Oc,
+         PC2_Oc = Geno.PCVector2_Oc,
+         PC3_Oc = Geno.PCVector3_Oc,
+         PC4_Oc = Geno.PCVector4_Oc,
+         PC5_Oc = Geno.PCVector5_Oc,
+         PC6_Oc = Geno.PCVector6_Oc,
+         PC7_Oc = Geno.PCVector7_Oc,
+         PC8_Oc = Geno.PCVector8_Oc,
+         PC9_Oc = Geno.PCVector9_Oc,
+         PC10_Oc = Geno.PCVector10_Oc) %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+
+tmp <- eastpoly_gout %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+
+eastpoly_full <- rbind(tmp, eastpoly_control) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+westpoly_gout <- westpoly_pheno_prs %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE)) %>% 
+  select(-Geno.SampleID)
+
+westpoly_gout_tophi <- westpoly_gout %>% 
+  filter(TOPHIGOUT == TRUE)
+
+westpoly_gout_flare <- westpoly_gout %>% 
+  filter(FLAREHIGH == TRUE)
+
+westpoly_gout_onset <- westpoly_gout %>% 
+  filter(AGE1ATK < 40)
+
+westpoly_control <- control_westpoly_pheno_prs %>%
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         GOUT = FALSE,
+         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
+         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
+  rename(IID = Pheno.SampleID,
+         AGECOL = Pheno.Age,
+         COHORT = Pheno.Study,
+         PC1 = Geno.PCVector1,
+         PC2 = Geno.PCVector2,
+         PC3 = Geno.PCVector3,
+         PC4 = Geno.PCVector4,
+         PC5 = Geno.PCVector5,
+         PC6 = Geno.PCVector6,
+         PC7 = Geno.PCVector7,
+         PC8 = Geno.PCVector8,
+         PC9 = Geno.PCVector9,
+         PC10 = Geno.PCVector10,
+         PC1_Oc = Geno.PCVector1_Oc,
+         PC2_Oc = Geno.PCVector2_Oc,
+         PC3_Oc = Geno.PCVector3_Oc,
+         PC4_Oc = Geno.PCVector4_Oc,
+         PC5_Oc = Geno.PCVector5_Oc,
+         PC6_Oc = Geno.PCVector6_Oc,
+         PC7_Oc = Geno.PCVector7_Oc,
+         PC8_Oc = Geno.PCVector8_Oc,
+         PC9_Oc = Geno.PCVector9_Oc,
+         PC10_Oc = Geno.PCVector10_Oc) %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+
+tmp <- westpoly_gout %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+
+westpoly_full <- rbind(tmp, westpoly_control) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+rm(control_eastpoly_pheno_prs, control_westpoly_pheno_prs, eastpoly_pheno_prs, westpoly_pheno_prs, tmp)
+
+
+# UK Biobank prep
+ukbb_gout <- ukbb_euro_pheno_prs %>% 
+  filter(GOUT == TRUE,
+         !is.na(PRS)) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = NA,
+         NUMATK = NA,
+         TOPHIGOUT = NA,
+         AGE1ATK = NA,
+         DURATION = NA,
+         PC1 = NA,
+         PC2 = NA,
+         PC3 = NA,
+         PC4 = NA,
+         PC5 = NA,
+         PC6 = NA,
+         PC7 = NA,
+         PC8 = NA,
+         PC9 = NA,
+         PC10 = NA) %>% 
+  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:PRS_std, FLAREHIGH)
+
+ukbb_control <- ukbb_euro_pheno_prs %>% 
+  filter(GOUT == FALSE,
+         !is.na(PRS)) %>%
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
+         FLAREHIGH = NA,
+         NUMATK = NA,
+         TOPHIGOUT = NA,
+         AGE1ATK = NA,
+         DURATION = NA,
+         PC1 = NA,
+         PC2 = NA,
+         PC3 = NA,
+         PC4 = NA,
+         PC5 = NA,
+         PC6 = NA,
+         PC7 = NA,
+         PC8 = NA,
+         PC9 = NA,
+         PC10 = NA,
+         ULT = NA) %>% 
+  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:PRS_std, FLAREHIGH)
+
+ukbb <- rbind(ukbb_gout, ukbb_control) %>% 
+  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+
+rm(ukbb_euro_pheno_prs)
+
+
+# Model results
+load(here("Output/GoutvsPRS.RData"))
+load(here("Output/Meta3traitsvsPRS.RData"))
+load(here("Output/PooledvsPRS.RData"))
+load(here("Output/CollidervsPRS.RData"))
+load(here("Output/GoutvsPRS_Poly.RData"))
+load(here("Output/PooledvsPRS_Poly.RData"))
+load(here("Output/CollidervsPRS_Poly.RData"))
+# load(here("Output/GoutvsPRS_noULT.RData"))
+# load(here("Output/Meta3traitsvsPRS_noULT.RData"))
+# load(here("Output/PooledvsPRS_noULT.RData"))
+# load(here("Output/CollidervsPRS_noULT.RData"))
+# load(here("Output/GoutvsPRS_Poly_noULT.RData"))
+# load(here("Output/PooledvsPRS_Poly_noULT.RData"))
+# load(here("Output/CollidervsPRS_Poly_noULT.RData"))
+```
+
+```{r Table1, message = F, warning = F, cache = T}
+cohortstring <- c("Ardea - CLEAR/LASSO (ULT)",
+                  "Ardea - CRYSTAL",
+                  "Ardea - LASSO (no ULT)",
+                  "Ardea - LIGHT",
+                  "GlobalGout",
+                  "Aus/NZ European - gout",
+                  "Aus/NZ European - controls",
+                  "UK Biobank  - gout",
+                  "UK Biobank  - controls",
+                  "Pooled gout (excluding UK Biobank)")
+
+data_list <- list(ardea_clear_lasso, ardea_crystal, ardea_lasso_other, ardea_light, eurogout, anz_gout, anz_control, ukbb_gout, ukbb_control, allgout)
+
+male <- function(x){
+  paste0(length(x$SEX), " (", sprintf((mean(x$SEX == "Male") * 100), fmt = "%#.1f"), ")")
+}
+
+report <- function(x) {
+    if(sum(is.na(x)) != length(x)) {
+      paste0(sprintf(mean(x, na.rm = TRUE), fmt = "%#.1f"), " ± ", sprintf(sd(x, na.rm = TRUE), fmt = "%#.1f"))
+    } else {
+      paste0("NA")
+    }
+}
+
+sumreport <- function(x) {
+  if(sum(is.na(x)) != length(x)){
+    paste0(sum(x, na.rm = TRUE), " (", sprintf((mean(x, na.rm = TRUE) * 100), fmt = "%#.1f"), ")")
+  } else {
+      paste0("NA")
+  }
+}
+
+table1 <- tibble("Cohort" = cohortstring, 
+                 "N (% male)" = unlist(lapply(data_list, male)),
+                 "Mean age (sd) (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
+                 "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
+                 "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
+                 "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
+                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "Flares > 1 (%)" = unlist(lapply(data_list, function(x) sumreport(x$FLAREHIGH))),
+                 "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))))
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    rownames_to_column() %>%
+    as_tibble()
+  return(t_df)
+}
+
+table1 <- transpose_df(table1) %>% 
+  row_to_names(row_number = 1) %>% 
+  column_to_rownames(var = "Cohort")
+
+kable(table1)
+
+#write_csv(table1, file = "table1.csv")
+
+
+
+# Age at onset quintiles 
+# Pooled cohort
+allgout_onset_test <- allgout %>% 
+  filter(!is.na(AGE1ATK)) %>% 
+  mutate(quintile = ntile(AGE1ATK, 5))
+
+allgout_onset1 <- allgout_onset_test %>% 
+  filter(quintile == 1)
+
+allgout_onset2 <- allgout_onset_test %>% 
+  filter(quintile == 2)
+
+allgout_onset3 <- allgout_onset_test %>% 
+  filter(quintile == 3)
+
+allgout_onset4 <- allgout_onset_test %>% 
+  filter(quintile == 4)
+
+allgout_onset5 <- allgout_onset_test %>% 
+  filter(quintile == 5)
+
+cohortstring <- c("Pooled gout (excluding UK Biobank) - first quintile",
+                  "Pooled gout (excluding UK Biobank) - second quintile",
+                  "Pooled gout (excluding UK Biobank) - third quintile",
+                  "Pooled gout (excluding UK Biobank) - fourth quintile",
+                  "Pooled gout (excluding UK Biobank) - fifth quintile")
+
+data_list <- list(allgout_onset1, allgout_onset2, allgout_onset3, allgout_onset4, allgout_onset5)
+
+male <- function(x){
+  paste0(length(x$SEX), " (", sprintf((mean(x$SEX == "Male") * 100), fmt = "%#.1f"), ")")
+}
+
+report <- function(x) {
+    if(sum(is.na(x)) != length(x)) {
+      paste0(sprintf(mean(x, na.rm = TRUE), fmt = "%#.1f"), " ± ", sprintf(sd(x, na.rm = TRUE), fmt = "%#.1f"))
+    } else {
+      paste0("NA")
+    }
+}
+
+sumreport <- function(x) {
+  if(sum(is.na(x)) != length(x)){
+    paste0(sum(x, na.rm = TRUE), " (", sprintf((mean(x, na.rm = TRUE) * 100), fmt = "%#.1f"), ")")
+  } else {
+      paste0("NA")
+  }
+}
+
+testtable <- tibble("Cohort" = cohortstring, 
+                 "N (% male)" = unlist(lapply(data_list, male)),
+                 "Mean age (sd) (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
+                 "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
+                 "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
+                 "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
+                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "Flares > 1 (%)" = unlist(lapply(data_list, function(x) sumreport(x$FLAREHIGH))),
+                 "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))),
+                 "Mean disease duration (sd)" = unlist(lapply(data_list, function(x) report(x$DURATION))))
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    rownames_to_column() %>%
+    as_tibble()
+  return(t_df)
+}
+
+testtable <- transpose_df(testtable) %>% 
+  row_to_names(row_number = 1) %>% 
+  column_to_rownames(var = "Cohort")
+
+kable_styling(kable(testtable))
+```
+
+```{r Figure1, message = F, warning = F, cache = T}
+# Boxplots/violin plots or mean +- se plots of PRS in each cohort
+# Violin plot looks weird for UK Biobank because the density function works differently on small and large cohorts
+# Therefore sticking with boxplot for the final figure (also included freqpoly as an alternative)
+tmp <- allgout %>% 
+  mutate(COHORT = factor(case_when(COHORT2 == "Aus/NZ" ~ "Aus/NZ European - Gout",
+                                   COHORT2 == "EuroGout" ~ "GlobalGout",
+                                   COHORT2 == "Ardea - LASSO (other)" ~ "Ardea - LASSO (no ULT)",
+                                   TRUE ~ COHORT2)))
+
+tmp2 <- anz_control %>% 
+  mutate(COHORT = factor(rep("Aus/NZ European - Control", nrow(.))))
+
+tmp3 <- ukbb_gout %>% 
+  mutate(IID = as.character(IID),
+         COHORT = factor(rep("UK Biobank - Gout", nrow(.))))
+
+tmp4 <- ukbb_control %>% 
+  mutate(IID = as.character(IID),
+         COHORT = factor(rep("UK Biobank - Control", nrow(.))))
+
+fullcohort <- full_join(tmp, tmp2) %>% 
+  full_join(tmp3) %>% 
+  full_join(tmp4) %>% 
+  mutate(COHORT = factor(COHORT, 
+                         ordered = TRUE),
+         GOUT = factor(case_when(GOUT == TRUE ~ "Gout",
+                                 GOUT == FALSE ~ "Control")))
+
+ggplot(data = fullcohort, aes(x = PRS, y = COHORT)) + 
+  geom_boxplot(aes(fill = GOUT), alpha = 0.75) + 
+  scale_y_discrete(limits = rev(levels(fullcohort$COHORT))) +
+  scale_fill_discrete(limits = c("Gout", "Control"), type = c("#aa9767", "#1e6b52"), ) + 
+  labs(x = "Gout Polygenic Risk Score", 
+       y = element_blank(),
+       fill = element_blank())
+
+ggplot(data = fullcohort, aes(x = PRS, linetype = COHORT, color = GOUT)) + 
+  geom_freqpoly(aes(y = ..density..),
+       binwidth = 1) +
+  scale_color_discrete(limits = c("Gout", "Control"), type = c("#aa9767", "#1e6b52"), ) + 
+  labs(x = "Gout Polygenic Risk Score", 
+       y = "",
+       color = element_blank(),
+       linetype = "Cohort") +
+  theme(axis.ticks.y = element_blank(), axis.text.y = element_blank())
+
+rm(fullcohort, tmp, tmp2, tmp3, tmp4)
+```
+
+```{r Figure2, message = F, warning = F, cache = T}
+# Manhattan plot of UKBB gout GWAS
+# Loading data
+load(here("Output/Temp/biallelic_sumstat_final.RData"))
+
+GOUT_pValues <- biallelic_sumstat_final %>% 
+  filter(P < 0.01) %>% 
+  arrange(CHR, BP)
+
+tmp <- GOUT_pValues %>% 
+  filter(RSID %in% UKBB_Gene_OR$RSID) %>% 
+  mutate("Gene" = UKBB_Gene_OR$Locus_Name)
+
+tmp2 <- GOUT_pValues %>% 
+  filter(!(SNP %in% tmp$SNP)) %>% 
+  mutate("Gene" = NA)
+
+GOUT_pValues <- full_join(tmp, tmp2) %>% 
+  arrange(CHR, BP)
+
+# Basic Manhattan plot
+#manhattan(GOUT_pValues, highlight = UKBB_Gene_OR$SNP, annotatePval = 5e-8)
+
+
+# ggplot2 version of Manhattan plot
+GOUT_pValues2 <- GOUT_pValues %>% 
+  
+  # Compute chromosome size
+  group_by(CHR) %>% 
+  summarise(chr_len = max(BP)) %>% 
+  
+  # Calculate cumulative position of each chromosome
+  mutate(tot = cumsum(chr_len) - chr_len) %>%
+  select(-chr_len) %>%
+  
+  # Add this info to the initial dataset
+  left_join(GOUT_pValues, ., by = "CHR") %>%
+  
+  # Add a cumulative position of each SNP
+  arrange(CHR, BP) %>%
+  mutate(BPcum = BP + tot) %>%
+  
+  # Add highlight and annotation information
+  mutate(is_highlight = ifelse(RSID %in% UKBB_Gene_OR$RSID, "yes", "no")) %>%
+  mutate(is_annotate = ifelse(RSID %in% UKBB_Gene_OR$RSID, "yes", "no")) 
+
+axisdf <- GOUT_pValues2 %>% 
+  group_by(CHR) %>% 
+  summarize(center = (max(BPcum) + min(BPcum)) / 2)
+
+ggplot(GOUT_pValues2, aes(x = BPcum, y = -log10(P))) +
+  
+  # Show all points
+  geom_point(aes(color = as.factor(CHR)), alpha = 0.8, size = 1.3) +
+  scale_color_manual(values = rep(c("grey", "skyblue"), 22)) +
+  
+  geom_hline(yintercept = -log10(5e-8), colour = "red") +
+  
+  # custom X axis:
+  scale_x_continuous(label = axisdf$CHR, breaks = axisdf$center) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 250)) +     # remove space between plot area and x axis
+  
+  # Add highlighted points
+  geom_point(data = subset(GOUT_pValues2, is_highlight == "yes"), color = "orange", size = 2) +
+  
+  # Add label using ggrepel to avoid overlapping
+  geom_label_repel(aes(label = Gene), size = 3, box.padding = 0.5, force_pull = 0.5, nudge_y = 3, max.overlaps = Inf) +
+  
+  xlab("Chromosome") +
+  
+  ggtitle("UK Biobank Gout GWAS Results") +
+  
+  # Custom the theme:
+  theme_bw() +
+  theme( 
+    legend.position = "none",
+    panel.border = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()
+  )
+
+rm(axisdf, tmp, tmp2, GOUT_pValues, GOUT_pValues2)
+```
+
+```{r Figure3, message = F, warning = F, cache = T}
+# Plotting main model outcomes
+models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
+
+# Onset models
+onset <- models %>% 
+  filter(Outcome == "Age at onset (years)",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(Beta = as.numeric(Beta),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c("Pooled analysis",
+                         "Pooled analysis",
+                         "Meta-analysis",
+                         "Meta-analysis"),
+                       levels = c("Pooled analysis",
+                                  "Meta-analysis")),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Serum urate + 10 PCs",
+                                        "Sex + 10 PCs")))
+
+ggplot(onset, aes(x = Beta, y = Type, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0) +
+  scale_x_continuous(limits = c(-0.75, 0.1), breaks = c(-1, -0.5, 0)) + 
+  scale_color_discrete(limits = c("Sex + 10 PCs", "Sex + Serum urate + 10 PCs"), type = c("#80bc00", "#808285")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Beta [95% CI]",
+       y = "",
+       title = "A. Age at onset (years)")
+
+get_density <- function(x, y, n = 100) {
+  dens <- MASS::kde2d(x = x, y = y, n = n)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+
+tmp <- allgout %>% 
+  filter(!is.na(PRS), !is.na(AGE1ATK)) %>% 
+  mutate(density = get_density(PRS, AGE1ATK))
+
+ggplot(tmp, aes(x = PRS, y = AGE1ATK, color = COHORT2)) +
+  geom_point(shape = 1) +
+  geom_smooth(method = "lm", se = F) +
+  labs(x = "Gout polygenic risk score",
+       y = "Age at onset (years)") #+
+  #scale_color_viridis()
+
+
+# Tophi models
+tophi <- models %>% 
+  filter(Outcome == "Presence of tophi",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c(rep("Pooled analysis", 3),
+                         rep("Meta-analysis", 3)),
+                       levels = c("Pooled analysis",
+                                  "Meta-analysis")),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + 10 PCs", 
+                                        "Sex + Age + Serum urate + 10 PCs", 
+                                        "Sex + Disease duration + 10 PCs"),
+                             ordered = TRUE))
+
+ggplot(tophi, aes(x = OR, y = Type, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge2(width = 0.4, reverse = TRUE)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.95, 1.05), breaks = c(1, 1.05)) + 
+  scale_color_discrete(type = c("#1e6b52", "#aa9767", "#ffd400")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "B. Presence of tophi")
+
+tmp <- allgout %>% 
+  filter(!is.na(TOPHIGOUT) & !is.na(PRS))
+
+tophi1 <- tmp %>% 
+  filter(TOPHIGOUT)
+
+tophi2 <- tmp %>% 
+  filter(!TOPHIGOUT)
+
+ggplot() + 
+  geom_point(aes(y = "Tophaceous gout", x = mean(tophi1$PRS, na.rm = T)), size = 3, color = "dark green") + 
+  geom_point(aes(y = "Non-tophaceous gout", x = mean(tophi2$PRS, na.rm = T)), size = 3, color = "dark green") + 
+  geom_errorbar(aes(y = "Tophaceous gout", 
+                    xmin = (mean(tophi1$PRS, na.rm = T) - 1.96*se(tophi1$PRS, na.rm = T)), 
+                    xmax = (mean(tophi1$PRS, na.rm = T) + 1.96*se(tophi1$PRS, na.rm = T))),
+                width = 0.2, color = "dark green") + 
+  geom_errorbar(aes(y = "Non-tophaceous gout", 
+                    xmin = (mean(tophi2$PRS, na.rm = T) - 1.96*se(tophi2$PRS, na.rm = T)), 
+                    xmax = (mean(tophi2$PRS, na.rm = T) + 1.96*se(tophi2$PRS, na.rm = T))),
+                width = 0.2, color = "dark green") +
+  scale_y_discrete(limits = c("Non-tophaceous gout", "Tophaceous gout")) + 
+  xlab("Gout Polygenic Risk Score") + 
+  theme_bw() +
+  labs(title = "Gout polygenic risk score in those with or without any tophi", subtitle = "Error bars = mean \u00B1 1.96 x SE") +
+  theme(axis.title.y = element_blank(),
+        plot.title.position = "plot")
+
+
+# Flare models
+flare <- models %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c(rep("Pooled analysis", 2),
+                            rep("Meta-analysis", 2)),
+                          levels = c("Pooled analysis",
+                                     "Meta-analysis")),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + Serum urate + 10 PCs",
+                                        "Sex + Age + 10 PCs")))
+
+ggplot(flare, aes(x = OR, y = Type, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge2(width = 0.4)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.95, 1.05), breaks = c(1, 1.05)) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 PCs", "Sex + Age + Serum urate + 10 PCs"), type = c("#1e6b52", "#aa9767")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "C. Active gout (≥ 2 flares/year)")
+
+tmp <- allgout %>% 
+  filter(!is.na(FLAREHIGH) & !is.na(PRS))
+
+flare1 <- tmp %>% 
+  filter(FLAREHIGH)
+
+flare2 <- tmp %>% 
+  filter(!FLAREHIGH)
+
+ggplot() + 
+  geom_point(aes(y = "Active gout (≥ 2 flares/year)", x = mean(flare1$PRS, na.rm = T)), size = 3, color = "dark green") + 
+  geom_point(aes(y = "Low activity gout (< 2 flares/year)", x = mean(flare2$PRS, na.rm = T)), size = 3, color = "dark green") + 
+  geom_errorbar(aes(y = "Active gout (≥ 2 flares/year)", 
+                    xmin = (mean(flare1$PRS, na.rm = T) - 1.96*se(flare1$PRS, na.rm = T)), 
+                    xmax = (mean(flare1$PRS, na.rm = T) + 1.96*se(flare1$PRS, na.rm = T))),
+                width = 0.2, color = "dark green") + 
+  geom_errorbar(aes(y = "Low activity gout (< 2 flares/year)", 
+                    xmin = (mean(flare2$PRS, na.rm = T) - 1.96*se(flare2$PRS, na.rm = T)), 
+                    xmax = (mean(flare2$PRS, na.rm = T) + 1.96*se(flare2$PRS, na.rm = T))),
+                width = 0.2, color = "dark green") +
+  scale_y_discrete(limits = c("Low activity gout (< 2 flares/year)", "Active gout (≥ 2 flares/year)")) + 
+  xlab("Gout Polygenic Risk Score") + 
+  theme_bw() +
+  labs(title = "Gout polygenic risk score in active gout vs low activity gout", subtitle = "Error bars = mean \u00B1 1.96 x SE") +
+  theme(axis.title.y = element_blank(),
+        plot.title.position = "plot")
+
+ggplot() + 
+  geom_point(aes(y = "Active gout (≥ 2 flares/year)", x = mean(flare1$AGECOL, na.rm = T)), size = 3, color = "dark green") + 
+  geom_point(aes(y = "Low activity gout (< 2 flares/year)", x = mean(flare2$AGECOL, na.rm = T)), size = 3, color = "dark green") + 
+  geom_errorbar(aes(y = "Active gout (≥ 2 flares/year)", 
+                    xmin = (mean(flare1$AGECOL, na.rm = T) - 1.96*se(flare1$AGECOL, na.rm = T)), 
+                    xmax = (mean(flare1$AGECOL, na.rm = T) + 1.96*se(flare1$AGECOL, na.rm = T))),
+                width = 0.2, color = "dark green") + 
+  geom_errorbar(aes(y = "Low activity gout (< 2 flares/year)", 
+                    xmin = (mean(flare2$AGECOL, na.rm = T) - 1.96*se(flare2$AGECOL, na.rm = T)), 
+                    xmax = (mean(flare2$AGECOL, na.rm = T) + 1.96*se(flare2$AGECOL, na.rm = T))),
+                width = 0.2, color = "dark green") +
+  scale_y_discrete(limits = c("Low activity gout (< 2 flares/year)", "Active gout (≥ 2 flares/year)")) + 
+  xlab("Age at collection (years)") + 
+  theme_bw() +
+  labs(title = "Age at collection (years) in active gout vs low activity gout", subtitle = "Error bars = mean \u00B1 1.96 x SE") +
+  theme(axis.title.y = element_blank(),
+        plot.title.position = "plot")
+
+
+# Cleaning up
+rm(onset, tophi, flare, models)
+```
+
+```{r Figure4, message = F, warning = F, cache = T}
+# Collider bias models
+collider <- CollidervsPRS %>% 
+  filter(Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Outcome = factor(Outcome,
+                          levels = c("Tophaceous gout",
+                                     "Non-tophaceous gout",
+                                     "Active gout (≥ 2 flares/year)",
+                                     "Low activity gout (< 2 flares/year)"),
+                          ordered = TRUE),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + Serum urate + 10 PCs",
+                                        "Sex + Age + 10 PCs")))
+
+ggplot(collider, aes(x = OR, y = Outcome, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.95, 1.25), breaks = c(1, 1.25)) + 
+  scale_y_discrete(limits = rev(levels(collider$Outcome))) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 PCs", "Sex + Age + Serum urate + 10 PCs"), type = c("#1e6b52", "#aa9767")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "Collider bias sensitivity analysis")
+
+rm(collider)
+```
+
+```{r Figure5, message = F, warning = F, cache = T}
+# Individual variant plot for meta-analysis and pooled analysis of age at onset
+tmp <- paste0(UKBB_Gene_OR$Locus_Name, " (", UKBB_Gene_OR$RSID, ")")
+
+models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
+
+onset <- models %>% 
+  filter(Outcome == "Age at onset (years)",
+         str_detect(Predictor, "^rs"),
+         Covariates == "Sex + 10 PCs") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(Beta = as.numeric(Beta),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c(rep("Pooled analysis", 27),
+                         rep("Meta-analysis", 27)),
+                       levels = c("Pooled analysis",
+                                  "Meta-analysis")),
+         SNP = factor(rep(tmp, 2),
+                      levels = rev(tmp)))
+
+ggplot(onset, aes(x = Beta, y = SNP, color = Type)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0) +
+  scale_x_continuous()+ 
+  scale_color_discrete(limits = c("Meta-analysis", "Pooled analysis"), type = c("#80bc00", "#808285")) +
+  labs(x = "Beta [95% CI]",
+       y = "",
+       title = "A. Age at onset (years)",
+       color = "")
+
+
+# Individual variant plot for meta-analysis and pooled analysis of tophi
+tophi <- models %>% 
+  filter(Outcome == "Presence of tophi",
+         str_detect(Predictor, "^rs"),
+         Covariates == "Sex + Age + 10 PCs") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c(rep("Pooled analysis", 27),
+                         rep("Meta-analysis", 27)),
+                       levels = c("Pooled analysis",
+                                  "Meta-analysis")),
+         SNP = factor(rep(tmp, 2),
+                      levels = rev(tmp)))
+
+ggplot(tophi, aes(x = OR, y = SNP, color = Type)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", breaks = c(0.8, 1.0, 1.25, 1.5))+ 
+  scale_color_discrete(limits = c("Meta-analysis", "Pooled analysis"), type = c("#80bc00", "#808285")) +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "B. Presence of tophi",
+       color = "")
+
+
+# Individual variant plot for meta-analysis and pooled analysis of flare
+flare <- models %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)",
+         str_detect(Predictor, "^rs"),
+         Covariates == "Sex + Age + 10 PCs") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c(rep("Pooled analysis", 27),
+                         rep("Meta-analysis", 27)),
+                       levels = c("Pooled analysis",
+                                  "Meta-analysis")),
+         SNP = factor(rep(tmp, 2),
+                      levels = rev(tmp)))
+
+ggplot(flare, aes(x = OR, y = SNP, color = Type)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", breaks = c(0.8, 1.0, 1.25, 2.00))+ 
+  scale_color_discrete(limits = c("Meta-analysis", "Pooled analysis"), type = c("#80bc00", "#808285")) +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "C. Active gout (≥ 2 flares/year)",
+       color = "")
+
+rm(onset, tophi, flare, tmp, models)
+```
+
+```{r SuppTable1, message = F, warning = F, cache = T}
+# Missing percentages for main traits (gout, onset, tophi, flares, age, sex, serum urate) in each cohort
+cohortstring <- c("Ardea - CLEAR/LASSO (ULT)",
+                  "Ardea - CRYSTAL",
+                  "Ardea - LASSO (no ULT)",
+                  "Ardea - LIGHT",
+                  "GlobalGout",
+                  "Aus/NZ European - gout",
+                  "Aus/NZ European - controls",
+                  "UK Biobank  - gout",
+                  "UK Biobank  - controls",
+                  "Pooled gout (excluding UK Biobank)",
+                  "Pooled gout (excluding UK Biobank) - tophus positive",
+                  "Pooled gout (excluding UK Biobank) - >1 flares",
+                  "Pooled gout (excluding UK Biobank) - onset < 40",
+                  "East Polynesian - gout",
+                  "East Polynesian - controls",
+                  "West Polynesian - gout",
+                  "West Polynesian - controls")
+
+data_list <- list(ardea_clear_lasso, ardea_crystal, ardea_lasso_other, ardea_light, eurogout, anz_gout, anz_control, ukbb_gout, ukbb_control, allgout, allgout_tophi, allgout_flare, allgout_onset, eastpoly_gout, eastpoly_control, westpoly_gout, westpoly_control)
+
+missing <- function(x){
+  if(sum(is.na(x)) == length(x)) {return(NA)} else {
+  paste0(sum(is.na(x)), " (", format(round((sum(is.na(x)) / length(x) * 100), digits = 1), nsmall = 1), ")")
+  }
+}
+
+tableS1 <- tibble("Cohort" = cohortstring, 
+                 "Gout" = unlist(lapply(data_list, function(x) missing(x$GOUT))),
+                 "Age at onset" = unlist(lapply(data_list, function(x) missing(x$AGE1ATK))),
+                 "Tophi" = unlist(lapply(data_list, function(x) missing(x$TOPHIGOUT))),
+                 "Flares" = unlist(lapply(data_list, function(x) missing(x$FLAREHIGH))),
+                 "Age at recruitment" = unlist(lapply(data_list, function(x) missing(x$AGECOL))),
+                 "Sex" = unlist(lapply(data_list, function(x) missing(x$SEX))),
+                 "Serum urate" = unlist(lapply(data_list, function(x) missing(x$SURICACID))),
+                 "Allopurinol" = unlist(lapply(data_list, function(x) missing(x$ULT))))
+
+kable_styling(kable(tableS1))
+
+#write_csv(tableS1, file = "Tables/tableS1.csv")
+
+rm(cohortstring, data_list, missing)
+```
+
+```{r SuppTable3, message = F, warning = F, cache = T}
+# Main results (meta + pooled) + duration + SU adjusted models
+models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
+
+tableS3 <- models %>% 
+  filter(Predictor == "PRS") %>% 
+  slice(8, 1, 10, 3, 13, 4, 9, 2, 11, 5, 14, 6, 12, 7) %>% 
+  select(Outcome, Covariates, Cohort, Beta, OR, `95% CI`, Pval) %>% 
+  mutate_all(~replace(., is.na(.), "^"))
+
+kable(tableS3)
+
+#write_csv(tableS3, file = "Tables/tableS3.csv")
+
+rm(models)
+```
+
+```{r SuppTable4, message = F, warning = F, cache = T}
+# Extracting model parameters for supp table
+SNPs <- paste0(UKBB_Gene_OR$Locus_Name, " (", UKBB_Gene_OR$RSID, ")")
+
+SNP_column <- c("Full PRS", rep(NA, 27), SNPs, "Standardized PRS")
+
+collider_table <- CollidervsPRS %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ", remove = FALSE) %>% 
+  mutate(SNP = factor(rep(SNP_column, 8), levels = rev(SNP_column), ordered = TRUE),
+         FullOR = paste0(OR, " ", `95% CI`),
+         OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2))) %>% 
+  filter(!is.na(SNP)) %>% 
+  select(Outcome, SNP, FullOR, OR, LCL, UCL, Covariates)
+
+
+collider_subset <- function(output, covariates) {
+  tmp <- collider_table %>% 
+    filter(Covariates == paste0(covariates)) %>% 
+    select(-Covariates)
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -LCL, -UCL) %>% 
+    pivot_wider(names_from = Outcome, values_from = OR) %>% 
+    mutate(Difference_tophi = `Tophaceous gout` - `Non-tophaceous gout`,
+           Difference_flare = `Active gout (≥ 2 flares/year)` - `Low activity gout (< 2 flares/year)`)
+  
+  euro1a <- tmp %>% 
+    mutate(Difference_tophi = c(rep(tmp2$Difference_tophi, 2), rep(NA, nrow(tmp2) * 2)),
+           Difference_flare = c(rep(NA, nrow(tmp2) * 2), rep(tmp2$Difference_flare, 2))) %>% 
+    filter(is.na(Difference_flare)) %>% 
+    select(-OR, -UCL, -LCL, - Difference_flare) %>% 
+    pivot_wider(names_from = Outcome, values_from = FullOR) %>% 
+    select(SNP, `Tophaceous gout`, `Non-tophaceous gout`, Difference_tophi)
+  
+  euro1b <- tmp %>% 
+    mutate(Difference_tophi = c(rep(tmp2$Difference_tophi, 2), rep(NA, nrow(tmp2) * 2)),
+           Difference_flare = c(rep(NA, nrow(tmp2) * 2), rep(tmp2$Difference_flare, 2))) %>% 
+    filter(is.na(Difference_tophi)) %>% 
+    select(-OR, -UCL, -LCL, - Difference_tophi) %>% 
+    pivot_wider(names_from = Outcome, values_from = FullOR) %>% 
+    select(SNP, `Active gout (≥ 2 flares/year)`, `Low activity gout (< 2 flares/year)`, Difference_flare)
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -OR)
+  
+  tmp2a <- tmp2 %>% 
+    filter(Outcome == "Tophaceous gout") %>% 
+    rename(LCL_p = LCL,
+           UCL_p = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2b <- tmp2 %>% 
+    filter(Outcome == "Non-tophaceous gout") %>% 
+    rename(LCL_n = LCL,
+           UCL_n = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2 <- left_join(tmp2a, tmp2b)
+  
+  tmp2 <- tmp2 %>% 
+    mutate(Difference = format(euro1a$Difference_tophi, nsmall = 2, trim = T),
+           DifferenceLCL = format(LCL_p - UCL_n, nsmall = 2, trim = T),
+           DifferenceUCL = format(UCL_p - LCL_n, nsmall = 2, trim = T),
+           DifferenceCI = paste0(Difference, " [", DifferenceLCL, ", ", DifferenceUCL, "]"))
+  
+  euro1a <- euro1a %>% 
+    mutate(Difference_tophi = tmp2$DifferenceCI)
+  
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -OR)
+  
+  tmp2a <- tmp2 %>% 
+    filter(Outcome == "Active gout (≥ 2 flares/year)") %>% 
+    rename(LCL_p = LCL,
+           UCL_p = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2b <- tmp2 %>% 
+    filter(Outcome == "Low activity gout (< 2 flares/year)") %>% 
+    rename(LCL_n = LCL,
+           UCL_n = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2 <- left_join(tmp2a, tmp2b)
+  
+  tmp2 <- tmp2 %>% 
+    mutate(Difference = format(euro1b$Difference_flare, nsmall = 2, trim = T),
+           DifferenceLCL = format(LCL_p - UCL_n, nsmall = 2, trim = T),
+           DifferenceUCL = format(UCL_p - LCL_n, nsmall = 2, trim = T),
+           DifferenceCI = paste0(Difference, " [", DifferenceLCL, ", ", DifferenceUCL, "]"))
+  
+  euro1b <- euro1b %>% 
+    mutate(Difference_flare = tmp2$DifferenceCI)
+  
+  assign(paste0(output), left_join(euro1a, euro1b), envir = .GlobalEnv)
+}
+
+collider_subset("Euro1", "Sex + Age + 10 PCs")
+
+collider_subset("Euro1a", "Sex + Age + Serum urate + 10 PCs")
+
+Euro1 <- Euro1 %>% 
+  mutate(Covariates = rep("Sex + Age + 10 PCs", nrow(.)))
+
+Euro1a <- Euro1a %>% 
+  mutate(Covariates = rep("Sex + Age + Serum urate + 10 PCs", nrow(.)))
+
+tableS4 <- rbind(Euro1, Euro1a) %>% 
+  filter(SNP == "Full PRS")
+
+kable(tableS4)
+
+#write_csv(tableS4, file = "Tables/tableS4.csv")
+
+rm(collider_table, Euro1, Euro1a, SNPs, SNP_column, collider_subset)
+```
+
+```{r SuppTable5, message = F, warning = F, cache = T}
+# Individual SNP table
+models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
+
+tableS5 <- models %>% 
+  filter(str_detect(Predictor, "^rs"),
+         Covariates == "Sex + Age + 10 PCs" | Covariates == "Sex + 10 PCs") %>% 
+  select(-Covariates, -Signif.)
+
+a <- c(1, 28)
+seq1 <- map(0:26, ~a + .x) %>% unlist()
+
+tmp <- tableS5 %>% 
+  filter(Outcome == "Age at onset (years)") %>% 
+  select(-OR) %>% 
+  rename(Effect = Beta) %>% 
+  arrange(Cohort) %>% 
+  slice(seq1)
+
+tmp2 <- tableS5 %>% 
+  filter(Outcome == "Presence of tophi") %>% 
+  select(-Beta) %>% 
+  rename(Effect = OR) %>% 
+  arrange(Cohort) %>% 
+  slice(seq1)
+
+tmp3 <- tableS5 %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)") %>% 
+  select(-Beta) %>% 
+  rename(Effect = OR) %>% 
+  arrange(Cohort) %>% 
+  slice(seq1)
+
+tableS5 <- rbind(tmp, tmp2, tmp3)
+
+kable(tableS5)
+
+#write_csv(tableS5, file = "Tables/tableS5.csv")
+
+rm(a, seq1, tmp, tmp2, tmp3, models)
+```
+
+```{r SuppTable6, message = F, warning = F, cache = T}
+# Leave-one-out table
+models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
+
+tableS6 <- models %>% 
+  filter(str_detect(Predictor, "^PRS"),
+         Covariates == "Sex + Age + 10 PCs" | Covariates == "Sex + 10 PCs") %>% 
+  select(-Covariates, -Signif.)
+
+a <- c(1, 28)
+seq1 <- map(0:26, ~a + .x) %>% unlist()
+
+tmp <- tableS6 %>% 
+  filter(Outcome == "Age at onset (years)") %>% 
+  select(-OR) %>% 
+  rename(Effect = Beta) %>% 
+  arrange(Cohort) %>% 
+  slice(seq1)
+
+tmp2 <- tableS6 %>% 
+  filter(Outcome == "Presence of tophi") %>% 
+  select(-Beta) %>% 
+  rename(Effect = OR) %>% 
+  arrange(Cohort) %>% 
+  slice(seq1)
+
+tmp3 <- tableS6 %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)") %>% 
+  select(-Beta) %>% 
+  rename(Effect = OR) %>% 
+  arrange(Cohort) %>% 
+  slice(seq1)
+
+tableS6 <- rbind(tmp, tmp2, tmp3)
+
+kable(tableS6)
+
+#write_csv(tableS6, file = "Tables/tableS6.csv")
+
+rm(a, seq1, tmp, tmp2, tmp3, models)
+```
+
+```{r SuppTable7, message = F, warning = F, cache = T}
+# Individual SNP European collider analysis
+# Extracting model parameters for supp table
+SNPs <- paste0(UKBB_Gene_OR$Nearest_gene, " (", UKBB_Gene_OR$SNP, ")")
+
+SNP_column <- c("Full PRS", rep(NA, 21), SNPs, "Standardized PRS")
+
+collider_table <- CollidervsPRS %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ", remove = FALSE) %>% 
+  mutate(SNP = factor(rep(SNP_column, 8), levels = rev(SNP_column), ordered = TRUE),
+         FullOR = paste0(OR, " ", `95% CI`),
+         OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2))) %>% 
+  filter(!is.na(SNP)) %>% 
+  select(Outcome, SNP, FullOR, OR, LCL, UCL, Covariates)
+
+
+collider_subset <- function(output, covariates) {
+  tmp <- collider_table %>% 
+    filter(Covariates == paste0(covariates)) %>% 
+    select(-Covariates)
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -LCL, -UCL) %>% 
+    pivot_wider(names_from = Outcome, values_from = OR) %>% 
+    mutate(Difference_tophi = `Tophaceous gout` - `Non-tophaceous gout`,
+           Difference_flare = `Active gout (≥ 2 flares/year)` - `Low activity gout (< 2 flares/year)`)
+  
+  euro1a <- tmp %>% 
+    mutate(Difference_tophi = c(rep(tmp2$Difference_tophi, 2), rep(NA, nrow(tmp2) * 2)),
+           Difference_flare = c(rep(NA, nrow(tmp2) * 2), rep(tmp2$Difference_flare, 2))) %>% 
+    filter(is.na(Difference_flare)) %>% 
+    select(-OR, -UCL, -LCL, - Difference_flare) %>% 
+    pivot_wider(names_from = Outcome, values_from = FullOR) %>% 
+    select(SNP, `Tophaceous gout`, `Non-tophaceous gout`, Difference_tophi)
+  
+  euro1b <- tmp %>% 
+    mutate(Difference_tophi = c(rep(tmp2$Difference_tophi, 2), rep(NA, nrow(tmp2) * 2)),
+           Difference_flare = c(rep(NA, nrow(tmp2) * 2), rep(tmp2$Difference_flare, 2))) %>% 
+    filter(is.na(Difference_tophi)) %>% 
+    select(-OR, -UCL, -LCL, - Difference_tophi) %>% 
+    pivot_wider(names_from = Outcome, values_from = FullOR) %>% 
+    select(SNP, `Active gout (≥ 2 flares/year)`, `Low activity gout (< 2 flares/year)`, Difference_flare)
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -OR)
+  
+  tmp2a <- tmp2 %>% 
+    filter(Outcome == "Tophaceous gout") %>% 
+    rename(LCL_p = LCL,
+           UCL_p = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2b <- tmp2 %>% 
+    filter(Outcome == "Non-tophaceous gout") %>% 
+    rename(LCL_n = LCL,
+           UCL_n = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2 <- left_join(tmp2a, tmp2b)
+  
+  tmp2 <- tmp2 %>% 
+    mutate(Difference = format(euro1a$Difference_tophi, nsmall = 2, trim = T),
+           DifferenceLCL = format(LCL_p - UCL_n, nsmall = 2, trim = T),
+           DifferenceUCL = format(UCL_p - LCL_n, nsmall = 2, trim = T),
+           DifferenceCI = paste0(Difference, " [", DifferenceLCL, ", ", DifferenceUCL, "]"))
+  
+  euro1a <- euro1a %>% 
+    mutate(Difference_tophi = tmp2$DifferenceCI)
+  
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -OR)
+  
+  tmp2a <- tmp2 %>% 
+    filter(Outcome == "Active gout (≥ 2 flares/year)") %>% 
+    rename(LCL_p = LCL,
+           UCL_p = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2b <- tmp2 %>% 
+    filter(Outcome == "Low activity gout (< 2 flares/year)") %>% 
+    rename(LCL_n = LCL,
+           UCL_n = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2 <- left_join(tmp2a, tmp2b)
+  
+  tmp2 <- tmp2 %>% 
+    mutate(Difference = format(euro1b$Difference_flare, nsmall = 2, trim = T),
+           DifferenceLCL = format(LCL_p - UCL_n, nsmall = 2, trim = T),
+           DifferenceUCL = format(UCL_p - LCL_n, nsmall = 2, trim = T),
+           DifferenceCI = paste0(Difference, " [", DifferenceLCL, ", ", DifferenceUCL, "]"))
+  
+  euro1b <- euro1b %>% 
+    mutate(Difference_flare = tmp2$DifferenceCI)
+  
+  assign(paste0(output), left_join(euro1a, euro1b), envir = .GlobalEnv)
+}
+
+collider_subset("Euro1", "Sex + Age + 10 PCs")
+
+collider_subset("Euro1a", "Sex + Age + Serum urate + 10 PCs")
+
+Euro1 <- Euro1 %>% 
+  mutate(Covariates = rep("Sex + Age + 10 PCs", nrow(.)))
+
+Euro1a <- Euro1a %>% 
+  mutate(Covariates = rep("Sex + Age + Serum urate + 10 PCs", nrow(.)))
+
+tableS7 <- rbind(Euro1, Euro1a) %>% 
+  filter(!(SNP %in% c("Full PRS", "Standardized PRS")))
+
+kable(tableS7)
+
+#write_csv(tableS7, file = "Tables/tableS7.csv")
+
+rm(collider_table, Euro1, Euro1a, SNPs, SNP_column, collider_subset)
+```
+
+```{r SuppTable8, message = F, warning = F, cache = T}
+# Polynesian demographics etc
+cohortstring <- c("East Polynesian - gout",
+                  "East Polynesian - gout - tophus positive",
+                  "East Polynesian - gout - >1 flares",
+                  "East Polynesian - gout - onset < 40",
+                  "East Polynesian - controls",
+                  "West Polynesian - gout",
+                  "West Polynesian - gout - tophus positive",
+                  "West Polynesian - gout - >1 flares",
+                  "West Polynesian - gout - onset < 40",
+                  "West Polynesian - controls")
+
+data_list <- list(eastpoly_gout, eastpoly_gout_tophi, eastpoly_gout_flare, eastpoly_gout_onset, eastpoly_control, westpoly_gout, westpoly_gout_tophi, westpoly_gout_flare, westpoly_gout_onset, westpoly_control)
+
+male <- function(x){
+  paste0(length(x$SEX), " (", format(round((mean(x$SEX == "Male") * 100), digits = 1), nsmall = 1), ")")
+}
+
+report <- function(x) {
+    if(sum(is.na(x)) != length(x)) {
+      paste0(format(round(mean(x, na.rm = TRUE), digits = 1), nsmall = 1), " ± ", format(round(sd(x, na.rm = TRUE), digits = 1), nsmall = 1))
+    } else {
+      paste0("NA")
+    }
+}
+
+sumreport <- function(x) {
+  if(sum(is.na(x)) != length(x)){
+    paste0(sum(x, na.rm = TRUE), " (", format(round((mean(x, na.rm = TRUE) * 100), digits = 1), nsmall = 1), ")")
+  } else {
+      paste0("NA")
+  }
+}
+
+tableS8 <- tibble("Cohort" = cohortstring, 
+                  "N (% male)" = unlist(lapply(data_list, male)),
+                  "Mean age (sd) (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
+                  "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
+                  "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
+                  "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
+                  "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                  "Flares > 1 (%)" = unlist(lapply(data_list, function(x) sumreport(x$FLAREHIGH))),
+                  "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))))
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    rownames_to_column() %>%
+    as_tibble()
+  return(t_df)
+}
+
+tableS8 <- transpose_df(tableS8) %>% 
+  row_to_names(row_number = 1) %>% 
+  column_to_rownames(var = "Cohort")
+
+kable(tableS8)
+
+#write_csv(tableS8, file = "Tables/tableS8.csv")
+
+rm(data_list, cohortstring, male, report, sumreport, transpose_df)
+```
+
+```{r SuppTable9, message = F, warning = F, cache = T}
+# Polynesian gout models
+tmp1 <- GoutvsPRS_Poly %>% 
+  filter(Cohort == "East Polynesian") %>% 
+  slice(1, 16:29) %>% 
+  select(Predictor, Cohort, OR, `95% CI`, Pval, Signif.)
+
+tmp2 <- GoutvsPRS_Poly %>% 
+  filter(Cohort == "West Polynesian") %>% 
+  slice(1, 16:29) %>% 
+  select(Predictor, Cohort, OR, `95% CI`, Pval, Signif.)
+
+tableS9 <- rbind(tmp1, tmp2)
+
+kable(tableS9)
+
+#write_csv(tableS9, "Tables/tableS9.csv")
+
+rm(tmp1, tmp2)
+```
+
+```{r SuppTable10, message = F, warning = F, cache = T}
+# Polynesian severity models
+tmp1 <- PooledvsPRS_Poly %>% 
+  filter(Cohort == "East Polynesian gout")
+
+tmp1a <- tmp1 %>% 
+  filter(Outcome == "Age at onset (years)") %>% 
+  slice(1, 16:29)
+
+a <- c(16, 76)
+seq1 <- map(0:13, ~a + .x) %>% unlist()
+
+tmp1b <- tmp1 %>% 
+  filter(Outcome == "Presence of tophi") %>% 
+  slice(1, 61, seq1)
+
+tmp1c <- tmp1 %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)") %>% 
+  slice(1, 16:29)
+
+tmp1_poly1 <- rbind(tmp1a, tmp1b, tmp1c)
+
+tmp1 <- PooledvsPRS_Poly %>% 
+  filter(Cohort == "West Polynesian gout")
+
+tmp1a <- tmp1 %>% 
+  filter(Outcome == "Age at onset (years)") %>% 
+  slice(1, 16:29)
+
+tmp1b <- tmp1 %>% 
+  filter(Outcome == "Presence of tophi") %>% 
+  slice(1, 61, seq1)
+
+tmp1c <- tmp1 %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)") %>% 
+  slice(1, 16:29)
+
+tmp1_poly2 <- rbind(tmp1a, tmp1b, tmp1c)
+
+tableS10 <- rbind(tmp1_poly1, tmp1_poly2)
+
+rm(tmp1, tmp1a, tmp1b, tmp1c, tmp1_poly1, tmp1_poly2)
+
+# Creating pre-formatted excel table
+# East Polynesians
+tmp <- tableS10 %>% 
+  filter(Outcome == "Age at onset (years)",
+         Cohort == "East Polynesian gout") %>% 
+  select(-OR) %>% 
+  rename(Effect = Beta)
+
+tmp2 <- tibble()
+for(i in 1:nrow(tmp)) {
+  tmp2 <- rbind(tmp2, tmp[i,], rep("^", 8), rep("^", 8))
+}
+
+out <- tmp2
+
+tmp <- tableS10 %>% 
+  filter(Outcome == "Presence of tophi",
+         Cohort == "East Polynesian gout") %>% 
+  select(-Beta) %>% 
+  rename(Effect = OR)
+
+tmp2 <- tibble()
+tmp2 <- rbind(rep("^", 8), tmp2)
+colnames(tmp2) <- colnames(tmp)
+for(i in seq(3, nrow(tmp) + 1, by = 2)) {
+  tmp2 <- rbind(tmp2, tmp[i - 2,], tmp[i - 1,], rep("^", 8))
+}
+tmp2 <- tmp2 %>% slice(-nrow(tmp2))
+
+out <- rbind(out, tmp2)
+
+tmp <- tableS10 %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)",
+         Cohort == "East Polynesian gout") %>% 
+  select(-Beta) %>% 
+  rename(Effect = OR)
+
+tmp2 <- tibble()
+tmp2 <- rbind(rep("^", 8), tmp2)
+colnames(tmp2) <- colnames(tmp)
+for(i in 1:nrow(tmp)) {
+  tmp2 <- rbind(tmp2, tmp[i,], rep("^", 8), rep("^", 8))
+}
+tmp2 <- tmp2 %>% slice(-nrow(tmp2))
+
+out <- rbind(out, tmp2)
+
+
+# West Polynesians
+tmp <- tableS10 %>% 
+  filter(Outcome == "Age at onset (years)",
+         Cohort == "West Polynesian gout") %>% 
+  select(-OR) %>% 
+  rename(Effect = Beta)
+
+tmp2 <- tibble()
+for(i in 1:nrow(tmp)) {
+  tmp2 <- rbind(tmp2, tmp[i,], rep("^", 8), rep("^", 8))
+}
+
+out <- tmp2
+
+tmp <- tableS10 %>% 
+  filter(Outcome == "Presence of tophi",
+         Cohort == "West Polynesian gout") %>% 
+  select(-Beta) %>% 
+  rename(Effect = OR)
+
+tmp2 <- tibble()
+tmp2 <- rbind(rep("^", 8), tmp2)
+colnames(tmp2) <- colnames(tmp)
+for(i in seq(3, nrow(tmp) + 1, by = 2)) {
+  tmp2 <- rbind(tmp2, tmp[i - 2,], tmp[i - 1,], rep("^", 8))
+}
+tmp2 <- tmp2 %>% slice(-nrow(tmp2))
+
+out <- rbind(out, tmp2)
+
+tmp <- tableS10 %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)",
+         Cohort == "West Polynesian gout") %>% 
+  select(-Beta) %>% 
+  rename(Effect = OR)
+
+tmp2 <- tibble()
+tmp2 <- rbind(rep("^", 8), tmp2)
+colnames(tmp2) <- colnames(tmp)
+for(i in 1:nrow(tmp)) {
+  tmp2 <- rbind(tmp2, tmp[i,], rep("^", 8), rep("^", 8))
+}
+tmp2 <- tmp2 %>% slice(-nrow(tmp2))
+
+tableS10 <- rbind(out, tmp2)
+
+kable(tableS10)
+
+#write_csv(tableS10, "Tables/tableS10.csv")
+
+rm(out, tableS10_final, tmp, tmp2, i)
+```
+
+```{r SuppTable11, message = F, warning = F, cache = T}
+# Polynesian collider models
+# Extracting model parameters for supp table
+SNPs <- paste0(Poly_Gene_OR$Nearest_gene, " (", Poly_Gene_OR$SNP, ")")
+
+SNP_column <- c("Full PRS", rep(NA, 14), SNPs, "Standardized PRS")
+
+collider_table <- CollidervsPRS_Poly %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ", remove = FALSE) %>% 
+  mutate(SNP = factor(rep(SNP_column, 16), levels = rev(SNP_column), ordered = TRUE),
+         FullOR = paste0(OR, " ", `95% CI`),
+         OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2))) %>% 
+  filter(!is.na(SNP)) %>% 
+  select(Outcome, SNP, FullOR, Cohort, OR, LCL, UCL, Covariates) %>% 
+  arrange(Cohort)
+
+
+collider_subset <- function(cohort, output, covariates) {
+  tmp <- collider_table %>% 
+    filter(Covariates == paste0(covariates),
+           Cohort == paste0(cohort)) %>% 
+    select(-Covariates)
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -LCL, -UCL) %>% 
+    pivot_wider(names_from = Outcome, values_from = OR) %>% 
+    mutate(Difference_tophi = `Tophaceous gout` - `Non-tophaceous gout`,
+           Difference_flare = `Active gout (≥ 2 flares/year)` - `Low activity gout (< 2 flares/year)`)
+  
+  euro1a <- tmp %>% 
+    mutate(Difference_tophi = c(rep(tmp2$Difference_tophi, 2), rep(NA, 2 * nrow(tmp2))),
+           Difference_flare = c(rep(NA, 2 * nrow(tmp2)), rep(tmp2$Difference_flare, 2))) %>% 
+    filter(is.na(Difference_flare)) %>% 
+    select(-OR, -UCL, -LCL, - Difference_flare) %>% 
+    pivot_wider(names_from = Outcome, values_from = FullOR) %>% 
+    select(SNP, `Tophaceous gout`, `Non-tophaceous gout`, Difference_tophi, Cohort)
+  
+  euro1b <- tmp %>% 
+    mutate(Difference_tophi = c(rep(tmp2$Difference_tophi, 2), rep(NA, 2 * nrow(tmp2))),
+           Difference_flare = c(rep(NA, 2 * nrow(tmp2)), rep(tmp2$Difference_flare, 2))) %>% 
+    filter(is.na(Difference_tophi)) %>% 
+    select(-OR, -UCL, -LCL, - Difference_tophi) %>% 
+    pivot_wider(names_from = Outcome, values_from = FullOR) %>% 
+    select(SNP, `Active gout (≥ 2 flares/year)`, `Low activity gout (< 2 flares/year)`, Difference_flare, Cohort)
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -OR)
+  
+  tmp2a <- tmp2 %>% 
+    filter(Outcome == "Tophaceous gout") %>% 
+    rename(LCL_p = LCL,
+           UCL_p = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2b <- tmp2 %>% 
+    filter(Outcome == "Non-tophaceous gout") %>% 
+    rename(LCL_n = LCL,
+           UCL_n = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2 <- left_join(tmp2a, tmp2b)
+  
+  tmp2 <- tmp2 %>% 
+    mutate(Difference = format(euro1a$Difference_tophi, nsmall = 2, trim = T),
+           DifferenceLCL = format(LCL_p - UCL_n, nsmall = 2, trim = T),
+           DifferenceUCL = format(UCL_p - LCL_n, nsmall = 2, trim = T),
+           DifferenceCI = paste0(Difference, " [", DifferenceLCL, ", ", DifferenceUCL, "]"))
+  
+  euro1a <- euro1a %>% 
+    mutate(Difference_tophi = tmp2$DifferenceCI)
+  
+  
+  tmp2 <- tmp %>% 
+    select(-FullOR, -OR)
+  
+  tmp2a <- tmp2 %>% 
+    filter(Outcome == "Active gout (≥ 2 flares/year)") %>% 
+    rename(LCL_p = LCL,
+           UCL_p = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2b <- tmp2 %>% 
+    filter(Outcome == "Low activity gout (< 2 flares/year)") %>% 
+    rename(LCL_n = LCL,
+           UCL_n = UCL) %>% 
+    select(-Outcome)
+  
+  tmp2 <- left_join(tmp2a, tmp2b)
+  
+  tmp2 <- tmp2 %>% 
+    mutate(Difference = format(euro1b$Difference_flare, nsmall = 2, trim = T),
+           DifferenceLCL = format(LCL_p - UCL_n, nsmall = 2, trim = T),
+           DifferenceUCL = format(UCL_p - LCL_n, nsmall = 2, trim = T),
+           DifferenceCI = paste0(Difference, " [", DifferenceLCL, ", ", DifferenceUCL, "]"))
+  
+  euro1b <- euro1b %>% 
+    mutate(Difference_flare = tmp2$DifferenceCI)
+  
+  assign(paste0(output), left_join(euro1a, euro1b) %>% select(1:4, 6:8, 5), envir = .GlobalEnv)
+}
+
+collider_subset("East Polynesians", "Poly1", "Sex + Age + 10 Global PCs + 10 Oceanian PCs")
+
+collider_subset("West Polynesians", "Poly2", "Sex + Age + 10 Global PCs + 10 Oceanian PCs")
+
+tableS11 <- rbind(Poly1, Poly2) %>% 
+  mutate(Covariates = rep("Sex + Age + 10 Global PCs + 10 Oceanian PCs", nrow(.)))
+
+kable(tableS11)
+
+#write_csv(tableS11, file = "Tables/tableS11.csv")
+
+rm(collider_table, Poly1, Poly2, SNPs, SNP_column)
+```
+
+```{r SuppFigureX1, message = F, warning = F, cache = T}
+# Polynesian gout figure
+tmp <- c("PRS", paste0(Poly_Gene_OR$Nearest_gene, " (", Poly_Gene_OR$SNP, ")"))
+
+gout <- tableS9 %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         SNP = factor(rep(tmp, 2),
+                      levels = rev(tmp)))
+
+ggplot(gout, aes(x = OR, y = SNP, color = Cohort)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2")+ 
+  scale_color_discrete(limits = c("West Polynesian", "East Polynesian"), type = c("#80bc00", "#808285")) +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "Polynesian gout associations",
+       color = "")
+```
+
+```{r SuppFigureX2, message = F, warning = F, cache = T}
+# Polynesian severity figure
+# Plotting main model outcomes
+# Onset models
+onset <- PooledvsPRS_Poly %>% 
+  filter(Outcome == "Age at onset (years)",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(Beta = as.numeric(Beta),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Serum urate + 10 Global PCs + 10 Oceanian PCs",
+                                        "Sex + 10 Global PCs + 10 Oceanian PCs")))
+
+ggplot(onset, aes(x = Beta, y = Cohort, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0) +
+  scale_x_continuous(breaks = c(-1, -0.5, 0)) + 
+  scale_color_discrete(limits = c("Sex + 10 Global PCs + 10 Oceanian PCs", "Sex + Serum urate + 10 Global PCs + 10 Oceanian PCs"), type = c("#80bc00", "#808285")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Beta [95% CI]",
+       y = "",
+       title = "A. Age at onset (years)")
+
+
+# Tophi models
+tophi <- PooledvsPRS_Poly %>% 
+  filter(Outcome == "Presence of tophi",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + 10 Global PCs + 10 Oceanian PCs", 
+                                        "Sex + Age + Serum urate + 10 Global PCs + 10 Oceanian PCs", 
+                                        "Sex + Disease duration + 10 Global PCs + 10 Oceanian PCs"),
+                             ordered = TRUE))
+
+ggplot(tophi, aes(x = OR, y = Cohort, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge2(width = 0.4, reverse = TRUE)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", breaks = c(1, 1.1)) + 
+  scale_color_discrete(type = c("#1e6b52", "#aa9767", "#ffd400")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "B. Presence of tophi")
+
+
+# Flare models
+flare <- PooledvsPRS_Poly %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + Serum urate + 10 Global PCs + 10 Oceanian PCs",
+                                        "Sex + Age + 10 Global PCs + 10 Oceanian PCs")))
+
+ggplot(flare, aes(x = OR, y = Cohort, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge2(width = 0.4)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", breaks = c(0.9, 1)) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 Global PCs + 10 Oceanian PCs", "Sex + Age + Serum urate + 10 Global PCs + 10 Oceanian PCs"), type = c("#1e6b52", "#aa9767")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "C. Active gout (≥ 2 flares/year)")
+
+
+# Cleaning up
+rm(onset, tophi, flare)
+```
+
+```{r SuppFigureX3, message = F, warning = F, cache = T}
+# Polynesian collider figure
+# Collider bias models
+collider <- CollidervsPRS_Poly %>% 
+  filter(Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Outcome = factor(Outcome,
+                          levels = c("Tophaceous gout",
+                                     "Non-tophaceous gout",
+                                     "Active gout (≥ 2 flares/year)",
+                                     "Low activity gout (< 2 flares/year)"),
+                          ordered = TRUE),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + Serum urate + 10 Global PCs + 10 Oceanian PCs",
+                                        "Sex + Age + 10 Global PCs + 10 Oceanian PCs")))
+
+ggplot(collider, aes(x = OR, y = Outcome, color = Covariates, shape = Cohort)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", breaks = c(1, 1.2)) + 
+  scale_y_discrete(limits = rev(levels(collider$Outcome))) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 Global PCs + 10 Oceanian PCs", "Sex + Age + Serum urate + 10 Global PCs + 10 Oceanian PCs"), type = c("#1e6b52", "#aa9767")) +
+  scale_shape_discrete(limits = c("West Polynesians", "East Polynesians")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "Collider bias sensitivity analysis")
+
+rm(collider)
+```
+
+```{r SuppFigureX4, message = F, warning = F, cache = T}
+# PRS distribution in Polynesians with Euro comparisons
+load("RData/anz_euro_pheno_prs_poly.RData")
+load("RData/clear_lasso_euro_pheno_prs_poly.RData")
+load("RData/control_anz_euro_pheno_prs_poly.RData")
+load("RData/crystal_euro_pheno_prs_poly.RData")
+load("RData/eurogout_euro_pheno_prs_poly.RData")
+load("RData/lasso_other_euro_pheno_prs_poly.RData")
+load("RData/light_euro_pheno_prs_poly.RData")
+
+# Boxplots/violin plots or mean +- se plots of PRS in each cohort
+# Violin plot looks weird for UK Biobank because the density function works differently on small and large cohorts
+# Therefore sticking with boxplot for the final figure (also included freqpoly as an alternative)
+tmp <- clear_lasso_euro_pheno_prs_poly %>% 
+  mutate(COHORT = factor(rep("Ardea - CLEAR/LASSO (ULT)", nrow(.))))
+
+tmp2 <- lasso_other_euro_pheno_prs_poly %>% 
+  mutate(COHORT = factor(rep("Ardea - LASSO (no ULT)", nrow(.))))
+
+tmp3 <- crystal_euro_pheno_prs_poly %>% 
+  mutate(COHORT = factor(rep("Ardea - CRYSTAL", nrow(.))))
+
+tmp4 <- light_euro_pheno_prs_poly %>% 
+  mutate(COHORT = factor(rep("Ardea - LIGHT", nrow(.))))
+
+tmp5 <- eurogout_euro_pheno_prs_poly %>% 
+  mutate(COHORT = factor(rep("GlobalGout", nrow(.))))
+
+tmp6 <- anz_euro_pheno_prs_poly %>% 
+  mutate(COHORT = factor(rep("Aus/NZ European - Gout", nrow(.))))
+
+tmp7 <- control_anz_euro_pheno_prs_poly %>% 
+  mutate(GOUT = rep(FALSE, nrow(.)),
+         COHORT = factor(rep("Aus/NZ European - Control", nrow(.))))
+
+tmp8 <- eastpoly_gout %>% 
+  mutate(COHORT = factor(rep("East Polynesian - Gout", nrow(.))))
+
+tmp9 <- eastpoly_control %>% 
+  mutate(COHORT = factor(rep("East Polynesian - Control", nrow(.))))
+
+tmp10 <- westpoly_gout %>% 
+  mutate(COHORT = factor(rep("West Polynesian - Gout", nrow(.))))
+
+tmp11 <- westpoly_control %>% 
+  mutate(COHORT = factor(rep("West Polynesian - Control", nrow(.))))
+
+fullcohort <- full_join(tmp, tmp2) %>% 
+  full_join(tmp3) %>% 
+  full_join(tmp4) %>% 
+  full_join(tmp5) %>% 
+  full_join(tmp6) %>% 
+  full_join(tmp7) %>% 
+  full_join(tmp8) %>% 
+  full_join(tmp9) %>% 
+  full_join(tmp10) %>% 
+  full_join(tmp11) %>% 
+  mutate(COHORT = factor(COHORT, 
+                         ordered = TRUE),
+         GOUT = factor(case_when(GOUT == TRUE ~ "Gout",
+                                 GOUT == FALSE ~ "Control")))
+
+ggplot(data = fullcohort, aes(x = PRS, y = COHORT)) + 
+  geom_boxplot(aes(fill = GOUT), alpha = 0.75) + 
+  scale_y_discrete(limits = rev(levels(fullcohort$COHORT))) +
+  scale_fill_discrete(limits = c("Gout", "Control"), type = c("#aa9767", "#1e6b52"), ) + 
+  labs(x = "Gout Polygenic Risk Score", 
+       y = element_blank(),
+       fill = element_blank())
+
+ggplot(data = fullcohort, aes(x = PRS, linetype = COHORT, color = GOUT)) + 
+  geom_freqpoly(aes(y = ..density..),
+       binwidth = 1) +
+  scale_color_discrete(limits = c("Gout", "Control"), type = c("#aa9767", "#1e6b52"), ) + 
+  labs(x = "Gout Polygenic Risk Score", 
+       y = "",
+       color = element_blank(),
+       linetype = "Cohort") +
+  theme(axis.ticks.y = element_blank(), axis.text.y = element_blank())
+
+rm(fullcohort, tmp, tmp2, tmp3, tmp4)
+```
+
+```{r SuppFigureX5, message = F, warning = F, cache = T}
+# Plotting main model outcomes
+tmp <- rbind(PooledvsPRS, Meta3traitsvsPRS) %>% 
+  mutate(ULT = "No restriction")
+tmp2 <- rbind(PooledvsPRS_noULT, Meta3traitsvsPRS_noULT) %>% 
+  mutate(ULT = "No ULT")
+
+models <- rbind(tmp, tmp2)
+
+# Onset models
+onset <- models %>% 
+  filter(Outcome == "Age at onset (years)",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(Beta = as.numeric(Beta),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c("Pooled analysis",
+                         "Pooled analysis",
+                         "Meta-analysis",
+                         "Meta-analysis",
+                         "Pooled analysis",
+                         "Pooled analysis",
+                         "Meta-analysis",
+                         "Meta-analysis"),
+                       levels = c("Pooled analysis",
+                                  "Meta-analysis")),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Serum urate + 10 PCs",
+                                        "Sex + 10 PCs")))
+
+ggplot(onset, aes(x = Beta, y = Type, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0) +
+  scale_x_continuous(breaks = c(-1, -0.5, 0)) + 
+  scale_color_discrete(limits = c("Sex + 10 PCs", "Sex + Serum urate + 10 PCs"), type = c("#80bc00", "#808285")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Beta [95% CI]",
+       y = "",
+       title = "A. Age at onset (years)") +
+  facet_wrap(~ULT)
+
+
+# Tophi models
+tophi <- models %>% 
+  filter(Outcome == "Presence of tophi",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c(rep("Pooled analysis", 3),
+                         rep("Meta-analysis", 3)),
+                       levels = c("Pooled analysis",
+                                  "Meta-analysis")),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + 10 PCs", 
+                                        "Sex + Age + Serum urate + 10 PCs", 
+                                        "Sex + Disease duration + 10 PCs"),
+                             ordered = TRUE))
+
+ggplot(tophi, aes(x = OR, y = Type, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge2(width = 0.4, reverse = TRUE)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.95, 1.05), breaks = c(1, 1.05)) + 
+  scale_color_discrete(type = c("#1e6b52", "#aa9767", "#ffd400")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "B. Presence of tophi")
+
+
+# Flare models
+flare <- models %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Type = factor(c(rep("Pooled analysis", 2),
+                            rep("Meta-analysis", 2)),
+                          levels = c("Pooled analysis",
+                                     "Meta-analysis")),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + Serum urate + 10 PCs",
+                                        "Sex + Age + 10 PCs")))
+
+ggplot(flare, aes(x = OR, y = Type, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge2(width = 0.4)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.95, 1.05), breaks = c(1, 1.05)) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 PCs", "Sex + Age + Serum urate + 10 PCs"), type = c("#1e6b52", "#aa9767")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "C. Active gout (≥ 2 flares/year)")
+
+
+# Cleaning up
+rm(onset, tophi, flare, models)
+```
+
+```{r SuppFigureX6, message = F, warning = F, cache = T}
+# Collider bias models
+collider <- CollidervsPRS %>% 
+  filter(Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ") %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Outcome = factor(Outcome,
+                          levels = c("Tophaceous gout",
+                                     "Non-tophaceous gout",
+                                     "Active gout (≥ 2 flares/year)",
+                                     "Low activity gout (< 2 flares/year)"),
+                          ordered = TRUE),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + Serum urate + 10 PCs",
+                                        "Sex + Age + 10 PCs")))
+
+ggplot(collider, aes(x = OR, y = Outcome, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.95, 1.25), breaks = c(1, 1.25)) + 
+  scale_y_discrete(limits = rev(levels(collider$Outcome))) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 PCs", "Sex + Age + Serum urate + 10 PCs"), type = c("#1e6b52", "#aa9767")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "Collider bias sensitivity analysis")
+
+rm(collider)
+```
+
+```{r Genotype_freqs, message = F, warning = F, cache = T}
+SNPlist <- UKBB_Gene_OR$SNP
+
+# NZ Europeans
+test <- anz_gout %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(as.factor)
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "Aus/NZ Europeans")
+
+# UK Biobank
+test <- ukbb_gout %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(as.factor)
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "UK Biobank")
+
+
+# GlobalGout
+test <- eurogout %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(as.factor)
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "GlobalGout")
+
+
+# Ardea - CLEAR/LASSO (ULT)
+test <- ardea_clear_lasso %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(as.factor)
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "Ardea - CLEAR/LASSO (ULT)")
+
+# Ardea - CRYSTAL
+test <- ardea_crystal %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(as.factor)
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "Ardea - CRYSTAL")
+
+# Ardea - LASSO (no ULT)
+test <- ardea_lasso_other %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(as.factor)
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "Ardea - LASSO (no ULT)")
+
+# Ardea- LIGHT
+test <- ardea_light %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(as.factor)
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "Ardea- LIGHT")
+
+
+# Polynesians
+SNPlist <- Poly_Gene_OR$SNP
+
+# East Polynesians
+test <- eastpoly_gout %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(factor, levels = c(0, 1, 2))
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "East Polynesians")
+
+
+# West Polynesians
+test <- westpoly_gout %>% 
+  select(all_of(SNPlist)) %>% 
+  mutate_all(factor, levels = c(0, 1, 2))
+
+tmp <- c()
+for(i in 1:ncol(test)){
+  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp2 <- c()
+for(i in 1:ncol(test)){
+  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp3 <- c()
+for(i in 1:ncol(test)){
+  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
+}
+
+tmp4 <- c()
+for(i in 1:ncol(test)){
+  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+}
+
+kable(tibble("SNP" = SNPlist,
+             "0" = tmp,
+             "1" = tmp2,
+             "2" = tmp3,
+             "EAF" = tmp4),
+      caption = "West Polynesians")
+
+rm(test, tmp, tmp2, tmp3, tmp4, i, SNPlist)
+```
+
+```{r TonyPlot, eval = F}
+# Plot for Tony
+tmp1 <- PooledvsPRS %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)",
+         Predictor == "PRS") %>% 
+  select(-Beta) %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ", remove = FALSE) %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + Serum urate + 10 PCs", "Sex + Age + 10 PCs")))
+tmp2 <- CollidervsPRS %>% 
+  filter(Outcome == "Active gout (≥ 2 flares/year)" | Outcome == "Low activity gout (< 2 flares/year)",
+         Predictor == "PRS") %>% 
+  separate(`95% CI`, into = c("LCL", "UCL"), sep = ", ", remove = FALSE) %>% 
+  mutate(OR = as.numeric(OR),
+         LCL = as.numeric(str_sub(LCL, start = 2)),
+         UCL = as.numeric(str_sub(UCL, end = -2)),
+         Covariates = factor(Covariates,
+                             levels = c("Sex + Age + Serum urate + 10 PCs", "Sex + Age + 10 PCs")))
+tmp3 <- rbind(tmp1, tmp2)
+
+ggplot(tmp3, aes(x = OR, y = Outcome, color = Covariates, shape = Cohort)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.75, 2.5)) + 
+  scale_y_discrete(limits = c("Low activity gout (< 2 flares/year)", "Active gout (≥ 2 flares/year)")) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 PCs", "Sex + Age + Serum urate + 10 PCs"), type = c("#1e6b52", "#aa9767")) +
+  labs(x = "Odds ratio [95% CI]",
+       y = "")
+
+# Better to plot separately but with same x-axis
+ggplot(tmp1, aes(x = OR, y = Outcome, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.75, 2.5)) + 
+  scale_y_discrete(limits = c("Active gout (≥ 2 flares/year)")) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 PCs", "Sex + Age + Serum urate + 10 PCs"), type = c("#1e6b52", "#aa9767")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "A. Pooled gout analysis (N = 2,222)")
+
+ggplot(tmp2, aes(x = OR, y = Outcome, color = Covariates)) +
+  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 1) +
+  scale_x_continuous(trans = "log2", limits = c(0.75, 2.5)) + 
+  scale_y_discrete(limits = c("Low activity gout (< 2 flares/year)", "Active gout (≥ 2 flares/year)")) + 
+  scale_color_discrete(limits = c("Sex + Age + 10 PCs", "Sex + Age + Serum urate + 10 PCs"), type = c("#1e6b52", "#aa9767")) +
+  theme(plot.title.position = "plot") +
+  labs(x = "Odds ratio [95% CI]",
+       y = "",
+       title = "B. Pooled gout + UK Biobank controls analysis (N = 2,222 + 325,229)")
+
+rm(tmp1, tmp2, tmp3)
+
+
+
+# Plotting flares in males vs females for Tony (21st May 2021)
+flare <- allgout %>% 
+  select(COHORT2, SEX, FLAREHIGH, NUMATK, AGECOL) %>% 
+  filter(!is.na(FLAREHIGH)) %>% 
+  mutate(COHORT = as.factor(COHORT2))
+
+flare2 <- flare %>% 
+  group_by(COHORT, SEX) %>% 
+  summarise(FLAREPERCENT = sum(FLAREHIGH) / n() * 100)
+
+ggplot(flare, aes(x = NUMATK, y = COHORT, color = SEX)) +
+  geom_boxplot() + 
+  scale_color_discrete(limits = c("Female", "Male")) +
+  scale_y_discrete() +
+  xlim(c(0, 52)) +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       color = element_blank()) +
+  coord_flip()
+
+ggsave("FLAREPLOT1.png")
+
+ggplot(flare, aes(x = NUMATK, y = COHORT, color = SEX)) +
+  geom_violin()
+
+ggsave("FLAREPLOT2.png")
+
+ggplot(flare, aes(x = NUMATK, y = COHORT, color = SEX)) +
+  geom_boxplot() +
+  scale_x_log10() + 
+  scale_color_discrete(limits = c("Female", "Male")) +
+  scale_y_discrete() +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       color = element_blank())
+
+ggsave("FLAREPLOT3.png")
+
+ggplot(flare, aes(x = NUMATK, y = COHORT, color = SEX)) +
+  geom_violin() +
+  scale_x_log10()
+
+ggsave("FLAREPLOT4.png")
+
+ggplot(flare2, aes(x = FLAREPERCENT, y = COHORT, color = SEX)) +
+  geom_point() +
+  xlab("Percent >= 2 Flares / year")
+
+ggsave("FLAREPLOT5.png")
+
+ggplot(flare, aes(x = NUMATK, y = SEX, color = SEX)) +
+  geom_boxplot() + 
+  scale_y_discrete(limits = c("Male", "Female")) + 
+  scale_color_discrete(limits = c("Female", "Male")) +
+  scale_x_log10() +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       color = element_blank())
+
+ggsave("FLAREPLOT6.png")
+
+ggplot(flare, aes(x = NUMATK, color = SEX)) +
+  geom_freqpoly(aes(y = ..density..), binwidth = 1) + 
+  scale_color_discrete(limits = c("Female", "Male")) +
+  xlim(c(0, 52)) +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       color = element_blank()) +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.text.y.right = element_text(angle = 0)) +
+  facet_grid(COHORT ~ .)
+
+ggplot(flare, aes(x = NUMATK, color = SEX)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) + 
+  scale_color_discrete(limits = c("Female", "Male")) +
+  xlim(c(0, 52)) +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       color = element_blank()) +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.text.y.right = element_text(angle = 0)) +
+  facet_grid(COHORT ~ .)
+
+ggsave("FLAREPLOT7.png")
+
+ggplot(flare, aes(x = NUMATK, y = COHORT, fill = SEX)) +
+  geom_violin() + 
+  scale_fill_discrete(limits = c("Male", "Female"), type = c("#00BFC4", "#F8766D")) +
+  scale_y_discrete() +
+  xlim(c(0, 52)) +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       fill = element_blank()) +
+  coord_flip()
+
+ggsave("FLAREPLOT8.png")
+
+# Wilcoxon rank-sum test for each group
+
+wilcox.test(NUMATK ~ SEX, data = ardea_clear_lasso, paired = FALSE)
+
+wilcox.test(NUMATK ~ SEX, data = ardea_crystal, paired = FALSE)
+
+wilcox.test(NUMATK ~ SEX, data = ardea_lasso_other, paired = FALSE)
+
+wilcox.test(NUMATK ~ SEX, data = ardea_light, paired = FALSE)
+
+wilcox.test(NUMATK ~ SEX, data = eurogout, paired = FALSE)
+
+wilcox.test(NUMATK ~ SEX, data = anz_gout, paired = FALSE)
+
+# Testing how women of 65/70/75 or older compared to males of the same age
+flare_old1 <- flare %>% 
+  filter(AGECOL > 65)
+flare_old2 <- flare %>% 
+  filter(AGECOL > 70)
+flare_old3 <- flare %>% 
+  filter(AGECOL > 75)
+
+wilcox.test(NUMATK ~ SEX, data = flare_old1, paired = FALSE)
+
+wilcox.test(NUMATK ~ SEX, data = flare_old2, paired = FALSE)
+
+wilcox.test(NUMATK ~ SEX, data = flare_old3, paired = FALSE)
+
+ggplot(flare_old1, aes(x = NUMATK, y = SEX, fill = SEX)) +
+  geom_violin() + 
+  scale_fill_discrete(limits = c("Male", "Female"), type = c("#00BFC4", "#F8766D")) +
+  scale_y_discrete() +
+  xlim(c(0, 52)) +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       fill = element_blank(),
+       title = "Pooled gout cohort filtered for those > 65 years old") +
+  coord_flip()
+
+ggsave("FLAREPLOT9.png")
+
+ggplot(flare_old2, aes(x = NUMATK, y = SEX, fill = SEX)) +
+  geom_violin() + 
+  scale_fill_discrete(limits = c("Male", "Female"), type = c("#00BFC4", "#F8766D")) +
+  scale_y_discrete() +
+  xlim(c(0, 52)) +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       fill = element_blank(),
+       title = "Pooled gout cohort filtered for those > 70 years old") +
+  coord_flip()
+
+ggsave("FLAREPLOT10.png")
+
+ggplot(flare_old3, aes(x = NUMATK, y = SEX, fill = SEX)) +
+  geom_violin() + 
+  scale_fill_discrete(limits = c("Male", "Female"), type = c("#00BFC4", "#F8766D")) +
+  scale_y_discrete() +
+  xlim(c(0, 52)) +
+  labs(x = "Number of flares in the past 12 months (self-reported)",
+       y = element_blank(),
+       fill = element_blank(),
+       title = "Pooled gout cohort filtered for those > 75 years old") +
+  coord_flip()
+
+ggsave("FLAREPLOT11.png")
+
+rm(flare_old1, flare_old2, flare_old3, flare2)
+```
+
+```{r Old_forest_plots, eval = F}
+# Forest plots to see heterogeneity in models
+# Onset
+tmp1 <- lm(AGE1ATK ~ PRS + SEX, data = anz_gout)
+tmp2 <- lm(AGE1ATK ~ PRS + SEX, data = eurogout)
+tmp3 <- lm(AGE1ATK ~ PRS + SEX, data = ardea_clear_lasso)
+tmp4 <- lm(AGE1ATK ~ PRS + SEX, data = ardea_crystal)
+tmp5 <- lm(AGE1ATK ~ PRS + SEX, data = ardea_lasso_other)
+tmp6 <- lm(AGE1ATK ~ PRS + SEX, data = ardea_light)
+
+onset <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]], tmp3$coefficients[[2]], tmp4$coefficients[[2]], tmp5$coefficients[[2]], tmp6$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2], summary(tmp3)$coefficients[2,2], summary(tmp4)$coefficients[2,2], summary(tmp5)$coefficients[2,2], summary(tmp6)$coefficients[2,2]), studlab = c("Aus/NZ European", "GlobalGout", "Ardea - CLEAR/LASSO (ULT)", "Ardea - CRYSTAL", "Ardea - LASSO (no ULT)", "Ardea - LIGHT"))
+
+forest(onset, comb.random = F, xlim = c(-1.5, 0.5), print.tau2 = F, col.fixed = "darkred", col.square.lines = "darkred", col.diamond.lines = "darkred")
+
+# Tophi
+tmp1 <- glm(TOPHIGOUT ~ PRS + AGECOL + SEX, family = "binomial", data = anz_gout)
+tmp2 <- glm(TOPHIGOUT ~ PRS + AGECOL + SEX, family = "binomial", data = eurogout)
+tmp3 <- glm(TOPHIGOUT ~ PRS + AGECOL + SEX, family = "binomial", data = ardea_clear_lasso)
+tmp4 <- glm(TOPHIGOUT ~ PRS + AGECOL + SEX, family = "binomial", data = ardea_lasso_other)
+tmp5 <- glm(TOPHIGOUT ~ PRS + AGECOL + SEX, family = "binomial", data = ardea_light)
+
+tophi <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]], tmp3$coefficients[[2]], tmp4$coefficients[[2]], tmp5$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2], summary(tmp3)$coefficients[2,2], summary(tmp4)$coefficients[2,2], summary(tmp5)$coefficients[2,2]), studlab = c("Aus/NZ European", "GlobalGout", "Ardea - CLEAR/LASSO (ULT)", "Ardea - LASSO (no ULT)", "Ardea - LIGHT"), sm = "OR")
+
+forest(tophi, comb.random = F, xlim = c(0.95, 1.15), print.tau2 = F, col.fixed = "darkred", col.square.lines = "darkred", col.diamond.lines = "darkred", at = c(0.9, 1, 1.1))
+
+# Flare
+tmp1 <- glm(FLAREHIGH ~ PRS + AGECOL + SEX, family = "binomial", data = anz_gout)
+tmp2 <- glm(FLAREHIGH ~ PRS + AGECOL + SEX, family = "binomial", data = eurogout)
+
+flare <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2]), studlab = c("NZ European", "GlobalGout"), sm = "OR")
+
+forest(flare, comb.random = F, print.tau2 = F, col.fixed = "darkred", col.square.lines = "darkred", col.diamond.lines = "darkred")
+
+# Cleanup
+rm(onset, tophi, flare, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6)
+```
