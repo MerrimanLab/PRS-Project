@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+PRS.Rproj
+Archive/
+Data/
+Output/
+!Output/HTMLs/
