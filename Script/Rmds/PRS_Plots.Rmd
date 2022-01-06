@@ -3,18 +3,27 @@
 ```{r dataprep, message = F, warning = F, cache = T}
 # Datasets
 load(here("Output/anz_euro_pheno_prs.RData"))
-load(here("Output/clear_lasso_euro_pheno_prs.RData"))
+load(here("Output/clear1_euro_pheno_prs.RData"))
+load(here("Output/clear2_euro_pheno_prs.RData"))
 load(here("Output/control_anz_euro_pheno_prs.RData"))
+load(here("Output/anz_euro_pheno_prs_poly.RData"))
+load(here("Output/clear1_euro_pheno_prs_poly.RData"))
+load(here("Output/clear2_euro_pheno_prs_poly.RData"))
+load(here("Output/control_anz_euro_pheno_prs_poly.RData"))
 load(here("Output/control_eastpoly_pheno_prs.RData"))
 load(here("Output/control_westpoly_pheno_prs.RData"))
 load(here("Output/crystal_euro_pheno_prs.RData"))
+load(here("Output/crystal_euro_pheno_prs_poly.RData"))
 load(here("Output/eastpoly_pheno_prs.RData"))
 load(here("Output/eurogout_euro_pheno_prs.RData"))
-load(here("Output/lasso_other_euro_pheno_prs.RData"))
+load(here("Output/lasso_euro_pheno_prs.RData"))
 load(here("Output/light_euro_pheno_prs.RData"))
 load(here("Output/westpoly_pheno_prs.RData"))
 load(here("Output/ukbb_euro_pheno_prs.RData"))
 load(here("Output/ukbb_poly_pheno_prs.RData"))
+load(here("Output/eurogout_euro_pheno_prs_poly.RData"))
+load(here("Output/lasso_euro_pheno_prs_poly.RData"))
+load(here("Output/light_euro_pheno_prs_poly.RData"))
 
 load(here("Output/UKBB_Gene_OR.RData"))
 load(here("Output/Poly_Gene_OR.RData"))
@@ -22,14 +31,29 @@ load(here("Output/Poly_Gene_OR.RData"))
 
 # European cohort prep
 anz_gout <- anz_euro_pheno_prs %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
-         COHORT2 = "Aus/NZ") %>% 
+  mutate(COHORT2 = "Aus/NZ",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
   select(-Geno.SampleID)
 
+anz_gout_poly <- anz_euro_pheno_prs_poly %>% 
+  mutate(COHORT2 = "Aus/NZ",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
+
 anz_control <- control_anz_euro_pheno_prs %>%
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         GOUT = FALSE,
+  mutate(GOUT = FALSE,
          SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
          SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
   rename(IID = Pheno.SampleID,
@@ -45,82 +69,197 @@ anz_control <- control_anz_euro_pheno_prs %>%
          PC8 = Geno.PCVector8,
          PC9 = Geno.PCVector9,
          PC10 = Geno.PCVector10) %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408, PRS_std)
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408)
+
+anz_control_poly <- control_anz_euro_pheno_prs_poly %>%
+  mutate(GOUT = FALSE,
+         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
+         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
+  rename(IID = Pheno.SampleID,
+         AGECOL = Pheno.Age,
+         COHORT = Pheno.Study,
+         PC1 = Geno.PCVector1,
+         PC2 = Geno.PCVector2,
+         PC3 = Geno.PCVector3,
+         PC4 = Geno.PCVector4,
+         PC5 = Geno.PCVector5,
+         PC6 = Geno.PCVector6,
+         PC7 = Geno.PCVector7,
+         PC8 = Geno.PCVector8,
+         PC9 = Geno.PCVector9,
+         PC10 = Geno.PCVector10) %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738409, -rs35332062)
 
 tmp <- anz_gout %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408, PRS_std)
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408)
 
-anz_full <- rbind(tmp, anz_control) %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+anz_full <- rbind(tmp, anz_control)
+
+tmp <- anz_gout_poly %>% 
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738409)
+
+anz_full_poly <- rbind(tmp, anz_control_poly)
+
 
 eurogout <- eurogout_euro_pheno_prs %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
-         COHORT2 = "EuroGout") %>% 
+  mutate(COHORT2 = "EuroGout",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
   select(-Geno.SampleID)
 
+eurogout_poly <- eurogout_euro_pheno_prs_poly %>% 
+  mutate(COHORT2 = "EuroGout",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
 
-ardea_clear_lasso <- clear_lasso_euro_pheno_prs %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
-         COHORT2 = "Ardea - CLEAR/LASSO (ULT)") %>% 
+
+ardea_clear1 <- clear1_euro_pheno_prs %>% 
+  mutate(COHORT2 = "Ardea - CLEAR1",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
   select(-Geno.SampleID)
 
+ardea_clear1_poly <- clear1_euro_pheno_prs_poly %>% 
+  mutate(COHORT2 = "Ardea - CLEAR1",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
 
-ardea_lasso_other <- lasso_other_euro_pheno_prs %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
-         COHORT2 = "Ardea - LASSO (other)") %>% 
+
+ardea_clear2 <- clear2_euro_pheno_prs %>% 
+  mutate(COHORT2 = "Ardea - CLEAR2",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
   select(-Geno.SampleID)
+
+ardea_clear2_poly <- clear2_euro_pheno_prs_poly %>% 
+  mutate(COHORT2 = "Ardea - CLEAR2",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
+
+
+ardea_lasso <- lasso_euro_pheno_prs %>% 
+  mutate(COHORT2 = "Ardea - LASSO",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID)
+
+ardea_lasso_poly <- lasso_euro_pheno_prs_poly %>% 
+  mutate(COHORT2 = "Ardea - LASSO",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
 
 
 ardea_crystal <- crystal_euro_pheno_prs %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
-         COHORT2 = "Ardea - CRYSTAL") %>% 
+  mutate(COHORT2 = "Ardea - CRYSTAL",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
   select(-Geno.SampleID)
+
+ardea_crystal_poly <- crystal_euro_pheno_prs_poly %>% 
+  mutate(COHORT2 = "Ardea - CRYSTAL",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
 
 
 ardea_light <- light_euro_pheno_prs %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE),
-         COHORT2 = "Ardea - LIGHT") %>% 
+  mutate(COHORT2 = "Ardea - LIGHT",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
   select(-Geno.SampleID)
+
+ardea_light_poly <- light_euro_pheno_prs_poly %>% 
+  mutate(COHORT2 = "Ardea - LIGHT",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
   
 
-allgout <- rbind(anz_gout, eurogout, ardea_clear_lasso, ardea_crystal, ardea_lasso_other, ardea_light) %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+allgout <- rbind(anz_gout, eurogout, ardea_clear1, ardea_clear2, ardea_crystal, ardea_lasso, ardea_light)
 
-allgout_tophi <- allgout %>% 
-  filter(TOPHIGOUT)
+allgout_poly <- rbind(anz_gout_poly, eurogout_poly, ardea_clear1_poly, ardea_clear2_poly, ardea_crystal_poly, ardea_lasso_poly, ardea_light_poly)
 
-allgout_flare <- allgout %>% 
-  filter(FLAREHIGH)
-
-allgout_onset <- allgout %>% 
-  filter(AGE1ATK < 40)
-
-rm(anz_euro_pheno_prs, clear_lasso_euro_pheno_prs, control_anz_euro_pheno_prs, crystal_euro_pheno_prs, eurogout_euro_pheno_prs, lasso_other_euro_pheno_prs, light_euro_pheno_prs, tmp)
+rm(anz_euro_pheno_prs, clear1_euro_pheno_prs, clear2_euro_pheno_prs, control_anz_euro_pheno_prs, crystal_euro_pheno_prs, eurogout_euro_pheno_prs, lasso_euro_pheno_prs, light_euro_pheno_prs, anz_euro_pheno_prs_poly, clear1_euro_pheno_prs_poly, clear2_euro_pheno_prs_poly, control_anz_euro_pheno_prs_poly, crystal_euro_pheno_prs_poly, eurogout_euro_pheno_prs_poly, lasso_euro_pheno_prs_poly, light_euro_pheno_prs_poly, tmp)
 
 
 # Polynesian cohort prep
 eastpoly_gout <- eastpoly_pheno_prs %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE)) %>% 
-  select(-Geno.SampleID)
-
-eastpoly_gout_tophi <- eastpoly_gout %>% 
-  filter(TOPHIGOUT == TRUE)
-
-eastpoly_gout_flare <- eastpoly_gout %>% 
-  filter(FLAREHIGH == TRUE)
-
-eastpoly_gout_onset <- eastpoly_gout %>% 
-  filter(AGE1ATK < 40)
+  mutate(COHORT2 = "East Polynesian",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
 
 eastpoly_control <- control_eastpoly_pheno_prs %>%
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         GOUT = FALSE,
+  mutate(GOUT = FALSE,
          SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
          SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
   rename(IID = Pheno.SampleID,
@@ -146,31 +285,26 @@ eastpoly_control <- control_eastpoly_pheno_prs %>%
          PC8_Oc = Geno.PCVector8_Oc,
          PC9_Oc = Geno.PCVector9_Oc,
          PC10_Oc = Geno.PCVector10_Oc) %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:rs738409, -rs35332062)
 
 tmp <- eastpoly_gout %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:rs738409)
 
-eastpoly_full <- rbind(tmp, eastpoly_control) %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+eastpoly_full <- rbind(tmp, eastpoly_control)
 
 westpoly_gout <- westpoly_pheno_prs %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = if_else(NUMATK > 1, TRUE, FALSE)) %>% 
-  select(-Geno.SampleID)
-
-westpoly_gout_tophi <- westpoly_gout %>% 
-  filter(TOPHIGOUT == TRUE)
-
-westpoly_gout_flare <- westpoly_gout %>% 
-  filter(FLAREHIGH == TRUE)
-
-westpoly_gout_onset <- westpoly_gout %>% 
-  filter(AGE1ATK < 40)
+  mutate(COHORT2 = "West Polynesian",
+         NUMATK = round(NUMATK),
+         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
+                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
+                                      between(NUMATK, 12, 52) ~ "One or more per month"),
+                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
+                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
+                            ordered = TRUE)) %>% 
+  select(-Geno.SampleID, -rs35332062)
 
 westpoly_control <- control_westpoly_pheno_prs %>%
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         GOUT = FALSE,
+  mutate(GOUT = rep(FALSE, nrow(.)),
          SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
          SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
   rename(IID = Pheno.SampleID,
@@ -196,13 +330,16 @@ westpoly_control <- control_westpoly_pheno_prs %>%
          PC8_Oc = Geno.PCVector8_Oc,
          PC9_Oc = Geno.PCVector9_Oc,
          PC10_Oc = Geno.PCVector10_Oc) %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:rs738409, -rs35332062)
 
 tmp <- westpoly_gout %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:PRS_std)
+  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:rs738409)
 
-westpoly_full <- rbind(tmp, westpoly_control) %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+westpoly_full <- rbind(tmp, westpoly_control)
+
+allgout_poly2 <- allgout_poly %>% 
+  full_join(eastpoly_gout) %>% 
+  full_join(westpoly_gout)
 
 rm(control_eastpoly_pheno_prs, control_westpoly_pheno_prs, eastpoly_pheno_prs, westpoly_pheno_prs, tmp)
 
@@ -211,9 +348,7 @@ rm(control_eastpoly_pheno_prs, control_westpoly_pheno_prs, eastpoly_pheno_prs, w
 ukbb_gout <- ukbb_euro_pheno_prs %>% 
   filter(GOUT == TRUE,
          !is.na(PRS)) %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = NA,
-         NUMATK = NA,
+  mutate(NUMATK = NA,
          TOPHIGOUT = NA,
          AGE1ATK = NA,
          DURATION = NA,
@@ -227,14 +362,12 @@ ukbb_gout <- ukbb_euro_pheno_prs %>%
          PC8 = NA,
          PC9 = NA,
          PC10 = NA) %>% 
-  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:PRS_std, FLAREHIGH)
+  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:rs738408)
 
 ukbb_control <- ukbb_euro_pheno_prs %>% 
   filter(GOUT == FALSE,
          !is.na(PRS)) %>%
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS),
-         FLAREHIGH = NA,
-         NUMATK = NA,
+  mutate(NUMATK = NA,
          TOPHIGOUT = NA,
          AGE1ATK = NA,
          DURATION = NA,
@@ -249,52 +382,77 @@ ukbb_control <- ukbb_euro_pheno_prs %>%
          PC9 = NA,
          PC10 = NA,
          ULT = NA) %>% 
-  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:PRS_std, FLAREHIGH)
+  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:rs738408)
 
-ukbb <- rbind(ukbb_gout, ukbb_control) %>% 
-  mutate(PRS_std = (PRS - mean(PRS)) / sd(PRS))
+ukbb <- rbind(ukbb_gout, ukbb_control)
 
 rm(ukbb_euro_pheno_prs)
+
+ukbb_gout_poly <- ukbb_poly_pheno_prs %>% 
+  filter(GOUT == TRUE,
+         !is.na(PRS)) %>% 
+  mutate(NUMATK = NA,
+         TOPHIGOUT = NA,
+         AGE1ATK = NA,
+         DURATION = NA,
+         PC1 = NA,
+         PC2 = NA,
+         PC3 = NA,
+         PC4 = NA,
+         PC5 = NA,
+         PC6 = NA,
+         PC7 = NA,
+         PC8 = NA,
+         PC9 = NA,
+         PC10 = NA) %>% 
+  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:rs738409, -rs35332062)
+
+ukbb_control_poly <- ukbb_poly_pheno_prs %>% 
+  filter(GOUT == FALSE,
+         !is.na(PRS)) %>%
+  mutate(NUMATK = NA,
+         TOPHIGOUT = NA,
+         AGE1ATK = NA,
+         DURATION = NA,
+         PC1 = NA,
+         PC2 = NA,
+         PC3 = NA,
+         PC4 = NA,
+         PC5 = NA,
+         PC6 = NA,
+         PC7 = NA,
+         PC8 = NA,
+         PC9 = NA,
+         PC10 = NA,
+         ULT = NA) %>% 
+  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:rs738409, -rs35332062)
+
+ukbb_poly <- rbind(ukbb_gout_poly, ukbb_control_poly)
+
+rm(ukbb_poly_pheno_prs)
 
 
 # Model results
 load(here("Output/GoutvsPRS.RData"))
 load(here("Output/Meta3traitsvsPRS.RData"))
-load(here("Output/PooledvsPRS.RData"))
-load(here("Output/CollidervsPRS.RData"))
-load(here("Output/GoutvsPRS_Poly.RData"))
-load(here("Output/PooledvsPRS_Poly.RData"))
-load(here("Output/CollidervsPRS_Poly.RData"))
-# load(here("Output/GoutvsPRS_noULT.RData"))
-# load(here("Output/Meta3traitsvsPRS_noULT.RData"))
-# load(here("Output/PooledvsPRS_noULT.RData"))
-# load(here("Output/CollidervsPRS_noULT.RData"))
-# load(here("Output/GoutvsPRS_Poly_noULT.RData"))
-# load(here("Output/PooledvsPRS_Poly_noULT.RData"))
-# load(here("Output/CollidervsPRS_Poly_noULT.RData"))
-```
 
-```{r Table1, message = F, warning = F, cache = T}
-cohortstring <- c("Ardea - CLEAR/LASSO (ULT)",
-                  "Ardea - CRYSTAL",
-                  "Ardea - LASSO (no ULT)",
-                  "Ardea - LIGHT",
-                  "GlobalGout",
-                  "Aus/NZ European - gout",
-                  "Aus/NZ European - controls",
-                  "UK Biobank  - gout",
-                  "UK Biobank  - controls",
-                  "Pooled gout (excluding UK Biobank)")
 
-data_list <- list(ardea_clear_lasso, ardea_crystal, ardea_lasso_other, ardea_light, eurogout, anz_gout, anz_control, ukbb_gout, ukbb_control, allgout)
-
+# Functions
 male <- function(x){
-  paste0(length(x$SEX), " (", sprintf((mean(x$SEX == "Male") * 100), fmt = "%#.1f"), ")")
+  paste0(length(x$SEX %>% na.omit()), " (", sprintf((mean(x$SEX == "Male", na.rm = TRUE) * 100), fmt = "%#.1f"), ")")
 }
 
 report <- function(x) {
     if(sum(is.na(x)) != length(x)) {
       paste0(sprintf(mean(x, na.rm = TRUE), fmt = "%#.1f"), " ± ", sprintf(sd(x, na.rm = TRUE), fmt = "%#.1f"))
+    } else {
+      paste0("NA")
+    }
+}
+
+report_median <- function(x) {
+    if(sum(is.na(x)) != length(x)) {
+      paste0(median(x, na.rm =T), " (", summary(x)[[2]], " - ", summary(x)[[5]], ")")
     } else {
       paste0("NA")
     }
@@ -307,6 +465,49 @@ sumreport <- function(x) {
       paste0("NA")
   }
 }
+
+sumreport2 <- function(x, n) {
+  if(!is.null(x$FLARE_CAT)) {
+    y <- x %>% 
+    filter(!is.na(FLARE_CAT),
+           FLARE_CAT == n) %>% 
+    pull(FLARE_CAT)
+    
+    if(sum(is.na(y)) != length(y)){
+      paste0(length(y), " (", sprintf((length(y) / nrow(x %>% filter(!is.na(FLARE_CAT))) * 100), fmt = "%#.1f"), ")")
+    } else {
+        paste0("NA")
+    }
+    
+  } else {
+    paste0("NA")
+  }
+}
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    rownames_to_column() %>%
+    as_tibble()
+  return(t_df)
+}
+```
+
+```{r DemographicsTable, message = F, warning = F, cache = T}
+cohortstring <- c("UK Biobank  - gout",
+                  "UK Biobank  - controls",
+                  "Aus/NZ European - gout",
+                  "Aus/NZ European - controls",
+                  "GlobalGout",
+                  "Ardea - LASSO",
+                  "Ardea - CLEAR1",
+                  "Ardea - CLEAR2",
+                  "Ardea - CRYSTAL",
+                  "Ardea - LIGHT")
+
+data_list <- list(ukbb_gout, ukbb_control, anz_gout, anz_control, eurogout, ardea_lasso, ardea_clear1, ardea_clear2, ardea_crystal, ardea_light)
 
 table1 <- tibble("Cohort" = cohortstring, 
                  "N (% male)" = unlist(lapply(data_list, male)),
@@ -314,108 +515,111 @@ table1 <- tibble("Cohort" = cohortstring,
                  "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
                  "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
                  "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
-                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "Mean disease duration (sd)" = unlist(lapply(data_list, function(x) report(x$DURATION))),
+                 "Mean flares/year (sd)" = unlist(lapply(data_list, function(x) report(x$NUMATK))),
+                 "Median flares/year (IQR)" = unlist(lapply(data_list, function(x) report_median(x$NUMATK))),
                  "Flares > 1 (%)" = unlist(lapply(data_list, function(x) sumreport(x$FLAREHIGH))),
+                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
                  "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))))
-
-transpose_df <- function(df) {
-  t_df <- data.table::transpose(df)
-  colnames(t_df) <- rownames(df)
-  rownames(t_df) <- colnames(df)
-  t_df <- t_df %>%
-    rownames_to_column() %>%
-    as_tibble()
-  return(t_df)
-}
 
 table1 <- transpose_df(table1) %>% 
   row_to_names(row_number = 1) %>% 
   column_to_rownames(var = "Cohort")
 
-kable(table1)
-
-#write_csv(table1, file = "table1.csv")
+kable_styling(kable(table1))
 
 
 
-# Age at onset quintiles 
-# Pooled cohort
-allgout_onset_test <- allgout %>% 
-  filter(!is.na(AGE1ATK)) %>% 
-  mutate(quintile = ntile(AGE1ATK, 5))
+# Including Polynesians
+cohortstring <- c("East Polynesian - gout",
+                  "East Polynesian - controls",
+                  "West Polynesian - gout",
+                  "West Polynesian - controls",
+                  "UK Biobank  - gout",
+                  "UK Biobank  - controls",
+                  "Aus/NZ European - gout",
+                  "Aus/NZ European - controls",
+                  "GlobalGout",
+                  "Ardea - LASSO",
+                  "Ardea - CLEAR1",
+                  "Ardea - CLEAR2",
+                  "Ardea - CRYSTAL",
+                  "Ardea - LIGHT")
 
-allgout_onset1 <- allgout_onset_test %>% 
-  filter(quintile == 1)
+data_list <- list(eastpoly_gout, eastpoly_control, westpoly_gout, westpoly_control, ukbb_gout_poly, ukbb_control_poly, anz_gout_poly, anz_control_poly, eurogout_poly, ardea_lasso_poly, ardea_clear1_poly, ardea_clear2_poly, ardea_crystal_poly, ardea_light_poly)
 
-allgout_onset2 <- allgout_onset_test %>% 
-  filter(quintile == 2)
-
-allgout_onset3 <- allgout_onset_test %>% 
-  filter(quintile == 3)
-
-allgout_onset4 <- allgout_onset_test %>% 
-  filter(quintile == 4)
-
-allgout_onset5 <- allgout_onset_test %>% 
-  filter(quintile == 5)
-
-cohortstring <- c("Pooled gout (excluding UK Biobank) - first quintile",
-                  "Pooled gout (excluding UK Biobank) - second quintile",
-                  "Pooled gout (excluding UK Biobank) - third quintile",
-                  "Pooled gout (excluding UK Biobank) - fourth quintile",
-                  "Pooled gout (excluding UK Biobank) - fifth quintile")
-
-data_list <- list(allgout_onset1, allgout_onset2, allgout_onset3, allgout_onset4, allgout_onset5)
-
-male <- function(x){
-  paste0(length(x$SEX), " (", sprintf((mean(x$SEX == "Male") * 100), fmt = "%#.1f"), ")")
-}
-
-report <- function(x) {
-    if(sum(is.na(x)) != length(x)) {
-      paste0(sprintf(mean(x, na.rm = TRUE), fmt = "%#.1f"), " ± ", sprintf(sd(x, na.rm = TRUE), fmt = "%#.1f"))
-    } else {
-      paste0("NA")
-    }
-}
-
-sumreport <- function(x) {
-  if(sum(is.na(x)) != length(x)){
-    paste0(sum(x, na.rm = TRUE), " (", sprintf((mean(x, na.rm = TRUE) * 100), fmt = "%#.1f"), ")")
-  } else {
-      paste0("NA")
-  }
-}
-
-testtable <- tibble("Cohort" = cohortstring, 
+table1_poly <- tibble("Cohort" = cohortstring, 
                  "N (% male)" = unlist(lapply(data_list, male)),
                  "Mean age (sd) (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
                  "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
                  "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
                  "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
-                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "Mean disease duration (sd)" = unlist(lapply(data_list, function(x) report(x$DURATION))),
+                 "Mean flares/year (sd)" = unlist(lapply(data_list, function(x) report(x$NUMATK))),
+                 "Median flares/year (IQR)" = unlist(lapply(data_list, function(x) report_median(x$NUMATK))),
                  "Flares > 1 (%)" = unlist(lapply(data_list, function(x) sumreport(x$FLAREHIGH))),
-                 "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))),
-                 "Mean disease duration (sd)" = unlist(lapply(data_list, function(x) report(x$DURATION))))
+                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))))
 
-transpose_df <- function(df) {
-  t_df <- data.table::transpose(df)
-  colnames(t_df) <- rownames(df)
-  rownames(t_df) <- colnames(df)
-  t_df <- t_df %>%
-    rownames_to_column() %>%
-    as_tibble()
-  return(t_df)
-}
-
-testtable <- transpose_df(testtable) %>% 
+table1_poly <- transpose_df(table1_poly) %>% 
   row_to_names(row_number = 1) %>% 
   column_to_rownames(var = "Cohort")
 
-kable_styling(kable(testtable))
+kable_styling(kable(table1_poly))
+
+# Male only
+data_list <- list(eastpoly_gout %>% filter(SEX == "Male") %>% filter(SEX == "Male"), eastpoly_control %>% filter(SEX == "Male"), westpoly_gout %>% filter(SEX == "Male"), westpoly_control %>% filter(SEX == "Male"), ukbb_gout_poly %>% filter(SEX == "Male"), ukbb_control_poly %>% filter(SEX == "Male"), anz_gout_poly %>% filter(SEX == "Male"), anz_control_poly %>% filter(SEX == "Male"), eurogout_poly %>% filter(SEX == "Male"), ardea_lasso_poly %>% filter(SEX == "Male"), ardea_clear1_poly %>% filter(SEX == "Male"), ardea_clear2_poly %>% filter(SEX == "Male"), ardea_crystal_poly %>% filter(SEX == "Male"), ardea_light_poly %>% filter(SEX == "Male"))
+
+table1_poly_male <- tibble("Cohort" = cohortstring, 
+                 "N (% male)" = unlist(lapply(data_list, male)),
+                 "Mean age (sd) (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
+                 "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
+                 "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
+                 "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
+                 "Mean disease duration (sd)" = unlist(lapply(data_list, function(x) report(x$DURATION))),
+                 "Mean flares/year (sd)" = unlist(lapply(data_list, function(x) report(x$NUMATK))),
+                 "Median flares/year (IQR)" = unlist(lapply(data_list, function(x) report_median(x$NUMATK))),
+                 "0 flares / year (%)" = unlist(lapply(data_list, function(x) sumreport2(x, "0"))),
+                 "1 flare / year (%)" = unlist(lapply(data_list, function(x) sumreport2(x, "1"))),
+                 "2 flares / year (%)" = unlist(lapply(data_list, function(x) sumreport2(x, "2"))),
+                 "3 flares / year (%)" = unlist(lapply(data_list, function(x) sumreport2(x, "3"))),
+                 "4 flares / year (%)" = unlist(lapply(data_list, function(x) sumreport2(x, "4"))),
+                 "5 flares / year (%)" = unlist(lapply(data_list, function(x) sumreport2(x, "5"))),
+                 "6 - 11 flares / year (%)" = unlist(lapply(data_list, function(x) sumreport2(x, "6 - 11"))),
+                 "12 - 52 flares / year (%)" = unlist(lapply(data_list, function(x) sumreport2(x, "12 - 52"))),
+                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))))
+
+table1_poly_male <- transpose_df(table1_poly_male) %>% 
+  row_to_names(row_number = 1) %>% 
+  column_to_rownames(var = "Cohort")
+
+kable_styling(kable(table1_poly_male))
+
+# Female only
+data_list <- list(eastpoly_gout %>% filter(SEX == "Female") %>% filter(SEX == "Female"), eastpoly_control %>% filter(SEX == "Female"), westpoly_gout %>% filter(SEX == "Female"), westpoly_control %>% filter(SEX == "Female"), ukbb_gout_poly %>% filter(SEX == "Female"), ukbb_control_poly %>% filter(SEX == "Female"), anz_gout_poly %>% filter(SEX == "Female"), anz_control_poly %>% filter(SEX == "Female"), eurogout_poly %>% filter(SEX == "Female"), ardea_lasso_poly %>% filter(SEX == "Female"), ardea_clear1_poly %>% filter(SEX == "Female"), ardea_clear2_poly %>% filter(SEX == "Female"), ardea_crystal_poly %>% filter(SEX == "Female"), ardea_light_poly %>% filter(SEX == "Female"))
+
+table1_poly_female <- tibble("Cohort" = cohortstring, 
+                 "N (% male)" = unlist(lapply(data_list, male)),
+                 "Mean age (sd) (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
+                 "Mean SU (sd) (mg/dL)" = unlist(lapply(data_list, function(x) report(x$SURICACID))),
+                 "Urate-lowering therapy (%)" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
+                 "Mean age at onset (sd)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
+                 "Mean disease duration (sd)" = unlist(lapply(data_list, function(x) report(x$DURATION))),
+                 "Mean flares/year (sd)" = unlist(lapply(data_list, function(x) report(x$NUMATK))),
+                 "Median flares/year (IQR)" = unlist(lapply(data_list, function(x) report_median(x$NUMATK))),
+                 "Flares > 1 (%)" = unlist(lapply(data_list, function(x) sumreport(x$FLAREHIGH))),
+                 "Tophi (%)" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "Mean PRS (sd)" = unlist(lapply(data_list, function(x) report(x$PRS))))
+
+table1_poly_female <- transpose_df(table1_poly_female) %>% 
+  row_to_names(row_number = 1) %>% 
+  column_to_rownames(var = "Cohort")
+
+kable_styling(kable(table1_poly_female))
 ```
 
-```{r Figure1, message = F, warning = F, cache = T}
+```{r PRSdistribution, message = F, warning = F, cache = T}
 # Boxplots/violin plots or mean +- se plots of PRS in each cohort
 # Violin plot looks weird for UK Biobank because the density function works differently on small and large cohorts
 # Therefore sticking with boxplot for the final figure (also included freqpoly as an alternative)
@@ -465,7 +669,7 @@ ggplot(data = fullcohort, aes(x = PRS, linetype = COHORT, color = GOUT)) +
 rm(fullcohort, tmp, tmp2, tmp3, tmp4)
 ```
 
-```{r Figure2, message = F, warning = F, cache = T}
+```{r Manhattan, message = F, warning = F, cache = T}
 # Manhattan plot of UKBB gout GWAS
 # Loading data
 load(here("Output/Temp/biallelic_sumstat_final.RData"))
@@ -549,7 +753,357 @@ ggplot(GOUT_pValues2, aes(x = BPcum, y = -log10(P))) +
 rm(axisdf, tmp, tmp2, GOUT_pValues, GOUT_pValues2)
 ```
 
-```{r Figure3, message = F, warning = F, cache = T}
+```{r SeverityResults}
+# Forest plots
+# Onset vs PRS
+f1 <- as.formula(paste("AGE1ATK", paste(c("PRS", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc"), collapse = " + "), sep = " ~ "))
+f2 <- as.formula(paste("AGE1ATK", paste(c("PRS", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10"), collapse = " + "), sep = " ~ "))
+tmp1 <- lm(f1, data = eastpoly_gout %>% filter(SEX == "Male"))
+tmp2 <- lm(f1, data = westpoly_gout %>% filter(SEX == "Male"))
+tmp3 <- lm(f2, data = anz_gout_poly %>% filter(SEX == "Male"))
+tmp4 <- lm(f2, data = eurogout_poly %>% filter(SEX == "Male"))
+tmp5 <- lm(f2, data = ardea_clear1_poly %>% filter(SEX == "Male"))
+tmp6 <- lm(f2, data = ardea_clear2_poly %>% filter(SEX == "Male"))
+tmp7 <- lm(f2, data = ardea_lasso_poly %>% filter(SEX == "Male"))
+tmp8 <- lm(f2, data = ardea_crystal_poly %>% filter(SEX == "Male"))
+tmp9 <- lm(f2, data = ardea_light_poly %>% filter(SEX == "Male"))
+onset <- metagen(TE = c(tmp1$coefficients[[2]], 
+                        tmp2$coefficients[[2]], 
+                        tmp3$coefficients[[2]], 
+                        tmp4$coefficients[[2]], 
+                        tmp5$coefficients[[2]], 
+                        tmp6$coefficients[[2]], 
+                        tmp7$coefficients[[2]], 
+                        tmp8$coefficients[[2]], 
+                        tmp9$coefficients[[2]]), 
+                 seTE = c(summary(tmp1)$coefficients[2, 2], 
+                          summary(tmp2)$coefficients[2, 2], 
+                          summary(tmp3)$coefficients[2, 2], 
+                          summary(tmp4)$coefficients[2, 2], 
+                          summary(tmp5)$coefficients[2, 2], 
+                          summary(tmp6)$coefficients[2, 2], 
+                          summary(tmp7)$coefficients[2, 2], 
+                          summary(tmp8)$coefficients[2, 2], 
+                          summary(tmp9)$coefficients[2, 2]), 
+                 studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - CRYSTAL", "Ardea - LIGHT"),
+                 byvar = c("Polynesian", "Polynesian", "European", "European", "European", "European", "European", "European", "European"),
+                 print.byvar = TRUE)
+
+forest(onset, 
+       xlim = c(-9.2, 2.6), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Δ Age at Onset per unit PRS"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+
+
+# Onset vs rs2231142
+f1 <- as.formula(paste("AGE1ATK", paste(c("rs2231142", "rs10011796", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc"), collapse = " + "), sep = " ~ "))
+f2 <- as.formula(paste("AGE1ATK", paste(c("rs2231142", "rs10011796", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10"), collapse = " + "), sep = " ~ "))
+tmp1 <- lm(f1, data = eastpoly_gout %>% filter(SEX == "Male"))
+tmp2 <- lm(f1, data = westpoly_gout %>% filter(SEX == "Male"))
+tmp3 <- lm(f2, data = anz_gout_poly %>% filter(SEX == "Male"))
+tmp4 <- lm(f2, data = eurogout_poly %>% filter(SEX == "Male"))
+tmp5 <- lm(f2, data = ardea_clear1_poly %>% filter(SEX == "Male"))
+tmp6 <- lm(f2, data = ardea_clear2_poly %>% filter(SEX == "Male"))
+tmp7 <- lm(f2, data = ardea_lasso_poly %>% filter(SEX == "Male"))
+tmp8 <- lm(f2, data = ardea_crystal_poly %>% filter(SEX == "Male"))
+tmp9 <- lm(f2, data = ardea_light_poly %>% filter(SEX == "Male"))
+onset <- metagen(TE = c(tmp1$coefficients[[2]], 
+                        tmp2$coefficients[[2]], 
+                        tmp3$coefficients[[2]], 
+                        tmp4$coefficients[[2]], 
+                        tmp5$coefficients[[2]], 
+                        tmp6$coefficients[[2]], 
+                        tmp7$coefficients[[2]], 
+                        tmp8$coefficients[[2]], 
+                        tmp9$coefficients[[2]]), 
+                 seTE = c(summary(tmp1)$coefficients[2, 2], 
+                          summary(tmp2)$coefficients[2, 2], 
+                          summary(tmp3)$coefficients[2, 2], 
+                          summary(tmp4)$coefficients[2, 2], 
+                          summary(tmp5)$coefficients[2, 2], 
+                          summary(tmp6)$coefficients[2, 2], 
+                          summary(tmp7)$coefficients[2, 2], 
+                          summary(tmp8)$coefficients[2, 2], 
+                          summary(tmp9)$coefficients[2, 2]), 
+                 studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - CRYSTAL", "Ardea - LIGHT"),
+                 byvar = c("Polynesian", "Polynesian", "European", "European", "European", "European", "European", "European", "European"),
+                 print.byvar = TRUE)
+
+forest(onset, 
+       xlim = c(-8.7, 2.2), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Δ Age at Onset per rs2231142 allele"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+
+
+# Onset vs rs10011796
+f1 <- as.formula(paste("AGE1ATK", paste(c("rs10011796", "rs2231142", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc"), collapse = " + "), sep = " ~ "))
+f2 <- as.formula(paste("AGE1ATK", paste(c("rs10011796", "rs2231142", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10"), collapse = " + "), sep = " ~ "))
+tmp1 <- lm(f1, data = eastpoly_gout %>% filter(SEX == "Male"))
+tmp2 <- lm(f1, data = westpoly_gout %>% filter(SEX == "Male"))
+tmp3 <- lm(f2, data = anz_gout_poly %>% filter(SEX == "Male"))
+tmp4 <- lm(f2, data = eurogout_poly %>% filter(SEX == "Male"))
+tmp5 <- lm(f2, data = ardea_clear1_poly %>% filter(SEX == "Male"))
+tmp6 <- lm(f2, data = ardea_clear2_poly %>% filter(SEX == "Male"))
+tmp7 <- lm(f2, data = ardea_lasso_poly %>% filter(SEX == "Male"))
+tmp8 <- lm(f2, data = ardea_crystal_poly %>% filter(SEX == "Male"))
+tmp9 <- lm(f2, data = ardea_light_poly %>% filter(SEX == "Male"))
+onset <- metagen(TE = c(tmp1$coefficients[[2]], 
+                        tmp2$coefficients[[2]], 
+                        tmp3$coefficients[[2]], 
+                        tmp4$coefficients[[2]], 
+                        tmp5$coefficients[[2]], 
+                        tmp6$coefficients[[2]], 
+                        tmp7$coefficients[[2]], 
+                        tmp8$coefficients[[2]], 
+                        tmp9$coefficients[[2]]), 
+                 seTE = c(summary(tmp1)$coefficients[2, 2], 
+                          summary(tmp2)$coefficients[2, 2], 
+                          summary(tmp3)$coefficients[2, 2], 
+                          summary(tmp4)$coefficients[2, 2], 
+                          summary(tmp5)$coefficients[2, 2], 
+                          summary(tmp6)$coefficients[2, 2], 
+                          summary(tmp7)$coefficients[2, 2], 
+                          summary(tmp8)$coefficients[2, 2], 
+                          summary(tmp9)$coefficients[2, 2]), 
+                 studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - CRYSTAL", "Ardea - LIGHT"),
+                 byvar = c("Polynesian", "Polynesian", "European", "European", "European", "European", "European", "European", "European"),
+                 print.byvar = TRUE)
+
+forest(onset, 
+       xlim = c(-6.3, 3.4), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Δ Age at Onset per rs10011796 allele"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+
+
+# Tophi vs PRS (male)
+f1 <- as.formula(paste("TOPHIGOUT", paste(c("PRS", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc"), collapse = " + "), sep = " ~ "))
+f2 <- as.formula(paste("TOPHIGOUT", paste(c("PRS", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10"), collapse = " + "), sep = " ~ "))
+tmp1 <- glm(f1, family = binomial, data = eastpoly_gout %>% filter(SEX == "Male"))
+tmp2 <- glm(f1, family = binomial, data = westpoly_gout %>% filter(SEX == "Male"))
+tmp3 <- glm(f2, family = binomial, data = anz_gout_poly %>% filter(SEX == "Male"))
+tmp4 <- glm(f2, family = binomial, data = eurogout_poly %>% filter(SEX == "Male"))
+tmp5 <- glm(f2, family = binomial, data = ardea_clear1_poly %>% filter(SEX == "Male"))
+tmp6 <- glm(f2, family = binomial, data = ardea_clear2_poly %>% filter(SEX == "Male"))
+tmp7 <- glm(f2, family = binomial, data = ardea_lasso_poly %>% filter(SEX == "Male"))
+tmp8 <- glm(f2, family = binomial, data = ardea_light_poly %>% filter(SEX == "Male"))
+tophi <- metagen(TE = c(tmp1$coefficients[[2]], 
+                        tmp2$coefficients[[2]], 
+                        tmp3$coefficients[[2]], 
+                        tmp4$coefficients[[2]], 
+                        tmp5$coefficients[[2]], 
+                        tmp6$coefficients[[2]], 
+                        tmp7$coefficients[[2]], 
+                        tmp8$coefficients[[2]]), 
+                 seTE = c(summary(tmp1)$coefficients[2, 2], 
+                          summary(tmp2)$coefficients[2, 2], 
+                          summary(tmp3)$coefficients[2, 2], 
+                          summary(tmp4)$coefficients[2, 2], 
+                          summary(tmp5)$coefficients[2, 2], 
+                          summary(tmp6)$coefficients[2, 2], 
+                          summary(tmp7)$coefficients[2, 2], 
+                          summary(tmp8)$coefficients[2, 2]), 
+                 studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - LIGHT"),
+                 byvar = c("Polynesian", "Polynesian", "European", "European", "European", "European", "European", "European"),
+                 print.byvar = TRUE, 
+                 sm = "OR")
+
+forest(tophi, 
+       xlim = c(0.5, 4), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Δ Presence of Tophi per unit PRS"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+
+
+# Flares (all groups) vs PRS (male)
+f1 <- as.formula(paste("FLARE_CAT", paste(c("PRS", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc"), collapse = " + "), sep = " ~ "))
+f2 <- as.formula(paste("FLARE_CAT", paste(c("PRS", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10"), collapse = " + "), sep = " ~ "))
+tmp1 <- polr(f1, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Male"))
+tmp2 <- polr(f1, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Male"))
+tmp3 <- polr(f2, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Male"))
+tmp4 <- polr(f2, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Male"))
+flare <- metagen(TE = c(tmp1$coefficients[[1]], 
+                        tmp2$coefficients[[1]], 
+                        tmp3$coefficients[[1]], 
+                        tmp4$coefficients[[1]]), 
+                 seTE = c(summary(tmp1)$coefficients[1, 2], 
+                          summary(tmp2)$coefficients[1, 2], 
+                          summary(tmp3)$coefficients[1, 2], 
+                          summary(tmp4)$coefficients[1, 2]),
+                 byvar = c("Polynesian", "Polynesian", "European", "European"),
+                 print.byvar = TRUE, 
+                 studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout"), sm = "OR")
+
+forest(flare, 
+       xlim = c(0.5, 2), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Δ Flare Category per unit PRS"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+
+
+# Flares (all groups) vs rs2231142 (female)
+f1 <- as.formula(paste("FLARE_CAT", paste(c("rs2231142", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc"), collapse = " + "), sep = " ~ "))
+f2 <- as.formula(paste("FLARE_CAT", paste(c("rs2231142", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10"), collapse = " + "), sep = " ~ "))
+tmp1 <- polr(f1, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Female"))
+tmp2 <- polr(f1, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Female"))
+tmp3 <- polr(f2, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Female"))
+tmp4 <- polr(f2, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Female"))
+flare <- metagen(TE = c(tmp1$coefficients[[1]], 
+                        tmp2$coefficients[[1]], 
+                        tmp3$coefficients[[1]], 
+                        tmp4$coefficients[[1]]), 
+                 seTE = c(summary(tmp1)$coefficients[1, 2], 
+                          summary(tmp2)$coefficients[1, 2], 
+                          summary(tmp3)$coefficients[1, 2], 
+                          summary(tmp4)$coefficients[1, 2]),
+                 byvar = c("Polynesian", "Polynesian", "European", "European"),
+                 print.byvar = TRUE, 
+                 studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout"), sm = "OR")
+
+forest(flare, 
+       #xlim = c(0.5, 2), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Δ Flare Category per rs2231142 allele"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+
+
+# Flares (2+ groups) vs rs28652632 (female)
+f1 <- as.formula(paste("FLARE_CAT", paste(c("rs28652632", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc"), collapse = " + "), sep = " ~ "))
+f2 <- as.formula(paste("FLARE_CAT", paste(c("rs28652632", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10"), collapse = " + "), sep = " ~ "))
+tmp1 <- polr(f1, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
+tmp2 <- polr(f1, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
+tmp3 <- polr(f2, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
+tmp4 <- polr(f2, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
+tmp5 <- polr(f2, Hess = TRUE, data = ardea_lasso_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
+flare <- metagen(TE = c(tmp1$coefficients[[1]], 
+                        tmp2$coefficients[[1]], 
+                        tmp3$coefficients[[1]], 
+                        tmp4$coefficients[[1]], 
+                        tmp5$coefficients[[1]]), 
+                 seTE = c(summary(tmp1)$coefficients[1, 2], 
+                          summary(tmp2)$coefficients[1, 2], 
+                          summary(tmp3)$coefficients[1, 2], 
+                          summary(tmp4)$coefficients[1, 2], 
+                          summary(tmp5)$coefficients[1, 2]),
+                 byvar = c("Polynesian", "Polynesian", "European", "European", "European"),
+                 print.byvar = TRUE, 
+                 studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - LASSO"), sm = "OR")
+
+forest(flare, 
+       #xlim = c(0.5, 2), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Δ Flare Category per rs28652632 allele"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+
+
+# Flares (2+ groups) vs rs1260326 (female)
+
+
+
+
+# Flares (2+ groups) vs rs2276961 (female)
+
+
+
+
+# Flares (2+ groups) vs rs2231142 (female)
+
+```
+
+```{r SeverityResults_Old, message = F, warning = F, cache = T}
 # Plotting main model outcomes
 models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
 
@@ -733,7 +1287,7 @@ ggplot() +
 rm(onset, tophi, flare, models)
 ```
 
-```{r Figure4, message = F, warning = F, cache = T}
+```{r Collider, message = F, warning = F, cache = T}
 # Collider bias models
 collider <- CollidervsPRS %>% 
   filter(Predictor == "PRS") %>% 
@@ -765,7 +1319,7 @@ ggplot(collider, aes(x = OR, y = Outcome, color = Covariates)) +
 rm(collider)
 ```
 
-```{r Figure5, message = F, warning = F, cache = T}
+```{r IndividualVariant, message = F, warning = F, cache = T}
 # Individual variant plot for meta-analysis and pooled analysis of age at onset
 tmp <- paste0(UKBB_Gene_OR$Locus_Name, " (", UKBB_Gene_OR$RSID, ")")
 
@@ -853,52 +1407,7 @@ ggplot(flare, aes(x = OR, y = SNP, color = Type)) +
 rm(onset, tophi, flare, tmp, models)
 ```
 
-```{r SuppTable1, message = F, warning = F, cache = T}
-# Missing percentages for main traits (gout, onset, tophi, flares, age, sex, serum urate) in each cohort
-cohortstring <- c("Ardea - CLEAR/LASSO (ULT)",
-                  "Ardea - CRYSTAL",
-                  "Ardea - LASSO (no ULT)",
-                  "Ardea - LIGHT",
-                  "GlobalGout",
-                  "Aus/NZ European - gout",
-                  "Aus/NZ European - controls",
-                  "UK Biobank  - gout",
-                  "UK Biobank  - controls",
-                  "Pooled gout (excluding UK Biobank)",
-                  "Pooled gout (excluding UK Biobank) - tophus positive",
-                  "Pooled gout (excluding UK Biobank) - >1 flares",
-                  "Pooled gout (excluding UK Biobank) - onset < 40",
-                  "East Polynesian - gout",
-                  "East Polynesian - controls",
-                  "West Polynesian - gout",
-                  "West Polynesian - controls")
-
-data_list <- list(ardea_clear_lasso, ardea_crystal, ardea_lasso_other, ardea_light, eurogout, anz_gout, anz_control, ukbb_gout, ukbb_control, allgout, allgout_tophi, allgout_flare, allgout_onset, eastpoly_gout, eastpoly_control, westpoly_gout, westpoly_control)
-
-missing <- function(x){
-  if(sum(is.na(x)) == length(x)) {return(NA)} else {
-  paste0(sum(is.na(x)), " (", format(round((sum(is.na(x)) / length(x) * 100), digits = 1), nsmall = 1), ")")
-  }
-}
-
-tableS1 <- tibble("Cohort" = cohortstring, 
-                 "Gout" = unlist(lapply(data_list, function(x) missing(x$GOUT))),
-                 "Age at onset" = unlist(lapply(data_list, function(x) missing(x$AGE1ATK))),
-                 "Tophi" = unlist(lapply(data_list, function(x) missing(x$TOPHIGOUT))),
-                 "Flares" = unlist(lapply(data_list, function(x) missing(x$FLAREHIGH))),
-                 "Age at recruitment" = unlist(lapply(data_list, function(x) missing(x$AGECOL))),
-                 "Sex" = unlist(lapply(data_list, function(x) missing(x$SEX))),
-                 "Serum urate" = unlist(lapply(data_list, function(x) missing(x$SURICACID))),
-                 "Allopurinol" = unlist(lapply(data_list, function(x) missing(x$ULT))))
-
-kable_styling(kable(tableS1))
-
-#write_csv(tableS1, file = "Tables/tableS1.csv")
-
-rm(cohortstring, data_list, missing)
-```
-
-```{r SuppTable3, message = F, warning = F, cache = T}
+```{r MainRes, message = F, warning = F, cache = T}
 # Main results (meta + pooled) + duration + SU adjusted models
 models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
 
@@ -915,7 +1424,7 @@ kable(tableS3)
 rm(models)
 ```
 
-```{r SuppTable4, message = F, warning = F, cache = T}
+```{r ColliderRes, message = F, warning = F, cache = T}
 # Extracting model parameters for supp table
 SNPs <- paste0(UKBB_Gene_OR$Locus_Name, " (", UKBB_Gene_OR$RSID, ")")
 
@@ -1035,7 +1544,7 @@ kable(tableS4)
 rm(collider_table, Euro1, Euro1a, SNPs, SNP_column, collider_subset)
 ```
 
-```{r SuppTable5, message = F, warning = F, cache = T}
+```{r IndivVarRes, message = F, warning = F, cache = T}
 # Individual SNP table
 models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
 
@@ -1077,7 +1586,7 @@ kable(tableS5)
 rm(a, seq1, tmp, tmp2, tmp3, models)
 ```
 
-```{r SuppTable6, message = F, warning = F, cache = T}
+```{r LeaveOneOut, message = F, warning = F, cache = T}
 # Leave-one-out table
 models <- rbind(PooledvsPRS, Meta3traitsvsPRS)
 
@@ -1119,7 +1628,7 @@ kable(tableS6)
 rm(a, seq1, tmp, tmp2, tmp3, models)
 ```
 
-```{r SuppTable7, message = F, warning = F, cache = T}
+```{r IndivSNP2, message = F, warning = F, cache = T}
 # Individual SNP European collider analysis
 # Extracting model parameters for supp table
 SNPs <- paste0(UKBB_Gene_OR$Nearest_gene, " (", UKBB_Gene_OR$SNP, ")")
@@ -1240,7 +1749,7 @@ kable(tableS7)
 rm(collider_table, Euro1, Euro1a, SNPs, SNP_column, collider_subset)
 ```
 
-```{r SuppTable8, message = F, warning = F, cache = T}
+```{r Poly1, message = F, warning = F, cache = T}
 # Polynesian demographics etc
 cohortstring <- c("East Polynesian - gout",
                   "East Polynesian - gout - tophus positive",
@@ -1306,7 +1815,7 @@ kable(tableS8)
 rm(data_list, cohortstring, male, report, sumreport, transpose_df)
 ```
 
-```{r SuppTable9, message = F, warning = F, cache = T}
+```{r Poly2, message = F, warning = F, cache = T}
 # Polynesian gout models
 tmp1 <- GoutvsPRS_Poly %>% 
   filter(Cohort == "East Polynesian") %>% 
@@ -1327,7 +1836,7 @@ kable(tableS9)
 rm(tmp1, tmp2)
 ```
 
-```{r SuppTable10, message = F, warning = F, cache = T}
+```{r Poly3, message = F, warning = F, cache = T}
 # Polynesian severity models
 tmp1 <- PooledvsPRS_Poly %>% 
   filter(Cohort == "East Polynesian gout")
@@ -1471,7 +1980,7 @@ kable(tableS10)
 rm(out, tableS10_final, tmp, tmp2, i)
 ```
 
-```{r SuppTable11, message = F, warning = F, cache = T}
+```{r Poly4, message = F, warning = F, cache = T}
 # Polynesian collider models
 # Extracting model parameters for supp table
 SNPs <- paste0(Poly_Gene_OR$Nearest_gene, " (", Poly_Gene_OR$SNP, ")")
@@ -1588,7 +2097,7 @@ kable(tableS11)
 rm(collider_table, Poly1, Poly2, SNPs, SNP_column)
 ```
 
-```{r SuppFigureX1, message = F, warning = F, cache = T}
+```{r Poly5, message = F, warning = F, cache = T}
 # Polynesian gout figure
 tmp <- c("PRS", paste0(Poly_Gene_OR$Nearest_gene, " (", Poly_Gene_OR$SNP, ")"))
 
@@ -1611,7 +2120,7 @@ ggplot(gout, aes(x = OR, y = SNP, color = Cohort)) +
        color = "")
 ```
 
-```{r SuppFigureX2, message = F, warning = F, cache = T}
+```{r Poly6, message = F, warning = F, cache = T}
 # Polynesian severity figure
 # Plotting main model outcomes
 # Onset models
@@ -1689,7 +2198,7 @@ ggplot(flare, aes(x = OR, y = Cohort, color = Covariates)) +
 rm(onset, tophi, flare)
 ```
 
-```{r SuppFigureX3, message = F, warning = F, cache = T}
+```{r Poly7, message = F, warning = F, cache = T}
 # Polynesian collider figure
 # Collider bias models
 collider <- CollidervsPRS_Poly %>% 
@@ -1939,307 +2448,6 @@ ggplot(collider, aes(x = OR, y = Outcome, color = Covariates)) +
        title = "Collider bias sensitivity analysis")
 
 rm(collider)
-```
-
-```{r Genotype_freqs, message = F, warning = F, cache = T}
-SNPlist <- UKBB_Gene_OR$SNP
-
-# NZ Europeans
-test <- anz_gout %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(as.factor)
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "Aus/NZ Europeans")
-
-# UK Biobank
-test <- ukbb_gout %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(as.factor)
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "UK Biobank")
-
-
-# GlobalGout
-test <- eurogout %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(as.factor)
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "GlobalGout")
-
-
-# Ardea - CLEAR/LASSO (ULT)
-test <- ardea_clear_lasso %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(as.factor)
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "Ardea - CLEAR/LASSO (ULT)")
-
-# Ardea - CRYSTAL
-test <- ardea_crystal %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(as.factor)
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "Ardea - CRYSTAL")
-
-# Ardea - LASSO (no ULT)
-test <- ardea_lasso_other %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(as.factor)
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "Ardea - LASSO (no ULT)")
-
-# Ardea- LIGHT
-test <- ardea_light %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(as.factor)
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "Ardea- LIGHT")
-
-
-# Polynesians
-SNPlist <- Poly_Gene_OR$SNP
-
-# East Polynesians
-test <- eastpoly_gout %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(factor, levels = c(0, 1, 2))
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "East Polynesians")
-
-
-# West Polynesians
-test <- westpoly_gout %>% 
-  select(all_of(SNPlist)) %>% 
-  mutate_all(factor, levels = c(0, 1, 2))
-
-tmp <- c()
-for(i in 1:ncol(test)){
-  tmp[i] <- (sum(test[[i]] == 0) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp2 <- c()
-for(i in 1:ncol(test)){
-  tmp2[i] <- (sum(test[[i]] == 1) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp3 <- c()
-for(i in 1:ncol(test)){
-  tmp3[i] <- (sum(test[[i]] == 2) / nrow(test)) %>% sprintf(fmt = "%#.3f")
-}
-
-tmp4 <- c()
-for(i in 1:ncol(test)){
-  tmp4[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-}
-
-kable(tibble("SNP" = SNPlist,
-             "0" = tmp,
-             "1" = tmp2,
-             "2" = tmp3,
-             "EAF" = tmp4),
-      caption = "West Polynesians")
-
-rm(test, tmp, tmp2, tmp3, tmp4, i, SNPlist)
 ```
 
 ```{r TonyPlot, eval = F}

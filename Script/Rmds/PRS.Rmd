@@ -9,32 +9,37 @@ knit: (function(inputFile, encoding) {
 output: 
   html_document:
     code_folding: hide
+      toc: TRUE
 ---
 
 ```{r setup, warning = FALSE, message = FALSE}
 # Libraries
 library(here)
-library(lubridate)
-library(meta)
-library(knitr)
-library(rsq)
-library(car)
 library(vroom)
+library(knitr)
+library(kableExtra)
+library(lubridate)
+library(viridis)
+library(janitor)
+library(sciplot)
+library(meta)
+library(broom)
+library(car)
 library(pastecs)
 library(qqman)
 library(ggrepel)
-library(kableExtra)
-library(janitor)
+library(ez)
 library(MASS)
-library(viridis)
-library(sciplot)
 library(tidyverse)
-# library(viridisLite)
 
+# library(rsq)
+# library(ROCR)
+# library(fitdistrplus)
+
+
+
+# Set theme for ggplot
 theme_set(theme_bw())
-
-# Functions
-#source(here("Script/Functions", ""))
 ```
 
 ```{r child = here("Script/Rmds", "PRS_GWAS.Rmd")}
@@ -42,5 +47,17 @@ theme_set(theme_bw())
 ```
 
 ```{r child = here("Script/Rmds", "PRS_Dataprep.Rmd")}
+
+```
+
+```{r child = here("Script/Rmds", "PRS_DataExploration.Rmd")}
+
+```
+
+```{r child = here("Script/Rmds", "PRS_Models.Rmd")}
+
+```
+
+```{r child = here("Script/Rmds", "PRS_Plots.Rmd")}
 
 ```
