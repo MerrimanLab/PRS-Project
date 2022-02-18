@@ -1,12 +1,14 @@
 ## Data Exploration
 
-The purpose of this document is to explore the data that was generated in the PRS_Dataprep.Rmd file. 
+The purpose of this document is to explore the data that was generated in the PRS_Dataprep.Rmd file.
 
-First, I produced a table of missing data for all of my variables of interest. I decided that, given the relatively low proportions of missing data for our most important variables (after data cleaning), it is okay to just use complete cases only for each model. This will of course reduce power, and may introduce bias which I need to be okay with as a limitation.
+After loading in the data, I first produced a table of missing data for all of my variables of interest. I used this as evidence for filtering individuals. After filtering the data, and removing certain phenotypes that had too much missing data, I then re-observed the missingness and reported the proportion for each variable.
 
-Second, I produced six tables that show a summary of all relevant demographics and statistics in each cohort of interest. The first three tables are for all European cohorts and include the imputed PRS mean +- SD for each (three tables = full cohorts, males only, females only). The second set of three tables are the same as the above but include the Polynesian cohorts and report the directly genotyped PRS instead of the imputed PRS.
+Next, I produced a table that shows the distribution of all variables of interest in all cohorts. I then plotted each of these distributions in all cohorts. Next, I plotted the relationship between several combinations of variables. Finally, I plotted the minor allele frequency of all SNPs in each cohort.
 
-```{r dataprep}
+There is also code for observing the relationship of serum urate measurements over time, though this is not for this project.
+
+```{r dataprep2}
 load(here("Output/UKBB_Gene_OR.RData"))
 load(here("Output/Poly_Gene_OR.RData"))
 
@@ -169,7 +171,7 @@ clean_names <- c("UK&nbsp;Biobank<br/>Gout<br/>Male",
                  "West&nbsp;Polynesian<br/>Control<br/>Female")
 ```
 
-```{r functions}
+```{r functions2}
 # Functions 
 report <- function(x) {
     if(sum(is.na(x)) != length(x)) {
@@ -208,9 +210,9 @@ transpose_df <- function(df) {
 
 missing <- function(x){
   if(sum(is.na(x)) == length(x)) {
-    return("+")
+    return("All")
     } else if(sum(!is.na(x)) == length(x)){
-      return("-")
+      return("None")
       } else {
       paste0(format(sum(is.na(x)), big.mark = ","), " (", format(round((sum(is.na(x)) / length(x) * 100), digits = 1), nsmall = 1), ")")
   }
@@ -249,17 +251,19 @@ table1 <- tibble("Cohort" = cohortstring,
 
 table1 <- transpose_df(table1) %>% 
   column_to_rownames(var = "Cohort") %>% 
-  mutate(across(.cols = 1:ncol(table1), ~ str_replace(string = .x, pattern = " ", replacement = "&nbsp;")))
+  mutate(across(.cols = 1:ncol(table1), ~ str_replace_all(string = .x, pattern = " ", replacement = "&nbsp;")))
 
-row.names(table1) <- str_replace(row.names(table1), " ", "&nbsp;")
+row.names(table1) <- str_replace_all(row.names(table1), " ", "&nbsp;")
 
 table1 %>% 
   kable(col.names = clean_names,
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
-  scroll_box(width = "775px", height = "475px") %>% 
-  footnote("'+' = all missing, '-' = none missing")
+  scroll_box(width = "900px", height = "475px") %>% 
+  footnote("'All' = all missing, 'None' = none missing")
+
+#datatable(table1, extension = "Responsive")
 ```
 
 From this table we can tell the following:
@@ -305,6 +309,8 @@ Therefore, I will take the following actions:
 7. For tophus models, I should do additional analyses adjusting for disease duration
 
 8. Family history of gout could be tested for association with disease severity (also PRS)
+
+<br/>
 
 ```{r MissingPercent2}
 all_pheno_prs2 <- all_pheno_prs %>% 
@@ -424,8 +430,8 @@ table1 %>%
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
-  scroll_box(width = "775px", height = "475px") %>% 
-  footnote("'+' = all missing, '-' = none missing")
+  scroll_box(width = "900px", height = "475px") %>% 
+  footnote("'All' = all missing, 'None' = none missing")
 ```
 
 So now the following is true about the final cohort:
@@ -491,7 +497,7 @@ table1 %>%
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
-  scroll_box(width = "775px", height = "475px") %>% 
+  scroll_box(width = "900px", height = "475px") %>% 
   footnote("Flares reported as median (inter-quartile range). All other numeric variables reported as mean ± sd. All binary variables reported as N (%).")
 ```
 
@@ -541,7 +547,9 @@ I would be inclined to remove any traits that are not well phenotyped across our
 
 <br/>
 
-```{r Distributions}
+### Plotting distribution of each variable {.tabset}
+
+```{r}
 # Plotting distributions of each of these variables in males and females separately, colored by cohort
 all_cohorts <- all_pheno_prs2 %>% 
   mutate(SEX = factor(SEX, levels = c("Male", "Female")),
@@ -588,9 +596,11 @@ all_cohorts <- all_pheno_prs2 %>%
                                     !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Control"), 
                           levels = c("UK Biobank - Gout", "UK Biobank - Control", "Aus/NZ - Gout", "Aus/NZ - Control", "GlobalGout - Gout", "GlobalGout - Control", "Ardea - LASSO", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - CRYSTAL", "Ardea - LIGHT", "East Polynesian - Gout", "East Polynesian - Control", "West Polynesian - Gout", "West Polynesian - Control"))) %>% 
   filter(!is.na(COHORT2))
+```
 
+#### Age at collection
 
-
+```{r}
 # Age at collection
 all_cohorts %>% 
   ggplot(aes(x = AGECOL, y = COHORT2, color = SEX)) +
@@ -602,9 +612,11 @@ all_cohorts %>%
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, 100)) + 
     scale_y_discrete(limits = rev(levels(all_cohorts$COHORT2)))
+```
 
+#### Serum urate
 
-
+```{r}
 # Serum urate
 all_cohorts %>% 
   filter(!is.na(URATE)) %>% 
@@ -617,9 +629,11 @@ all_cohorts %>%
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, max(all_cohorts$URATE, na.rm = T))) + 
     scale_y_discrete(limits = rev(levels(all_cohorts$COHORT2)))
+```
 
+#### Urate-lowering therapy
 
-
+```{r}
 # ULT
 all_cohorts %>% 
   filter(GOUT) %>% 
@@ -644,8 +658,11 @@ all_cohorts %>%
           panel.grid.major.y = element_blank(),
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank())
+```
 
+#### Age at onset
 
+```{r}
 # Age at onset
 all_cohorts %>% 
   filter(GOUT, !is.na(AGE1ATK)) %>% 
@@ -658,9 +675,11 @@ all_cohorts %>%
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, 100)) + 
     scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(AGE1ATK)) %>% mutate(COHORT2 = factor(COHORT2)) %>% pull(COHORT2))))
+```
 
+#### Disease duration
 
-
+```{r}
 # Disease duration
 all_cohorts %>% 
   filter(GOUT, !is.na(DURATION)) %>% 
@@ -673,9 +692,11 @@ all_cohorts %>%
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, max(all_cohorts$DURATION, na.rm = T))) + 
     scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(DURATION)) %>% mutate(COHORT2 = factor(COHORT2)) %>% pull(COHORT2))))
+```
 
+#### Flare frequency
 
-
+```{r}
 # Flare frequency
 all_cohorts %>% 
   filter(GOUT, !is.na(NUMATK)) %>% 
@@ -690,7 +711,11 @@ all_cohorts %>%
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, 52)) + 
     scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(NUMATK)) %>% mutate(COHORT2 = factor(COHORT2)) %>% pull(COHORT2))))
+```
 
+#### Flare frequency (categorical)
+
+```{r}
 all_cohorts %>% 
   filter(GOUT) %>% 
   mutate(FLARE_CAT = factor(case_when(is.na(FLARE_CAT) ~ "No Data",
@@ -717,9 +742,11 @@ all_cohorts %>%
           panel.grid.major.y = element_blank(),
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank())
+```
 
+#### Tophi
 
-
+```{r}
 # Tophi
 all_cohorts %>% 
   filter(GOUT) %>% 
@@ -744,9 +771,11 @@ all_cohorts %>%
           panel.grid.major.y = element_blank(),
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank())
+```
 
+#### Imputed PRS
 
-
+```{r}
 # PRS - imputed
 all_cohorts %>% 
   filter(!str_detect(COHORT2, "Polynesian")) %>% 
@@ -758,9 +787,11 @@ all_cohorts %>%
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank()) + 
     scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(!str_detect(COHORT2, "Polynesian")) %>% mutate(COHORT2 = factor(COHORT2)) %>% pull(COHORT2))))
+```
 
+#### Genotyped PRS
 
-
+```{r}
 # PRS - direct
 all_cohorts %>% 
   ggplot(aes(x = PRS2, y = COHORT2, color = SEX)) +
@@ -773,7 +804,13 @@ all_cohorts %>%
     scale_y_discrete(limits = rev(levels(all_cohorts$COHORT2)))
 ```
 
-```{r Relationships1}
+<br/>
+
+### Plotting relationship between age/sex and each outcome of interest {.tabset}
+
+#### Gout
+
+```{r}
 # Plotting relationship between covariates (age + sex) and each outcome of interest (GOUT, SU, Onset, Duration, Flares, Tophi)
 # Gout
 all_cohorts %>%
@@ -792,9 +829,11 @@ all_cohorts %>%
             panel.grid.major.x = element_blank(),
             panel.grid.minor.x = element_blank(),
             legend.title = element_blank())
+```
 
+#### Serum urate v Age
 
-
+```{r}
 # Serum urate
 all_cohorts %>% 
   filter(!is.na(URATE)) %>% 
@@ -808,7 +847,11 @@ all_cohorts %>%
     labs(x = "Mean Age at Collection (years)", 
          y = "Serum Urate (mg/dL)") +
     theme(legend.title = element_blank())
+```
 
+#### Serum urate v Duration
+
+```{r}
 all_cohorts %>% 
   filter(!is.na(URATE)) %>% 
   mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
@@ -821,9 +864,11 @@ all_cohorts %>%
     labs(x = "Disease Duration (years)", 
          y = "Serum Urate (mg/dL)") +
     theme(legend.title = element_blank())
+```
 
+#### ULT
 
-
+```{r}
 # ULT
 all_cohorts %>% 
   filter(GOUT) %>% 
@@ -840,9 +885,11 @@ all_cohorts %>%
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
           legend.title = element_blank())
+```
 
+#### Onset
 
-
+```{r}
 # Age at onset
 all_cohorts %>% 
   filter(!is.na(AGE1ATK)) %>% 
@@ -851,9 +898,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Age at Collection (years)", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Duration
 
-
+```{r}
 # Disease duration
 all_cohorts %>% 
   filter(GOUT, !is.na(AGE1ATK)) %>% 
@@ -862,9 +911,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Age at Collection (years)", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Flare frequency (all)
 
-
+```{r}
 # Flare frequency
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
@@ -876,7 +927,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Collection (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Flare frequency (> 1)
+
+```{r}
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
@@ -887,9 +942,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Collection (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Tophi
 
-
+```{r}
 # Tophi
 all_cohorts %>% 
   filter(GOUT,
@@ -908,9 +965,14 @@ all_cohorts %>%
           panel.grid.minor.x = element_blank(),
           legend.title = element_blank())
 ```
+
+<br/>
+
+### Plotting relationship between both PRSs and each outcome of interest {.tabset}
+
+#### Gout vs Imputed PRS
     
-```{r Relationships2}
-# Plotting relationship between each PRS and each outcome of interest (GOUT, SU, Onset, Duration, Flares, Tophi)
+```{r}
 # Gout
 all_cohorts %>%
   filter(!is.na(GROUP),
@@ -927,7 +989,11 @@ all_cohorts %>%
             panel.grid.minor.y = element_blank(),
             legend.title = element_blank()) +
     coord_flip()
+```
 
+#### Gout vs Genotyped PRS
+    
+```{r}
 all_cohorts %>%
   filter(!is.na(GROUP)) %>% 
   mutate(GROUP = factor(case_when(str_detect(GROUP, "European") ~ "European",
@@ -944,9 +1010,11 @@ all_cohorts %>%
             panel.grid.major.x = element_blank(),
             panel.grid.minor.x = element_blank(),
             legend.title = element_blank())
+```
 
-
-
+#### Serum urate vs Imputed PRS
+    
+```{r}
 # Serum urate
 all_cohorts %>% 
   filter(!is.na(URATE)) %>% 
@@ -960,7 +1028,11 @@ all_cohorts %>%
     labs(x = "Gout PRS - Imputed", 
          y = "Serum Urate (mg/dL)") +
     theme(legend.title = element_blank())
+```
 
+#### Serum urate vs Genotyped PRS
+    
+```{r}
 all_cohorts %>% 
   filter(!is.na(URATE)) %>% 
   mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
@@ -973,9 +1045,11 @@ all_cohorts %>%
     labs(x = "Gout PRS - Directly Genotyped", 
          y = "Serum Urate (mg/dL)") +
     theme(legend.title = element_blank())
+```
 
-
-
+#### ULT vs Imputed PRS
+    
+```{r}
 # ULT
 all_cohorts %>% 
   filter(GOUT) %>% 
@@ -991,7 +1065,11 @@ all_cohorts %>%
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
           legend.title = element_blank())
+```
 
+#### ULT vs Genotyped PRS
+    
+```{r}
 all_cohorts %>% 
   filter(GOUT) %>% 
   mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
@@ -1007,9 +1085,11 @@ all_cohorts %>%
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
           legend.title = element_blank())
+```
 
-
-
+#### Onset vs Imputed PRS
+    
+```{r}
 # Age at onset
 all_cohorts %>% 
   filter(!is.na(AGE1ATK)) %>% 
@@ -1018,7 +1098,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Gout PRS - Imputed", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Onset vs Genotyped PRS
+    
+```{r}
 all_cohorts %>% 
   filter(!is.na(AGE1ATK)) %>% 
   ggplot(mapping = aes(x = PRS2, y = AGE1ATK, color = COHORT2)) +
@@ -1026,9 +1110,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Gout PRS - Directly Genotyped", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
+```
 
-
-
+#### Duration vs Imputed PRS
+    
+```{r}
 # Disease duration
 all_cohorts %>% 
   filter(!is.na(DURATION)) %>% 
@@ -1037,7 +1123,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Gout PRS - Imputed", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Duration vs Genotyped PRS
+    
+```{r}
 all_cohorts %>% 
   filter(!is.na(DURATION)) %>% 
   ggplot(mapping = aes(x = PRS2, y = DURATION, color = COHORT2)) +
@@ -1045,9 +1135,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Gout PRS - Directly Genotyped", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
+```
 
-
-
+#### Flares (all) vs Imputed PRS
+    
+```{r}
 # Flare frequency
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
@@ -1059,7 +1151,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Gout PRS - Imputed") +
     theme(legend.title = element_blank())
+```
 
+#### Flares (> 1) vs Imputed PRS
+    
+```{r}
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
@@ -1070,7 +1166,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Gout PRS - Imputed") +
     theme(legend.title = element_blank())
+```
 
+#### Flares (all) vs Genotyped PRS
+    
+```{r}
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          !str_detect(COHORT2, "Ardea")) %>% 
@@ -1081,7 +1181,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Gout PRS - Directly Genotyped") +
     theme(legend.title = element_blank())
+```
 
+#### Flares (> 1) vs Genotyped PRS
+    
+```{r}
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
@@ -1092,9 +1196,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Gout PRS - Directly Genotyped") +
     theme(legend.title = element_blank())
+```
 
-
-
+#### Tophi vs Imputed PRS
+    
+```{r}
 # Tophi
 all_cohorts %>% 
   filter(GOUT,
@@ -1111,7 +1217,11 @@ all_cohorts %>%
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
           legend.title = element_blank())
+```
 
+#### Tophi vs Genotyped PRS
+    
+```{r}
 all_cohorts %>% 
   filter(GOUT,
          !str_detect(COHORT2, "CRYSTAL")) %>% 
@@ -1130,7 +1240,13 @@ all_cohorts %>%
           legend.title = element_blank())
 ```
 
-```{r Relationships3}
+<br/>
+
+### Plotting relationship between both PRSs and age/sex {.tabset}
+
+#### Age vs Imputed PRS
+
+```{r}
 # Plotting relationship between each PRS and covariates (age + sex)
 all_cohorts %>% 
   ggplot(mapping = aes(x = AGECOL, y = PRS1, color = GROUP)) +
@@ -1139,7 +1255,11 @@ all_cohorts %>%
     labs(x = "Mean Age at Collection (years)", 
          y = "Gout PRS - Imputed") +
     theme(legend.title = element_blank())
+```
 
+#### Age vs Genotyped PRS
+
+```{r}
 all_cohorts %>% 
   ggplot(mapping = aes(x = AGECOL, y = PRS2, color = GROUP)) +
     geom_smooth(method = "lm", se = F) +
@@ -1149,7 +1269,13 @@ all_cohorts %>%
     theme(legend.title = element_blank())
 ```
 
-```{r Relationships4}
+<br/>
+
+### Plotting relationship between severity traits {.tabset}
+
+#### Onset vs Tophi
+
+```{r}
 # Plotting relationships between severity traits
 all_cohorts %>% 
   filter(!is.na(AGE1ATK),
@@ -1166,7 +1292,11 @@ all_cohorts %>%
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
         legend.title = element_blank())
+```
 
+#### Duration vs Tophi
+
+```{r}
 all_cohorts %>% 
   filter(!is.na(DURATION),
          !str_detect(COHORT2, "CRYSTAL")) %>% 
@@ -1182,7 +1312,11 @@ all_cohorts %>%
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
         legend.title = element_blank())
+```
 
+#### Flares (all) vs Tophi
+
+```{r}
 all_cohorts %>% 
   filter(!is.na(NUMATK),
          !str_detect(COHORT2, "CRYSTAL"),
@@ -1201,7 +1335,11 @@ all_cohorts %>%
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
         legend.title = element_blank())
+```
 
+#### Flares (> 1) vs Tophi
+
+```{r}
 all_cohorts %>% 
   filter(!is.na(NUMATK),
          !str_detect(COHORT2, "CRYSTAL"),
@@ -1220,7 +1358,11 @@ all_cohorts %>%
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
         legend.title = element_blank())
+```
 
+#### Flares (all - cat) vs Tophi
+
+```{r}
 all_cohorts %>% 
   filter(GOUT,
          !str_detect(COHORT2, "CRYSTAL"),
@@ -1253,7 +1395,11 @@ all_cohorts %>%
           panel.grid.major.y = element_blank(),
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank())
+```
 
+#### Flares (> 1 - cat) vs Tophi
+
+```{r}
 all_cohorts %>% 
   filter(GOUT,
          !str_detect(COHORT2, "CRYSTAL"),
@@ -1286,7 +1432,11 @@ all_cohorts %>%
           panel.grid.major.y = element_blank(),
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank())
+```
 
+#### Onset vs Flares (all)
+
+```{r}
 all_cohorts %>% 
   filter(!is.na(AGE1ATK),
          !is.na(NUMATK),
@@ -1297,7 +1447,11 @@ all_cohorts %>%
     labs(x = "Age at Onset (years)", 
          y = "Number of Flares in Last Year") +
     theme(legend.title = element_blank())
+```
 
+#### Onset vs Flares (> 1)
+
+```{r}
 all_cohorts %>% 
   filter(!is.na(AGE1ATK),
          !is.na(NUMATK),
@@ -1308,7 +1462,11 @@ all_cohorts %>%
     labs(x = "Age at Onset (years)", 
          y = "Number of Flares in Last Year") +
     theme(legend.title = element_blank())
+```
 
+#### Duration vs Flares (all)
+
+```{r}
 all_cohorts %>% 
   filter(!is.na(DURATION),
          !is.na(NUMATK),
@@ -1319,7 +1477,11 @@ all_cohorts %>%
     labs(x = "Disease Duration (years)", 
          y = "Number of Flares in Last Year") +
     theme(legend.title = element_blank())
+```
 
+#### Duration vs Flares (> 1)
+
+```{r}
 all_cohorts %>% 
   filter(!is.na(DURATION),
          !is.na(NUMATK),
@@ -1330,7 +1492,11 @@ all_cohorts %>%
     labs(x = "Disease Duration (years)", 
          y = "Number of Flares in Last Year") +
     theme(legend.title = element_blank())
+```
 
+#### Onset vs Flares (all - cat)
+
+```{r}
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          !str_detect(COHORT2, "Ardea")) %>% 
@@ -1341,7 +1507,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Onset vs Flares (> 1 - cat)
+
+```{r}
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
@@ -1352,7 +1522,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Duration vs Flares (all - cat)
+
+```{r}
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          !str_detect(COHORT2, "Ardea")) %>% 
@@ -1363,7 +1537,11 @@ all_cohorts %>%
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
+```
 
+#### Duration vs Flares (> 1 - cat)
+
+```{r}
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
@@ -1375,6 +1553,10 @@ all_cohorts %>%
     labs(x = "Number of Flares in Last Year (categorical)", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
 ```
+
+<br/>
+
+### Table of MAF for each SNP in each cohort
 
 ```{r MAF}
 # Making a table with SNPs as rows and columns representing MAF for each cohort for that SNP
@@ -1410,7 +1592,7 @@ freq_table %>%
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
-  scroll_box(width = "775px", height = "475px")
+  scroll_box(width = "900px", height = "475px")
 
 
 
@@ -1431,202 +1613,7 @@ freq_table %>%
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
-  scroll_box(width = "775px", height = "475px")
+  scroll_box(width = "900px", height = "475px")
 
 # rs35332062 is monomorphic in females in western polynesians so it should be removed from the individual SNP analysis, though it can be left in the PRS
 ```
-
-```{r SUoverTime, eval = F, include = F}
-# Looking at variability of SU over time (side project, leave for now) also check how variability of urate compares to variability of other traits
-  ironwood_pheno2 <- read_delim(here("Data/Phenotypes/ArdeaPheno.txt"), delim = "\t") %>% 
-    filter(SUBJID %in% tmp$Pheno.SampleID) %>% 
-    select(SUBJID, AGE, BRTHDTC, BLWEIGHT, BLHEIGHT, BLBMI, TRT01AN, CONSDT, TRTSDT, ANGINA:HYPERTRIGLY, MI, STROKE, AGFIDDT:GFDUR, CRITBFL, PHNM8FL, ULTALLO:ULTOTH, PLACTOTSTDT:PLACTOTENDT, THIALKFL:PROPHTYPN, TOPHIFN:BLAREA, GFNUM:GFNUMGR, DATESCREENING:EGFRSCREENING, CHOLSCREENING, TRIGSCREENING, URATESCREENING, DATENEG7, URATENEG7, EGFRNEG7, DATEBASELINE, URATEBASELINE, EGFRBASELINE, DATEMONTH1, URATEMONTH1, DATEMONTH2, URATEMONTH2, DATEMONTH3, URATEMONTH3, DATEMONTH4, URATEMONTH4, DATEMONTH5, URATEMONTH5, DATEMONTH6, URATEMONTH6, DATEMONTH8, URATEMONTH8, DATEMONTH10, URATEMONTH10, DATEMONTH12, URATEMONTH12, DATEEARLYTERM, URATEEARLYTERM, DATEFOLLOWUP, URATEFOLLOWUP, CURSMOKE:ALCOHOL, TOPHIGOUT:GOUTNOTES) %>% 
-    left_join(tmp, by = c("SUBJID" = "Pheno.SampleID")) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(ANGINA:STROKE, CRITBFL:ULTOTH, THIALKFL:PROPHYFL, TOPHIFN, CURSMOKE:ALCOHOL), 
-                  logicfactor2),
-           TRT01AN = factor(TRT01AN, 
-                            levels = 0:5, 
-                            labels = c("Screen Failure", "Group A (Placebo)", "Group B (Lesinurad 200 mg)", "Group C (Lesinurad 400 mg)", "Not Assigned", "Not Treated"))) %>%
-    rename(IID = SUBJID,
-           GOUT = Pheno.GoutSummary,
-           AGECOL = AGE) %>%
-    mutate(SEX = Geno.GeneticSex,
-           AGE1ATK = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), AGFIDDT)) / as.duration(years(1)), 
-                           digits = 0),
-           DURATION = AGECOL - AGE1ATK + 1,
-           TOPHIGOUT = TOPHIFN,
-           NUMATK = GFNUM,
-           URATE = rowMeans(across(c(URATESCREENING, URATENEG7, URATEBASELINE)), na.rm = T),
-           ULT = ULTALLO | ULTPROB | ULTFEBU | ULTOTH,
-           PROPHY = PROPHYFL,
-           BMI = BLBMI,
-           HEART = HEARTFAILURE | MI | ANGINA,
-           KIDNEY = case_when(EGFRSCREENING < 60 ~ TRUE, 
-                              EGFRSCREENING >= 60 ~ FALSE),
-           LIPIDS = HYPERCHOLESTEROL | HYPERTRIGLY,
-           TOTALALC = NA,
-           SUGDRINK = NA,
-           FAMGOUT = NA,
-           RELATIVEGOUT = NA,
-           RELATIVEGOUTNUM = NA)
-  
-  test <- ironwood_pheno2 %>%
-    select(IID, BRTHDTC, starts_with("DATE"), starts_with("URATE"), PLACTOTSTDT, PLACTOTENDT, TRT01AN, Pheno.Country, -URATE, Pheno.Study, SEX) %>%
-    mutate(AGESCREENING = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATESCREENING)) / as.duration(years(1)), 
-                                digits = 1),
-           AGENEG7 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATENEG7)) / as.duration(years(1)), 
-                           digits = 1),
-           AGEBASELINE = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEBASELINE)) / as.duration(years(1)), 
-                               digits = 1),
-           AGEMONTH1 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH1)) / as.duration(years(1)), 
-                             digits = 1),
-           AGEMONTH2 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH2)) / as.duration(years(1)), 
-                             digits = 1),
-           AGEMONTH3 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH3)) / as.duration(years(1)), 
-                             digits = 1),
-           AGEMONTH4 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH4)) / as.duration(years(1)),
-                             digits = 1),
-           AGEMONTH5 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH5)) / as.duration(years(1)), 
-                             digits = 1),
-           AGEMONTH6 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH6)) / as.duration(years(1)), 
-                             digits = 1),
-           AGEMONTH8 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH8)) / as.duration(years(1)), 
-                             digits = 1),
-           AGEMONTH10 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH10)) / as.duration(years(1)), 
-                              digits = 1),
-           AGEMONTH12 = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEMONTH12)) / as.duration(years(1)), 
-                              digits = 1),
-           AGEEARLYTERM = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEEARLYTERM)) / as.duration(years(1)), 
-                                digits = 1),
-           AGEFOLLOWUP = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), DATEFOLLOWUP)) / as.duration(years(1)), 
-                               digits = 1),
-           DAYSCREENING = DATESCREENING - DATESCREENING,
-           DAYNEG7 = DATENEG7 - DATESCREENING,
-           DAYBASELINE = DATEBASELINE - DATESCREENING,
-           DAYMONTH1 = DATEMONTH1 - DATESCREENING,
-           DAYMONTH2 = DATEMONTH2 - DATESCREENING,
-           DAYMONTH3 = DATEMONTH3 - DATESCREENING,
-           DAYMONTH4 = DATEMONTH4 - DATESCREENING,
-           DAYMONTH5 = DATEMONTH5 - DATESCREENING,
-           DAYMONTH6 = DATEMONTH6 - DATESCREENING,
-           DAYMONTH8 = DATEMONTH8 - DATESCREENING,
-           DAYMONTH10 = DATEMONTH10 - DATESCREENING,
-           DAYMONTH12 = DATEMONTH12 - DATESCREENING,
-           DAYEARLYTERM = DATEEARLYTERM - DATESCREENING,
-           DAYFOLLOWUP = DATEFOLLOWUP - DATESCREENING)
-
-  test2 <- test %>%
-    select(-starts_with("AGE"), -starts_with("DATE"), -starts_with("DAY")) %>%
-    pivot_longer(cols = URATESCREENING:URATEFOLLOWUP, names_to = "name", values_to = "URATE") %>%
-    mutate(name = str_remove(name, "URATE"))
-
-  test3 <- test %>%
-    select(-starts_with("URATE"), -starts_with("DATE"), -starts_with("DAY")) %>%
-    pivot_longer(cols = AGESCREENING:AGEFOLLOWUP, names_to = "name", values_to = "AGE") %>%
-    mutate(name = str_remove(name, "AGE"))
-
-  test4 <- test %>%
-    select(-starts_with("URATE"), -starts_with("AGE"), -starts_with("DAY")) %>%
-    pivot_longer(cols = DATESCREENING:DATEFOLLOWUP, names_to = "name", values_to = "DATE") %>%
-    mutate(name = str_remove(name, "DATE"))
-
-  test5 <- test %>%
-    select(-starts_with("URATE"), -starts_with("AGE"), -starts_with("DATE")) %>%
-    pivot_longer(cols = DAYSCREENING:DAYFOLLOWUP, names_to = "name", values_to = "DAY") %>%
-    mutate(name = str_remove(name, "DAY"))
-
-  test_out <- test2 %>%
-    left_join(test3) %>%
-    left_join(test4) %>%
-    left_join(test5) %>%
-    mutate(DAYOFWEEK = wday(DATE, label = TRUE),
-           MONTH = month(DATE, label = TRUE),
-           DAY = as.numeric(DAY)) %>% 
-    filter(TRT01AN != "Not Treated")
-  
-  ggplot(test_out, aes(x = DAY, y = URATE, group = IID, color = TRT01AN, linetype = SEX)) +
-    geom_line(alpha = 0.5) +
-    geom_vline(aes(xintercept = mean(test_out %>% filter(name == "BASELINE") %>% pull(DAY), na.rm = T)), color = "black") +
-    facet_wrap(~ Pheno.Study * TRT01AN, ncol = 3) +
-    labs(x = "Days Since Screening", y = "Serum Urate (mg/dL)")
-
-  # ggplot(test_out, aes(x = DATE, y = URATE, group = IID, color = TRT01AN)) +
-  #   geom_line(alpha = 0.5, show.legend = F) +
-  #   facet_wrap(~ Pheno.Study * TRT01AN, ncol = 3) +
-  #   labs(x = "Date", y = "Serum Urate (mg/dL)")
-
-  ggplot(test_out %>% filter(!is.na(DAYOFWEEK)), aes(x = DAYOFWEEK, y = URATE, fill = DAYOFWEEK)) +
-    geom_bar(stat = "summary", fun = "mean", show.legend = F) +
-    geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.3) +
-    facet_wrap(~ Pheno.Study * TRT01AN, ncol = 3) +
-    labs(x = "Day of Week", y = "Serum Urate (mg/dL)")
-
-  ggplot(test_out %>% filter(!is.na(MONTH)), aes(x = MONTH, y = URATE, fill = MONTH)) +
-    geom_bar(stat = "summary", fun = "mean", show.legend = F) +
-    geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.3) + 
-    facet_wrap(~ Pheno.Country) +
-    labs(x = "Month", y = "Serum Urate (mg/dL)")
-
-  ggplot(test_out %>% filter(!is.na(MONTH), Pheno.Study == "Ardea: LIGHT", TRT01AN == "Group A (Placebo)", Pheno.Country == "United States"), aes(x = MONTH, y = URATE, fill = MONTH)) +
-    geom_bar(stat = "summary", fun = "mean", show.legend = F) +
-    geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.3) +
-    labs(x = "Month", y = "Serum Urate (mg/dL)")
-  
-  
-
-  test_out_summary <- test_out %>%
-    group_by(IID) %>%
-    summarize(sd = sd(URATE, na.rm = T),
-              mean = mean(URATE, na.rm = T),
-              mean_age = mean(AGE, na.rm = T),
-              cv = sd / mean * 100) %>% 
-    left_join(ironwood_pheno2, by = "IID")
-
-  ggplot(test_out_summary, aes(x = mean, y = ..density..)) +
-    geom_histogram(fill = "gray", color = "black") +
-    facet_wrap(~ Pheno.Study * TRT01AN, ncol = 3) +
-    labs(x = "Mean Serum Urate (mg/dL)")
-
-  ggplot(test_out_summary, aes(x = sd, y = ..density..)) +
-    geom_histogram(fill = "gray", color = "black") +
-    facet_wrap(~ Pheno.Study * TRT01AN, ncol = 3) +
-    labs(x = "SD of Serum Urate (mg/dL)")
-
-  ggplot(test_out_summary, aes(x = cv, y = ..density..)) +
-    geom_histogram(fill = "gray", color = "black") +
-    facet_wrap(~ Pheno.Study * TRT01AN, ncol = 3) +
-    labs(x = "Coef Var. Serum Urate (mg/dL)")
-
-  load(here("Output/clear1_euro_pheno_prs_poly.RData"))
-  load(here("Output/clear2_euro_pheno_prs_poly.RData"))
-  load(here("Output/crystal_euro_pheno_prs_poly.RData"))
-  load(here("Output/light_euro_pheno_prs_poly.RData"))
-
-  all <- rbind(clear1_euro_pheno_prs_poly, clear2_euro_pheno_prs_poly, crystal_euro_pheno_prs_poly, light_euro_pheno_prs_poly) %>%
-    select(IID, PRS, NUMATK)
-  
-  rm(clear1_euro_pheno_prs_poly, clear2_euro_pheno_prs_poly, crystal_euro_pheno_prs_poly, light_euro_pheno_prs_poly)
-
-  all2 <- test_out_summary %>%
-    left_join(all, by = "IID")
-
-  ggplot(all2, aes(x = PRS, y = cv, color = TRT01AN)) +
-    geom_point() +
-    facet_wrap(~ Pheno.Study * TRT01AN, ncol = 3)
-
-  ggplot(all2 %>% filter(Pheno.Study == "Ardea: LIGHT", TRT01AN == "Group A (Placebo)"), aes(x = PRS, y = sd)) +
-    geom_point() +
-    geom_smooth(method = "lm", se = FALSE) +
-    labs(y = "SD Serum Urate (mg/dL)", x = "Gout Polygenic Risk Score")
-
-  summary(lm(sd ~ PRS, data = all2 %>% filter(Pheno.Study == "Ardea: LIGHT", TRT01AN == "Group A (Placebo)")))
-  
-  ggplot(all2 %>% filter(Pheno.Study == "Ardea: LIGHT", TRT01AN == "Group A (Placebo)"), aes(x = PRS, y = cv)) +
-    geom_point() +
-    geom_smooth(method = "lm", se = FALSE) +
-    labs(y = "Coef Var. Serum Urate (mg/dL)", x = "Gout Polygenic Risk Score")
-
-  summary(lm(cv ~ PRS, data = all2 %>% filter(Pheno.Study == "Ardea: LIGHT", TRT01AN == "Group A (Placebo)")))
-```
-

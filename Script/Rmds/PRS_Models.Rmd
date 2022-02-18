@@ -1,8 +1,8 @@
 # Running all models of interest
 
-The purpose of this document is to run all models of interest for assessing the relationship between gout genetic risk and severity of gout
+The purpose of this document is to run all models of interest for assessing the relationship between gout genetic risk and severity of gout. This includes modeling gout vs both PRS's, and modeling age at onset, tophi, and flare frequency vs both PRS's. For now, I have decided to not run flare frequency models and to just display the plots while discussing how complex the flare phenotype is.
 
-```{r dataprep, message = FALSE, warning = FALSE, cache = TRUE}
+```{r dataprep3}
 # Datasets
 load(here("Output/all_pheno_prs.RData"))
 
@@ -153,963 +153,50 @@ load(here("Output/UKBB_Gene_OR.RData"))
 load(here("Output/Poly_Gene_OR.RData"))
 ```
 
-```{r functions, message = FALSE, warning = FALSE, cache = TRUE}
-# Functions
-# We need a function for each type of model:
-
-onset_meta_euro <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("AGE1ATK", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- lm(f, data = anz_gout %>% filter(SEX == "Male"))
-    tmp2 <- lm(f, data = eurogout %>% filter(SEX == "Male"))
-    tmp3 <- lm(f, data = ardea_clear1 %>% filter(SEX == "Male"))
-    tmp4 <- lm(f, data = ardea_clear2 %>% filter(SEX == "Male"))
-    tmp5 <- lm(f, data = ardea_lasso %>% filter(SEX == "Male"))
-    tmp6 <- lm(f, data = ardea_crystal %>% filter(SEX == "Male"))
-    tmp7 <- lm(f, data = ardea_light %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]], 
-                                                 tmp4$coefficients[[2]], 
-                                                 tmp5$coefficients[[2]], 
-                                                 tmp6$coefficients[[2]], 
-                                                 tmp7$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2], 
-                                                   summary(tmp4)$coefficients[2, 2], 
-                                                   summary(tmp5)$coefficients[2, 2], 
-                                                   summary(tmp6)$coefficients[2, 2], 
-                                                   summary(tmp7)$coefficients[2, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - CRYSTAL", "Ardea - LIGHT"))))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("AGE1ATK", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- lm(f, data = anz_gout %>% filter(SEX == "Female"))
-    tmp2 <- lm(f, data = eurogout %>% filter(SEX == "Female"))
-    tmp3 <- lm(f, data = ardea_lasso %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - LASSO"))))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
+```{r functions}
+OR <- function(x, Predictor) {
+  sprintf(exp(coef(x))[[Predictor]], fmt = "%#.4f")
 }
 
-
-
-onset_meta_direct_euro <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout_poly, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("AGE1ATK", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- lm(f, data = anz_gout_poly %>% filter(SEX == "Male"))
-    tmp2 <- lm(f, data = eurogout_poly %>% filter(SEX == "Male"))
-    tmp3 <- lm(f, data = ardea_clear1_poly %>% filter(SEX == "Male"))
-    tmp4 <- lm(f, data = ardea_clear2_poly %>% filter(SEX == "Male"))
-    tmp5 <- lm(f, data = ardea_lasso_poly %>% filter(SEX == "Male"))
-    tmp6 <- lm(f, data = ardea_crystal_poly %>% filter(SEX == "Male"))
-    tmp7 <- lm(f, data = ardea_light_poly %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]], 
-                                                 tmp4$coefficients[[2]], 
-                                                 tmp5$coefficients[[2]], 
-                                                 tmp6$coefficients[[2]], 
-                                                 tmp7$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2], 
-                                                   summary(tmp4)$coefficients[2, 2], 
-                                                   summary(tmp5)$coefficients[2, 2], 
-                                                   summary(tmp6)$coefficients[2, 2], 
-                                                   summary(tmp7)$coefficients[2, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - CRYSTAL", "Ardea - LIGHT"))))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("AGE1ATK", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- lm(f, data = anz_gout_poly %>% filter(SEX == "Female"))
-    tmp2 <- lm(f, data = eurogout_poly %>% filter(SEX == "Female"))
-    tmp3 <- lm(f, data = ardea_lasso_poly %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - LASSO"))))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
+LCL_OR <- function(x, Predictor) {
+  sprintf(exp(confint.default(x))[Predictor, 1], fmt = "%#.4f")
 }
 
-
-
-onset_meta_direct_poly <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(eastpoly_gout, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("AGE1ATK", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- lm(f, data = eastpoly_gout %>% filter(SEX == "Male"))
-    tmp2 <- lm(f, data = westpoly_gout %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian"))))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("AGE1ATK", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- lm(f, data = eastpoly_gout %>% filter(SEX == "Female"))
-    tmp2 <- lm(f, data = westpoly_gout %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian"))))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
+UCL_OR <- function(x, Predictor) {
+  sprintf(exp(confint.default(x))[Predictor, 2], fmt = "%#.4f")
 }
 
-
-
-onset_meta_direct_both <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout_poly, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates1 <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc")
-    covariates2 <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  } else{
-    covariates1 <- covariates
-    covariates2 <- covariates
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables1 <- c(prsnames[i], covariates1)
-    f1 <- as.formula(paste("AGE1ATK", paste(variables1, collapse = " + "), sep = " ~ "))
-    variables2 <- c(prsnames[i], covariates2)
-    f2 <- as.formula(paste("AGE1ATK", paste(variables2, collapse = " + "), sep = " ~ "))
-    tmp1 <- lm(f1, data = eastpoly_gout %>% filter(SEX == "Male"))
-    tmp2 <- lm(f1, data = westpoly_gout %>% filter(SEX == "Male"))
-    tmp3 <- lm(f2, data = anz_gout_poly %>% filter(SEX == "Male"))
-    tmp4 <- lm(f2, data = eurogout_poly %>% filter(SEX == "Male"))
-    tmp5 <- lm(f2, data = ardea_clear1_poly %>% filter(SEX == "Male"))
-    tmp6 <- lm(f2, data = ardea_clear2_poly %>% filter(SEX == "Male"))
-    tmp7 <- lm(f2, data = ardea_lasso_poly %>% filter(SEX == "Male"))
-    tmp8 <- lm(f2, data = ardea_crystal_poly %>% filter(SEX == "Male"))
-    tmp9 <- lm(f2, data = ardea_light_poly %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]], 
-                                                 tmp4$coefficients[[2]], 
-                                                 tmp5$coefficients[[2]], 
-                                                 tmp6$coefficients[[2]], 
-                                                 tmp7$coefficients[[2]], 
-                                                 tmp8$coefficients[[2]], 
-                                                 tmp9$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2], 
-                                                   summary(tmp4)$coefficients[2, 2], 
-                                                   summary(tmp5)$coefficients[2, 2], 
-                                                   summary(tmp6)$coefficients[2, 2], 
-                                                   summary(tmp7)$coefficients[2, 2], 
-                                                   summary(tmp8)$coefficients[2, 2], 
-                                                   summary(tmp9)$coefficients[2, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - CRYSTAL", "Ardea - LIGHT"))))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables1 <- c(prsnames[i], covariates1)
-    f1 <- as.formula(paste("AGE1ATK", paste(variables1, collapse = " + "), sep = " ~ "))
-    variables2 <- c(prsnames[i], covariates2)
-    f2 <- as.formula(paste("AGE1ATK", paste(variables2, collapse = " + "), sep = " ~ "))
-    tmp1 <- lm(f1, data = eastpoly_gout %>% filter(SEX == "Female"))
-    tmp2 <- lm(f1, data = westpoly_gout %>% filter(SEX == "Female"))
-    tmp3 <- lm(f2, data = anz_gout_poly %>% filter(SEX == "Female"))
-    tmp4 <- lm(f2, data = eurogout_poly %>% filter(SEX == "Female"))
-    tmp5 <- lm(f2, data = ardea_lasso_poly %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]], 
-                                                 tmp4$coefficients[[2]], 
-                                                 tmp5$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2], 
-                                                   summary(tmp4)$coefficients[2, 2], 
-                                                   summary(tmp5)$coefficients[2, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - LASSO"))))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
+Pval <- function(x, Predictor) {
+  signif(summary(x)$coefficients[Predictor, 4], 3)
 }
 
-
-
-tophi_meta_euro <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("TOPHIGOUT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- glm(f, family = binomial, data = anz_gout %>% filter(SEX == "Male"))
-    tmp2 <- glm(f, family = binomial, data = eurogout %>% filter(SEX == "Male"))
-    tmp3 <- glm(f, family = binomial, data = ardea_clear1 %>% filter(SEX == "Male"))
-    tmp4 <- glm(f, family = binomial, data = ardea_clear2 %>% filter(SEX == "Male"))
-    tmp5 <- glm(f, family = binomial, data = ardea_lasso %>% filter(SEX == "Male"))
-    tmp6 <- glm(f, family = binomial, data = ardea_light %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]], 
-                                                 tmp4$coefficients[[2]], 
-                                                 tmp5$coefficients[[2]], 
-                                                 tmp6$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2], 
-                                                   summary(tmp4)$coefficients[2, 2], 
-                                                   summary(tmp5)$coefficients[2, 2], 
-                                                   summary(tmp6)$coefficients[2, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - LIGHT"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("TOPHIGOUT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- glm(f, family = binomial, data = anz_gout %>% filter(SEX == "Female"))
-    tmp2 <- glm(f, family = binomial, data = eurogout %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
+Beta <- function(x, Predictor) {
+  sprintf(coef(x)[[Predictor]], fmt = "%#.4f")
 }
 
-
-
-tophi_meta_direct_euro <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout_poly, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("TOPHIGOUT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- glm(f, family = binomial, data = anz_gout_poly %>% filter(SEX == "Male"))
-    tmp2 <- glm(f, family = binomial, data = eurogout_poly %>% filter(SEX == "Male"))
-    tmp3 <- glm(f, family = binomial, data = ardea_clear1_poly %>% filter(SEX == "Male"))
-    tmp4 <- glm(f, family = binomial, data = ardea_clear2_poly %>% filter(SEX == "Male"))
-    tmp5 <- glm(f, family = binomial, data = ardea_lasso_poly %>% filter(SEX == "Male"))
-    tmp6 <- glm(f, family = binomial, data = ardea_light_poly %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]], 
-                                                 tmp4$coefficients[[2]], 
-                                                 tmp5$coefficients[[2]], 
-                                                 tmp6$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2], 
-                                                   summary(tmp4)$coefficients[2, 2], 
-                                                   summary(tmp5)$coefficients[2, 2], 
-                                                   summary(tmp6)$coefficients[2, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - LIGHT"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("TOPHIGOUT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- glm(f, family = binomial, data = anz_gout_poly %>% filter(SEX == "Female"))
-    tmp2 <- glm(f, family = binomial, data = eurogout_poly %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
+LCL <- function(x, Predictor) {
+  sprintf(confint.default(x)[Predictor, 1], fmt = "%#.4f")
 }
 
-
-
-tophi_meta_direct_poly <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(eastpoly_gout, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("TOPHIGOUT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- glm(f, family = binomial, data = eastpoly_gout %>% filter(SEX == "Male"))
-    tmp2 <- glm(f, family = binomial, data = westpoly_gout %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("TOPHIGOUT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- glm(f, family = binomial, data = eastpoly_gout %>% filter(SEX == "Female"))
-    tmp2 <- glm(f, family = binomial, data = westpoly_gout %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-tophi_meta_direct_both <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout_poly, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates1 <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc")
-    covariates2 <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  } else{
-    covariates1 <- covariates
-    covariates2 <- covariates
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables1 <- c(prsnames[i], covariates1)
-    f1 <- as.formula(paste("TOPHIGOUT", paste(variables1, collapse = " + "), sep = " ~ "))
-    variables2 <- c(prsnames[i], covariates2)
-    f2 <- as.formula(paste("TOPHIGOUT", paste(variables2, collapse = " + "), sep = " ~ "))
-    tmp1 <- glm(f1, family = binomial, data = eastpoly_gout %>% filter(SEX == "Male"))
-    tmp2 <- glm(f1, family = binomial, data = westpoly_gout %>% filter(SEX == "Male"))
-    tmp3 <- glm(f2, family = binomial, data = anz_gout_poly %>% filter(SEX == "Male"))
-    tmp4 <- glm(f2, family = binomial, data = eurogout_poly %>% filter(SEX == "Male"))
-    tmp5 <- glm(f2, family = binomial, data = ardea_clear1_poly %>% filter(SEX == "Male"))
-    tmp6 <- glm(f2, family = binomial, data = ardea_clear2_poly %>% filter(SEX == "Male"))
-    tmp7 <- glm(f2, family = binomial, data = ardea_lasso_poly %>% filter(SEX == "Male"))
-    tmp8 <- glm(f2, family = binomial, data = ardea_light_poly %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]], 
-                                                 tmp4$coefficients[[2]], 
-                                                 tmp5$coefficients[[2]], 
-                                                 tmp6$coefficients[[2]], 
-                                                 tmp7$coefficients[[2]], 
-                                                 tmp8$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2], 
-                                                   summary(tmp4)$coefficients[2, 2], 
-                                                   summary(tmp5)$coefficients[2, 2], 
-                                                   summary(tmp6)$coefficients[2, 2], 
-                                                   summary(tmp7)$coefficients[2, 2], 
-                                                   summary(tmp8)$coefficients[2, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - LIGHT"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables1 <- c(prsnames[i], covariates1)
-    f1 <- as.formula(paste("TOPHIGOUT", paste(variables1, collapse = " + "), sep = " ~ "))
-    variables2 <- c(prsnames[i], covariates2)
-    f2 <- as.formula(paste("TOPHIGOUT", paste(variables2, collapse = " + "), sep = " ~ "))
-    tmp1 <- glm(f1, family = binomial, data = eastpoly_gout %>% filter(SEX == "Female"))
-    tmp2 <- glm(f1, family = binomial, data = westpoly_gout %>% filter(SEX == "Female"))
-    tmp3 <- glm(f2, family = binomial, data = anz_gout_poly %>% filter(SEX == "Female"))
-    tmp4 <- glm(f2, family = binomial, data = eurogout_poly %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[2]], 
-                                                 tmp2$coefficients[[2]], 
-                                                 tmp3$coefficients[[2]], 
-                                                 tmp4$coefficients[[2]]), 
-                                          seTE = c(summary(tmp1)$coefficients[2, 2], 
-                                                   summary(tmp2)$coefficients[2, 2], 
-                                                   summary(tmp3)$coefficients[2, 2], 
-                                                   summary(tmp4)$coefficients[2, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-flare_meta_euro1 <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = anz_gout %>% filter(SEX == "Male"))
-    tmp2 <- polr(f, Hess = TRUE, data = eurogout %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = anz_gout %>% filter(SEX == "Female"))
-    tmp2 <- polr(f, Hess = TRUE, data = eurogout %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-flare_meta_direct_euro1 <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout_poly, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Male"))
-    tmp2 <- polr(f, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Female"))
-    tmp2 <- polr(f, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-flare_meta_direct_poly1 <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(eastpoly_gout, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Male"))
-    tmp2 <- polr(f, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Female"))
-    tmp2 <- polr(f, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-flare_meta_direct_both1 <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout_poly, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates1 <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc")
-    covariates2 <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  } else{
-    covariates1 <- covariates
-    covariates2 <- covariates
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables1 <- c(prsnames[i], covariates1)
-    f1 <- as.formula(paste("FLARE_CAT", paste(variables1, collapse = " + "), sep = " ~ "))
-    variables2 <- c(prsnames[i], covariates2)
-    f2 <- as.formula(paste("FLARE_CAT", paste(variables2, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f1, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Male"))
-    tmp2 <- polr(f1, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Male"))
-    tmp3 <- polr(f2, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Male"))
-    tmp4 <- polr(f2, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Male"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]], 
-                                                 tmp3$coefficients[[1]], 
-                                                 tmp4$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2], 
-                                                   summary(tmp3)$coefficients[1, 2], 
-                                                   summary(tmp4)$coefficients[1, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables1 <- c(prsnames[i], covariates1)
-    f1 <- as.formula(paste("FLARE_CAT", paste(variables1, collapse = " + "), sep = " ~ "))
-    variables2 <- c(prsnames[i], covariates2)
-    f2 <- as.formula(paste("FLARE_CAT", paste(variables2, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f1, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Female"))
-    tmp2 <- polr(f1, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Female"))
-    tmp3 <- polr(f2, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Female"))
-    tmp4 <- polr(f2, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Female"))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]], 
-                                                 tmp3$coefficients[[1]], 
-                                                 tmp4$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2], 
-                                                   summary(tmp3)$coefficients[1, 2], 
-                                                   summary(tmp4)$coefficients[1, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-flare_meta_euro2 <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = anz_gout %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp2 <- polr(f, Hess = TRUE, data = eurogout %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp3 <- polr(f, Hess = TRUE, data = ardea_clear1 %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp4 <- polr(f, Hess = TRUE, data = ardea_clear2 %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp5 <- polr(f, Hess = TRUE, data = ardea_lasso %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp6 <- polr(f, Hess = TRUE, data = ardea_light %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp7 <- polr(f, Hess = TRUE, data = ardea_crystal %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]], 
-                                                 tmp3$coefficients[[1]], 
-                                                 tmp4$coefficients[[1]], 
-                                                 tmp5$coefficients[[1]], 
-                                                 tmp6$coefficients[[1]], 
-                                                 tmp7$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2], 
-                                                   summary(tmp3)$coefficients[1, 2], 
-                                                   summary(tmp4)$coefficients[1, 2], 
-                                                   summary(tmp5)$coefficients[1, 2], 
-                                                   summary(tmp6)$coefficients[1, 2], 
-                                                   summary(tmp7)$coefficients[1, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - LIGHT", "Ardea - CRYSTAL"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = anz_gout %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp2 <- polr(f, Hess = TRUE, data = eurogout %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp3 <- polr(f, Hess = TRUE, data = ardea_lasso %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]], 
-                                                 tmp3$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2], 
-                                                   summary(tmp3)$coefficients[1, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - LASSO"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-flare_meta_direct_euro2 <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout_poly, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp2 <- polr(f, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp3 <- polr(f, Hess = TRUE, data = ardea_clear1_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp4 <- polr(f, Hess = TRUE, data = ardea_clear2_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp5 <- polr(f, Hess = TRUE, data = ardea_lasso_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp6 <- polr(f, Hess = TRUE, data = ardea_light_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp7 <- polr(f, Hess = TRUE, data = ardea_crystal_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]], 
-                                                 tmp3$coefficients[[1]], 
-                                                 tmp4$coefficients[[1]], 
-                                                 tmp5$coefficients[[1]], 
-                                                 tmp6$coefficients[[1]], 
-                                                 tmp7$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2], 
-                                                   summary(tmp3)$coefficients[1, 2], 
-                                                   summary(tmp4)$coefficients[1, 2], 
-                                                   summary(tmp5)$coefficients[1, 2], 
-                                                   summary(tmp6)$coefficients[1, 2], 
-                                                   summary(tmp7)$coefficients[1, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - LIGHT", "Ardea - CRYSTAL"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp2 <- polr(f, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp3 <- polr(f, Hess = TRUE, data = ardea_lasso_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]], 
-                                                 tmp3$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2], 
-                                                   summary(tmp3)$coefficients[1, 2]), 
-                                          studlab = c("Aus/NZ", "EuroGout", "Ardea - LASSO"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-flare_meta_direct_poly2 <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(eastpoly_gout, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc")
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp2 <- polr(f, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables <- c(prsnames[i], covariates)
-    f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp2 <- polr(f, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-flare_meta_direct_both2 <- function(covariates, PCs, modelname) {
-  prsnames <- colnames(select(anz_gout_poly, PRS, starts_with("rs")))
-  x <- length(prsnames)
-  
-  if(PCs){
-    covariates1 <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC1_Oc", "PC2_Oc", "PC3_Oc", "PC4_Oc", "PC5_Oc", "PC6_Oc", "PC7_Oc", "PC8_Oc", "PC9_Oc", "PC10_Oc")
-    covariates2 <- c(covariates, "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-  } else{
-    covariates1 <- covariates
-    covariates2 <- covariates
-  }
-  
-  tmplistmale <- list()
-  for(i in 1:x) {
-    variables1 <- c(prsnames[i], covariates1)
-    f1 <- as.formula(paste("FLARE_CAT", paste(variables1, collapse = " + "), sep = " ~ "))
-    variables2 <- c(prsnames[i], covariates2)
-    f2 <- as.formula(paste("FLARE_CAT", paste(variables2, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f1, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp2 <- polr(f1, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp3 <- polr(f2, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp4 <- polr(f2, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp5 <- polr(f2, Hess = TRUE, data = ardea_clear1_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp6 <- polr(f2, Hess = TRUE, data = ardea_clear2_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp7 <- polr(f2, Hess = TRUE, data = ardea_lasso_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp8 <- polr(f2, Hess = TRUE, data = ardea_light_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp9 <- polr(f2, Hess = TRUE, data = ardea_crystal_poly %>% filter(SEX == "Male", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]], 
-                                                 tmp3$coefficients[[1]], 
-                                                 tmp4$coefficients[[1]], 
-                                                 tmp5$coefficients[[1]], 
-                                                 tmp6$coefficients[[1]], 
-                                                 tmp7$coefficients[[1]], 
-                                                 tmp8$coefficients[[1]], 
-                                                 tmp9$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2], 
-                                                   summary(tmp3)$coefficients[1, 2], 
-                                                   summary(tmp4)$coefficients[1, 2], 
-                                                   summary(tmp5)$coefficients[1, 2], 
-                                                   summary(tmp6)$coefficients[1, 2], 
-                                                   summary(tmp7)$coefficients[1, 2], 
-                                                   summary(tmp8)$coefficients[1, 2], 
-                                                   summary(tmp9)$coefficients[1, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - LASSO", "Ardea - LIGHT", "Ardea - CRYSTAL"), sm = "OR")))
-    tmplistmale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistmale"), tmplistmale, envir = .GlobalEnv)
-  
-  tmplistfemale <- list()
-  for(i in 1:x) {
-    variables1 <- c(prsnames[i], covariates1)
-    f1 <- as.formula(paste("FLARE_CAT", paste(variables1, collapse = " + "), sep = " ~ "))
-    variables2 <- c(prsnames[i], covariates2)
-    f2 <- as.formula(paste("FLARE_CAT", paste(variables2, collapse = " + "), sep = " ~ "))
-    tmp1 <- polr(f1, Hess = TRUE, data = eastpoly_gout %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp2 <- polr(f1, Hess = TRUE, data = westpoly_gout %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp3 <- polr(f2, Hess = TRUE, data = anz_gout_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp4 <- polr(f2, Hess = TRUE, data = eurogout_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    tmp5 <- polr(f2, Hess = TRUE, data = ardea_lasso_poly %>% filter(SEX == "Female", !(FLARE_CAT %in% c("0", "1"))) %>% mutate(FLARE_CAT = factor(FLARE_CAT, ordered = TRUE)))
-    assign(paste0(modelname, i), (metagen(TE = c(tmp1$coefficients[[1]], 
-                                                 tmp2$coefficients[[1]], 
-                                                 tmp3$coefficients[[1]], 
-                                                 tmp4$coefficients[[1]], 
-                                                 tmp5$coefficients[[1]]), 
-                                          seTE = c(summary(tmp1)$coefficients[1, 2], 
-                                                   summary(tmp2)$coefficients[1, 2], 
-                                                   summary(tmp3)$coefficients[1, 2], 
-                                                   summary(tmp4)$coefficients[1, 2], 
-                                                   summary(tmp5)$coefficients[1, 2]), 
-                                          studlab = c("East Polynesian", "West Polynesian", "Aus/NZ", "EuroGout", "Ardea - LASSO"), sm = "OR")))
-    tmplistfemale[[i]] <- get(paste0(modelname, i))
-  }
-  assign(paste0(modelname, "modlistfemale"), tmplistfemale, envir = .GlobalEnv)
-}
-
-
-
-clean_lapply <- function(modelname, functionname){
-  c(unlist(lapply(get(paste0(modelname, "modlistmale")), functionname)), unlist(lapply(get(paste0(modelname, "modlistfemale")), functionname)))
-}
-
-OR <- function(x) {
-  sprintf(exp(coef(x))[[2]], fmt = "%#.4f")
-}
-
-CI_OR <- function(x) {
-  paste0("[", sprintf(exp(confint.default(x))[2, 1], fmt = "%#.4f"), ", ", sprintf(exp(confint.default(x))[2, 2], fmt = "%#.4f"), "]")
-}
-
-Pval <- function(x) {
-  signif(summary(x)$coefficients[2, 4], 3)
-}
-
-OR_meta_fixed <- function(x) {
-  sprintf(exp(x$TE.fixed), fmt = "%#.4f")
-}
-
-CI_OR_meta_fixed <- function(x) {
-  paste0("[", sprintf(exp(x$lower.fixed), fmt = "%#.4f"), ", ", sprintf(exp(x$upper.fixed), fmt = "%#.4f"), "]")
-}
-
-Beta_meta_fixed <- function(x) {
-  sprintf(x$TE.fixed, fmt = "%#.4f")
-}
-
-CI_Beta_meta_fixed <- function(x) {
-  paste0("[", sprintf(x$lower.fixed, fmt = "%#.4f"), ", ", sprintf(x$upper.fixed, fmt = "%#.4f"), "]")
-}
-
-Pval_meta_fixed <- function(x) {
-  signif(x$pval.fixed, 3)
-}
-
-OR_meta_random <- function(x) {
-  sprintf(exp(x$TE.random), fmt = "%#.4f")
-}
-
-CI_OR_meta_random <- function(x) {
-  paste0("[", sprintf(exp(x$lower.random), fmt = "%#.4f"), ", ", sprintf(exp(x$upper.random), fmt = "%#.4f"), "]")
-}
-
-Beta_meta_random <- function(x) {
-  sprintf(x$TE.random, fmt = "%#.4f")
-}
-
-CI_Beta_meta_random <- function(x) {
-  paste0("[", sprintf(x$lower.random, fmt = "%#.4f"), ", ", sprintf(x$upper.random, fmt = "%#.4f"), "]")
-}
-
-Pval_meta_random <- function(x) {
-  signif(x$pval.random, 3)
+UCL <- function(x, Predictor) {
+  sprintf(confint.default(x)[Predictor, 2], fmt = "%#.4f")
 }
 ```
 
-```{r Assumptions}
-# Linear regression has the following assumptions:
-# 1. Linear relationship between variables (test this in scatter plot)
-# 2. Normality of residuals
-# 3. Homoscedasticity of residuals
-# 4. No multicollinearity (for models with multiple predictors)
+First, I want to test the assumptions of the models of interest. For linear regression, the assumptions are:
 
-# Logistic regression has the following assumptions:
-# 1. Linear relationship between the predictor and the log-odds (basically, percentage of cases should increase exponentially as the predictor increases)
-# 2. No multicollinearity (for models with multiple predictors)
+1. Linear relationship between variables
+2. Normality of residuals
+3. Homoscedasticity of residuals
+4. No multicollinearity (for multiple regression)
 
-# These should be tested for all models, but I might be able to just test some representative models instead - the main thing is that extremely non-normal variables should not be used for linear regression
+Logistic regression only relies on no multicollinearity. 
 
+All assumptions should be tested for all models, but I will just test some representative models instead - the main thing is that extremely non-normal variables should not be used for linear regression. This should be tested for the age at onset variable, and the number of flares per year variable.
 
-
-# First let's run a representative linear model of AGE1ATK vs PRS in the full male gout cohort
+```{r Assumptions, eval = F}
+# Age at onset -------------------------------------------------------------------------------------
+# Representative linear model of age at onset vs the imputed PRS in the combined male gout cohort
 tmp <- all_pheno_prs %>% 
   filter(SEX == "Male",
          GOUT,
@@ -1156,8 +243,9 @@ vif(mod) # no multicollinearity (no values over 5 or 10)
 # So we should have no problem running models of the PRS vs age at onset (as long as we don't include variables that exhibit multicollinearity)
 
 
-# Now let's do some experiments with the flare phenotype
-# First let's run a representative linear model of NUMATK vs PRS in the full male gout cohort
+
+# Flares (linear) ----------------------------------------------------------------------------------------
+# First let's run a representative linear model of NUMATK vs PRS in the combined male gout cohort
 tmp <- tmp %>% 
   mutate(NUMATK = case_when(NUMATK > 52 ~ 52,
                             TRUE ~ NUMATK)) %>% 
@@ -1202,6 +290,10 @@ test %>%
 vif(mod) # no multicollinearity (no values over 5 or 10)
 
 # So it is not appropriate to use the NUMATK variable in a linear regression model
+
+
+
+# Flares (ordinal) -----------------------------------------------------------------
 
 # I will go ahead and test whether categorizing the variable (FLARE_CAT) and running an independent ANOVA or ordinal logistic regression model will be appropriate - note I am not sure how easy it will be to adjust for covariates in an ANOVA (perhaps I could run an ANCOVA but it might not be doing what I think it's doing)
 
@@ -1263,6 +355,10 @@ tmp %>%
         panel.grid.minor.y = element_blank(),
         legend.title = element_blank())
 
+
+
+# Flares (ANOVA) --------------------------------------------------------------------------------------
+
 # The ANOVA test will essentially ask "does the mean PRS differ between flare categories"
 # I should further note that I am unclear on how to meta-analyze ANOVA results - perhaps just running them within each cohort and determining how many show significant differences and, of those, which groups were different and in which direction? The other option is to pull cohorts but that runs into potentially weird issues of bias. So I think in the end I should run both models and see if I get a different answer, then decide how to present them in the paper.
 
@@ -1291,24 +387,12 @@ tmp %>%
 rm(tmp, mod, modsum, test)
 ```
 
-```{r NewGoutModels}
+Based on the above, it should be appropriate to run linear regression models on age at onset, but not flare frequency. For flare frequency, I could use ordinal logistic regression after categorizing flares into roughly even groups (this regression assumes that the effect between two levels of the variable are consistent across levels of the variable). I could also use ANOVA but this may prove difficult to adjust for covariates. For now I won't run any models for this variable.
+
+<br/>
+
+```{r GoutModels, eval = F}
 # We need to model both PRS and all SNPs against gout, adjusting for global PCs. It needs to be in males and females separately, and needs to be both adjusted for age at collection and unadjusted. It also needs to run with the 10 oceanian PCs for Polynesian cohorts. We want the output of all of these models to be stored in a list object which we can then extract all of the important elements from in a table format.
-
-OR <- function(x) {
-  sprintf(exp(coef(x))[[2]], fmt = "%#.4f")
-}
-
-LCL_OR <- function(x) {
-  sprintf(exp(confint.default(x))[2, 1], fmt = "%#.4f")
-}
-
-UCL_OR <- function(x) {
-  sprintf(exp(confint.default(x))[2, 2], fmt = "%#.4f")
-}
-
-Pval <- function(x) {
-  signif(summary(x)$coefficients[2, 4], 3)
-}
 
 gout_data_list <- list("UK Biobank - Male" = full_join(data_list[["UK Biobank - Gout - Male"]], 
                                                        data_list[["UK Biobank - Control - Male"]]),
@@ -1318,10 +402,6 @@ gout_data_list <- list("UK Biobank - Male" = full_join(data_list[["UK Biobank - 
                                                             data_list[["Aus/NZ European - Control - Male"]]),
                        "Aus/NZ European - Female" = full_join(data_list[["Aus/NZ European - Gout - Female"]],
                                                               data_list[["Aus/NZ European - Control - Female"]]),
-                       "GlobalGout - Male" = full_join(data_list[["GlobalGout - Gout - Male"]],
-                                                       data_list[["GlobalGout - Control - Male"]]),
-                       "GlobalGout - Female" = full_join(data_list[["GlobalGout - Gout - Female"]],
-                                                         data_list[["GlobalGout - Control - Female"]]),
                        "East Polynesian - Male" = full_join(data_list[["East Polynesian - Gout - Male"]],
                                                             data_list[["East Polynesian - Control - Male"]]),
                        "East Polynesian - Female" = full_join(data_list[["East Polynesian - Gout - Female"]],
@@ -1331,12 +411,16 @@ gout_data_list <- list("UK Biobank - Male" = full_join(data_list[["UK Biobank - 
                        "West Polynesian - Female" = full_join(data_list[["West Polynesian - Gout - Female"]],
                                                               data_list[["West Polynesian - Control - Female"]]))
 
+# I want to model the following for every cohort: genotyped PRS, all SNPs in the genotyped PRS at the same time; next, for European cohorts only, I want to model the imputed PRS and all of its SNPs at the same time; all models should be run with and without AGECOL as a covariate
+
+
 modlist <- vector("list", length(gout_data_list))
 for(i in seq_along(gout_data_list)){
-  prsnames <- gout_data_list[[i]] %>% 
-    select(PRS1, PRS2, starts_with("rs")) %>% 
-    select(where(~ !all(is.na(.x)))) %>% 
-    colnames()
+  prsnames <- list("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
+  
+  if(!str_detect(names(gout_data_list)[i], "Polynesian")){
+    prsnames <- append(prsnames, list("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID))
+  }
   
   covariates <- c()
   
@@ -1351,43 +435,84 @@ for(i in seq_along(gout_data_list)){
   covariates2 <- c(covariates, "AGECOL")
   
   tmplist <- vector("list", 2 * length(prsnames))
+  
   for(j in seq_along(prsnames)) {
-    variables <- c(prsnames[j], covariates)
+    variables <- c(prsnames[[j]], covariates)
     f <- as.formula(paste("GOUT", paste(variables, collapse = " + "), sep = " ~ "))
     assign(paste0("Model_", i, "_", j), glm(f, family = binomial, data = gout_data_list[[i]]))
-    # columns will be: Cohort, N, N case, N control, Outcome, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
-    modstring <- c(names(gout_data_list)[[i]],
-                   nrow(gout_data_list[[i]] %>% filter(!is.na(prsnames[[j]]))),
-                   nrow(gout_data_list[[i]] %>% filter(!is.na(prsnames[[j]]), GOUT)),
-                   nrow(gout_data_list[[i]] %>% filter(!is.na(prsnames[[j]]), !GOUT)),
-                   "Gout",
-                   prsnames[[j]],
-                   paste(covariates, collapse = " + "),
-                   OR(get(paste0("Model_", i, "_", j))),
-                   LCL_OR(get(paste0("Model_", i, "_", j))),
-                   UCL_OR(get(paste0("Model_", i, "_", j))),
-                   Pval(get(paste0("Model_", i, "_", j))),
-                   coef(get(paste0("Model_", i, "_", j)))[[2]],
-                   summary(get(paste0("Model_", i, "_", j)))$coefficients[2, 2])
+    # columns will be: Cohort, N, N case, N control, Outcome, Predictors, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
+    modstring1 <- c(names(gout_data_list)[[i]],
+                    nrow(gout_data_list[[i]]),
+                    nrow(gout_data_list[[i]] %>% filter(GOUT)),
+                    nrow(gout_data_list[[i]] %>% filter(!GOUT)),
+                    "Gout")
+    
+    modstring <- list()
+    if(any(str_detect(prsnames[[j]], "PRS"))) {
+      modstring[[1]] <- c(modstring1,
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(covariates, collapse = " + "),
+                          OR(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          LCL_OR(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          UCL_OR(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          Pval(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          coef(get(paste0("Model_", i, "_", j)))[[prsnames[[j]]]],
+                          summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]], 2])
+    } else{
+      for(k in 1:length(prsnames[[j]])){
+        modstring[[k]] <- c(modstring1,
+                            paste(prsnames[[j]], collapse = " + "),
+                            paste(prsnames[[j]][k], collapse = " + "),
+                            paste(covariates, collapse = " + "),
+                            OR(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            LCL_OR(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            UCL_OR(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            Pval(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            coef(get(paste0("Model_", i, "_", j)))[[prsnames[[j]][k]]],
+                            summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]][k], 2])
+      }
+    }
+    
     tmplist[[j]] <- modstring
     
-    variables <- c(prsnames[j], covariates2)
+    variables <- c(prsnames[[j]], covariates2)
     f <- as.formula(paste("GOUT", paste(variables, collapse = " + "), sep = " ~ "))
     assign(paste0("Model_", i, "_", j, "_adj"), glm(f, family = binomial, data = gout_data_list[[i]]))
     modstring1 <- c(names(gout_data_list)[[i]],
-                   nrow(gout_data_list[[i]] %>% filter(!is.na(prsnames[[j]]))),
-                   nrow(gout_data_list[[i]] %>% filter(!is.na(prsnames[[j]]), GOUT)),
-                   nrow(gout_data_list[[i]] %>% filter(!is.na(prsnames[[j]]), !GOUT)),
-                   "Gout",
-                   prsnames[[j]],
-                   paste(covariates2, collapse = " + "),
-                   OR(get(paste0("Model_", i, "_", j, "_adj"))),
-                   LCL_OR(get(paste0("Model_", i, "_", j, "_adj"))),
-                   UCL_OR(get(paste0("Model_", i, "_", j, "_adj"))),
-                   Pval(get(paste0("Model_", i, "_", j, "_adj"))),
-                   coef(get(paste0("Model_", i, "_", j, "_adj")))[[2]],
-                   summary(get(paste0("Model_", i, "_", j, "_adj")))$coefficients[2, 2])
-    tmplist[[j + length(prsnames)]] <- modstring1
+                    nrow(gout_data_list[[i]]),
+                    nrow(gout_data_list[[i]] %>% filter(GOUT)),
+                    nrow(gout_data_list[[i]] %>% filter(!GOUT)),
+                    "Gout")
+    
+    modstring <- list()
+    if(any(str_detect(prsnames[[j]], "PRS"))) {
+      modstring[[1]] <- c(modstring1,
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(covariates2, collapse = " + "),
+                          OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]]),
+                          LCL_OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]]),
+                          UCL_OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]]),
+                          Pval(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]]),
+                          coef(get(paste0("Model_", i, "_", j, "_adj")))[[prsnames[[j]]]],
+                          summary(get(paste0("Model_", i, "_", j, "_adj")))$coefficients[prsnames[[j]], 2])
+    } else{
+      for(k in 1:length(prsnames[[j]])){
+        modstring[[k]] <- c(modstring1,
+                            paste(prsnames[[j]], collapse = " + "),
+                            paste(prsnames[[j]][k], collapse = " + "),
+                            paste(covariates2, collapse = " + "),
+                            OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]][k]),
+                            LCL_OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]][k]),
+                            UCL_OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]][k]),
+                            Pval(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]][k]),
+                            coef(get(paste0("Model_", i, "_", j, "_adj")))[[prsnames[[j]][k]]],
+                            summary(get(paste0("Model_", i, "_", j, "_adj")))$coefficients[prsnames[[j]][k], 2])
+      }
+    }
+    
+    tmplist[[j + length(prsnames)]] <- modstring
   }
   
   modlist[[i]] <- tmplist
@@ -1400,33 +525,27 @@ remove <- remove$value
 rm(list = remove, remove)
 
 
+tmp <- modlist %>% 
+  flatten() %>% 
+  flatten() %>% 
+  as.data.frame() %>% 
+  data.table::transpose()
 
-out <- data.frame()
-for(i in 1:length(modlist)){
-  tmp <- modlist[[i]] %>% 
-    map(as.data.frame) %>% 
-    bind_cols() %>% 
-    data.table::transpose()
-  
-  colnames(tmp) <- c("Cohort", "N", "N case", "N control", "Outcome", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
-  
-  out <- rbind(out, tmp)
-}
+colnames(tmp) <- c("Cohort", "N", "N case", "N control", "Outcome", "Predictors", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
 
-GoutModels <- out
-
-GoutModels <- GoutModels %>% 
-  mutate(across(c(Cohort, Outcome, Predictor, Covariates), factor),
+GoutModels <- tmp %>% 
+  mutate(across(c(Cohort, Outcome, Predictors, Predictor, Covariates), factor),
          across(c(N, `N case`, `N control`, OR, LCL, UCL, Pval, `log-odds`, SE), as.numeric))
 
 #save(GoutModels, file = here("Output/GoutModels.RData"))
 
-rm(modlist, out, tmp, tmplist, covariates, covariates2, f, i, j, modstring, modstring1, prsnames, variables)
+rm(modlist, tmp, tmplist, covariates, covariates2, f, i, j, k, modstring, modstring1, prsnames, variables)
 ```
 
-```{r NewSeverityModels}
+```{r SeverityModels, eval = F}
 # We need to model both PRSs and all SNPs against age at onset, tophi, and flare category (by both ordinal logistic regression and ANOVA), adjusting for global PCs. It needs to be in males and females separately, and needs to be both adjusted for disease duration (for tophi) and unadjusted. It also needs to run with the 10 oceanian PCs for Polynesian cohorts. We want the output of all of these models to be stored in a list object which we can then extract all of the important elements from in a table format.
 
+# Onset --------------------------------------------------------
 onset_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European - Gout - Male"]] %>% filter(!is.na(AGE1ATK)),
                         "Aus/NZ European - Female" = data_list[["Aus/NZ European - Gout - Female"]] %>% filter(!is.na(AGE1ATK)),
                         "GlobalGout - Male" = data_list[["GlobalGout - Gout - Male"]] %>% filter(!is.na(AGE1ATK)),
@@ -1446,47 +565,66 @@ onset_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European -
                         "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(AGE1ATK)),
                         "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(AGE1ATK)))
 
-Beta <- function(x) {
-  sprintf(coef(x)[[2]], fmt = "%#.4f")
-}
-
-LCL <- function(x) {
-  sprintf(confint.default(x)[2, 1], fmt = "%#.4f")
-}
-
-UCL <- function(x) {
-  sprintf(confint.default(x)[2, 2], fmt = "%#.4f")
+for(i in length(onset_data_list):1){
+  if(nrow(onset_data_list[[i]]) < 50){
+    onset_data_list[[i]] <- NULL
+  }
 }
 
 modlist <- vector("list", length(onset_data_list))
 for(i in seq_along(onset_data_list)){
-  prsnames <- onset_data_list[[i]] %>% 
-    select(PRS1, PRS2, starts_with("rs")) %>% 
-    select(where(~ !all(is.na(.x)))) %>% 
-    colnames()
+  prsnames <- list("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
   
-  covariates <- c("Geno.PCVector1", "Geno.PCVector2", "Geno.PCVector3", "Geno.PCVector4", "Geno.PCVector5", "Geno.PCVector6", "Geno.PCVector7", "Geno.PCVector8", "Geno.PCVector9", "Geno.PCVector10")
+  if(!str_detect(names(onset_data_list)[i], "Polynesian")){
+    prsnames <- append(prsnames, list("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID))
+  }
+  
+  covariates <- c()
+  
+  if(!str_detect(names(onset_data_list)[i], "UK Biobank")){
+    covariates <- c(covariates, "Geno.PCVector1", "Geno.PCVector2", "Geno.PCVector3", "Geno.PCVector4", "Geno.PCVector5", "Geno.PCVector6", "Geno.PCVector7", "Geno.PCVector8", "Geno.PCVector9", "Geno.PCVector10")
+  }
   
   if(str_detect(names(onset_data_list)[i], "Polynesian")){
     covariates <- c(covariates, "Geno.PCVector1_Oc", "Geno.PCVector2_Oc", "Geno.PCVector3_Oc", "Geno.PCVector4_Oc", "Geno.PCVector5_Oc", "Geno.PCVector6_Oc", "Geno.PCVector7_Oc", "Geno.PCVector8_Oc", "Geno.PCVector9_Oc", "Geno.PCVector10_Oc")
   }
   
   tmplist <- vector("list", length(prsnames))
+  
   for(j in seq_along(prsnames)) {
-    variables <- c(prsnames[j], covariates)
+    variables <- c(prsnames[[j]], covariates)
     f <- as.formula(paste("AGE1ATK", paste(variables, collapse = " + "), sep = " ~ "))
     assign(paste0("Model_", i, "_", j), lm(f, data = onset_data_list[[i]]))
-    # columns will be: Cohort, N, Outcome, Predictor, Covariates, Beta, LCL, UCL, Pval, standard error
-    modstring <- c(names(onset_data_list)[[i]],
-                   nrow(onset_data_list[[i]] %>% filter(!is.na(prsnames[[j]]))),
-                   "Age at Onset (years)",
-                   prsnames[[j]],
-                   paste(covariates, collapse = " + "),
-                   Beta(get(paste0("Model_", i, "_", j))),
-                   LCL(get(paste0("Model_", i, "_", j))),
-                   UCL(get(paste0("Model_", i, "_", j))),
-                   Pval(get(paste0("Model_", i, "_", j))),
-                   summary(get(paste0("Model_", i, "_", j)))$coefficients[2, 2])
+    # columns will be: Cohort, N, Outcome, Predictors, Predictor, Covariates, Beta, LCL, UCL, Pval, standard error
+    modstring1 <- c(names(onset_data_list)[[i]],
+                    nrow(onset_data_list[[i]]),
+                    "Age at Onset (years)")
+    
+    modstring <- list()
+    if(any(str_detect(prsnames[[j]], "PRS"))) {
+      modstring[[1]] <- c(modstring1,
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(covariates, collapse = " + "),
+                          Beta(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          LCL(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          UCL(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          Pval(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]], 2])
+    } else{
+      for(k in 1:length(prsnames[[j]])){
+        modstring[[k]] <- c(modstring1,
+                            paste(prsnames[[j]], collapse = " + "),
+                            paste(prsnames[[j]][k], collapse = " + "),
+                            paste(covariates, collapse = " + "),
+                            Beta(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            LCL(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            UCL(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            Pval(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]][k], 2])
+      }
+    }
+    
     tmplist[[j]] <- modstring
   }
   
@@ -1500,32 +638,25 @@ remove <- remove$value
 rm(list = remove, remove)
 
 
+tmp <- modlist %>% 
+  flatten() %>% 
+  flatten() %>% 
+  as.data.frame() %>% 
+  data.table::transpose()
 
-out <- data.frame()
-for(i in 1:length(modlist)){
-  tmp <- modlist[[i]] %>% 
-    map(as.data.frame) %>% 
-    bind_cols() %>% 
-    data.table::transpose()
-  
-  colnames(tmp) <- c("Cohort", "N", "Outcome", "Predictor", "Covariates", "Beta", "LCL", "UCL", "Pval", "SE")
-  
-  out <- rbind(out, tmp)
-}
+colnames(tmp) <- c("Cohort", "N", "Outcome", "Predictors", "Predictor", "Covariates", "Beta", "LCL", "UCL", "Pval", "SE")
 
-OnsetModels <- out
-
-OnsetModels <- OnsetModels %>% 
-  mutate(across(c(Cohort, Outcome, Predictor, Covariates), factor),
+OnsetModels <- tmp %>% 
+  mutate(across(c(Cohort, Outcome, Predictors, Predictor, Covariates), factor),
          across(c(N, Beta, LCL, UCL, Pval, SE), as.numeric))
 
-#save(OnsetModels, file = here("Output/OnsetModels.RData"))
+save(OnsetModels, file = here("Output/OnsetModels.RData"))
 
-rm(modlist, out, tmp, tmplist, covariates, f, i, j, modstring, prsnames, variables)
+rm(modlist, tmp, tmplist, covariates, f, i, j, k, modstring, modstring1, prsnames, variables)
 
 
 
-# Tophi
+# Tophi -------------------------------------------------------------------------------
 tophi_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)),
                         "Aus/NZ European - Female" = data_list[["Aus/NZ European - Gout - Female"]] %>% filter(!is.na(TOPHIGOUT)),
                         "GlobalGout - Male" = data_list[["GlobalGout - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)),
@@ -1536,8 +667,6 @@ tophi_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European -
                         "Ardea - CLEAR1 - Female" = data_list[["Ardea - CLEAR1 - Female"]] %>% filter(!is.na(TOPHIGOUT)),
                         "Ardea - CLEAR2 - Male" = data_list[["Ardea - CLEAR2 - Male"]] %>% filter(!is.na(TOPHIGOUT)),
                         "Ardea - CLEAR2 - Female" = data_list[["Ardea - CLEAR2 - Female"]] %>% filter(!is.na(TOPHIGOUT)),
-                        "Ardea - CRYSTAL - Male" = data_list[["Ardea - CRYSTAL - Male"]] %>% filter(!is.na(TOPHIGOUT)),
-                        "Ardea - CRYSTAL - Female" = data_list[["Ardea - CRYSTAL - Female"]] %>% filter(!is.na(TOPHIGOUT)),
                         "Ardea - LIGHT - Male" = data_list[["Ardea - LIGHT - Male"]] %>% filter(!is.na(TOPHIGOUT)),
                         "Ardea - LIGHT - Female" = data_list[["Ardea - LIGHT - Female"]] %>% filter(!is.na(TOPHIGOUT)),
                         "East Polynesian - Male" = data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)),
@@ -1545,15 +674,27 @@ tophi_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European -
                         "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)),
                         "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(TOPHIGOUT)))
 
+for(i in length(tophi_data_list):1){
+  if(nrow(tophi_data_list[[i]]) < 50){
+    tophi_data_list[[i]] <- NULL
+  }
+}
+
+
+
 modlist <- vector("list", length(tophi_data_list))
 for(i in seq_along(tophi_data_list)){
-  prsnames <- tophi_data_list[[i]] %>% 
-    select(PRS1, PRS2, starts_with("rs")) %>% 
-    select(where(~ !all(is.na(.x)))) %>% 
-    colnames()
+  prsnames <- list("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
   
-  covariates <- c("Geno.PCVector1", "Geno.PCVector2", "Geno.PCVector3", "Geno.PCVector4", "Geno.PCVector5", "Geno.PCVector6", "Geno.PCVector7", "Geno.PCVector8", "Geno.PCVector9", "Geno.PCVector10")
+  if(!str_detect(names(tophi_data_list)[i], "Polynesian")){
+    prsnames <- append(prsnames, list("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID))
+  }
   
+  covariates <- c()
+  
+  if(!str_detect(names(tophi_data_list)[i], "UK Biobank")){
+    covariates <- c(covariates, "Geno.PCVector1", "Geno.PCVector2", "Geno.PCVector3", "Geno.PCVector4", "Geno.PCVector5", "Geno.PCVector6", "Geno.PCVector7", "Geno.PCVector8", "Geno.PCVector9", "Geno.PCVector10")
+  }
   
   if(str_detect(names(tophi_data_list)[i], "Polynesian")){
     covariates <- c(covariates, "Geno.PCVector1_Oc", "Geno.PCVector2_Oc", "Geno.PCVector3_Oc", "Geno.PCVector4_Oc", "Geno.PCVector5_Oc", "Geno.PCVector6_Oc", "Geno.PCVector7_Oc", "Geno.PCVector8_Oc", "Geno.PCVector9_Oc", "Geno.PCVector10_Oc")
@@ -1562,43 +703,84 @@ for(i in seq_along(tophi_data_list)){
   covariates2 <- c(covariates, "DURATION")
   
   tmplist <- vector("list", 2 * length(prsnames))
+  
   for(j in seq_along(prsnames)) {
-    variables <- c(prsnames[j], covariates)
+    variables <- c(prsnames[[j]], covariates)
     f <- as.formula(paste("TOPHIGOUT", paste(variables, collapse = " + "), sep = " ~ "))
     assign(paste0("Model_", i, "_", j), glm(f, family = binomial, data = tophi_data_list[[i]]))
-    # columns will be: Cohort, N, N case, N control, Outcome, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
-    modstring <- c(names(tophi_data_list)[[i]],
-                   nrow(tophi_data_list[[i]] %>% filter(!is.na(prsnames[[j]]))),
-                   nrow(tophi_data_list[[i]] %>% filter(!is.na(prsnames[[j]]), TOPHIGOUT)),
-                   nrow(tophi_data_list[[i]] %>% filter(!is.na(prsnames[[j]]), !TOPHIGOUT)),
-                   "Presence of Tophi",
-                   prsnames[[j]],
-                   paste(covariates, collapse = " + "),
-                   OR(get(paste0("Model_", i, "_", j))),
-                   LCL_OR(get(paste0("Model_", i, "_", j))),
-                   UCL_OR(get(paste0("Model_", i, "_", j))),
-                   Pval(get(paste0("Model_", i, "_", j))),
-                   coef(get(paste0("Model_", i, "_", j)))[[2]],
-                   summary(get(paste0("Model_", i, "_", j)))$coefficients[2, 2])
+    # columns will be: Cohort, N, N case, N control, Outcome, Predictors, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
+    modstring1 <- c(names(tophi_data_list)[[i]],
+                    nrow(tophi_data_list[[i]]),
+                    nrow(tophi_data_list[[i]] %>% filter(TOPHIGOUT)),
+                    nrow(tophi_data_list[[i]] %>% filter(!TOPHIGOUT)),
+                    "Tophi")
+    
+    modstring <- list()
+    if(any(str_detect(prsnames[[j]], "PRS"))) {
+      modstring[[1]] <- c(modstring1,
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(covariates, collapse = " + "),
+                          OR(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          LCL_OR(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          UCL_OR(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          Pval(get(paste0("Model_", i, "_", j)), prsnames[[j]]),
+                          coef(get(paste0("Model_", i, "_", j)))[[prsnames[[j]]]],
+                          summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]], 2])
+    } else{
+      for(k in 1:length(prsnames[[j]])){
+        modstring[[k]] <- c(modstring1,
+                            paste(prsnames[[j]], collapse = " + "),
+                            paste(prsnames[[j]][k], collapse = " + "),
+                            paste(covariates, collapse = " + "),
+                            OR(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            LCL_OR(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            UCL_OR(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            Pval(get(paste0("Model_", i, "_", j)), prsnames[[j]][k]),
+                            coef(get(paste0("Model_", i, "_", j)))[[prsnames[[j]][k]]],
+                            summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]][k], 2])
+      }
+    }
+    
     tmplist[[j]] <- modstring
     
-    variables <- c(prsnames[j], covariates2)
+    variables <- c(prsnames[[j]], covariates2)
     f <- as.formula(paste("TOPHIGOUT", paste(variables, collapse = " + "), sep = " ~ "))
     assign(paste0("Model_", i, "_", j, "_adj"), glm(f, family = binomial, data = tophi_data_list[[i]]))
     modstring1 <- c(names(tophi_data_list)[[i]],
-                   nrow(tophi_data_list[[i]] %>% filter(!is.na(prsnames[[j]]))),
-                   nrow(tophi_data_list[[i]] %>% filter(!is.na(prsnames[[j]]), TOPHIGOUT)),
-                   nrow(tophi_data_list[[i]] %>% filter(!is.na(prsnames[[j]]), !TOPHIGOUT)),
-                   "Presence of Tophi",
-                   prsnames[[j]],
-                   paste(covariates2, collapse = " + "),
-                   OR(get(paste0("Model_", i, "_", j, "_adj"))),
-                   LCL_OR(get(paste0("Model_", i, "_", j, "_adj"))),
-                   UCL_OR(get(paste0("Model_", i, "_", j, "_adj"))),
-                   Pval(get(paste0("Model_", i, "_", j, "_adj"))),
-                   coef(get(paste0("Model_", i, "_", j, "_adj")))[[2]],
-                   summary(get(paste0("Model_", i, "_", j, "_adj")))$coefficients[2, 2])
-    tmplist[[j + length(prsnames)]] <- modstring1
+                    nrow(tophi_data_list[[i]]),
+                    nrow(tophi_data_list[[i]] %>% filter(TOPHIGOUT)),
+                    nrow(tophi_data_list[[i]] %>% filter(!TOPHIGOUT)),
+                    "Tophi")
+    
+    modstring <- list()
+    if(any(str_detect(prsnames[[j]], "PRS"))) {
+      modstring[[1]] <- c(modstring1,
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(prsnames[[j]], collapse = " + "),
+                          paste(covariates2, collapse = " + "),
+                          OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]]),
+                          LCL_OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]]),
+                          UCL_OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]]),
+                          Pval(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]]),
+                          coef(get(paste0("Model_", i, "_", j, "_adj")))[[prsnames[[j]]]],
+                          summary(get(paste0("Model_", i, "_", j, "_adj")))$coefficients[prsnames[[j]], 2])
+    } else{
+      for(k in 1:length(prsnames[[j]])){
+        modstring[[k]] <- c(modstring1,
+                            paste(prsnames[[j]], collapse = " + "),
+                            paste(prsnames[[j]][k], collapse = " + "),
+                            paste(covariates2, collapse = " + "),
+                            OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]][k]),
+                            LCL_OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]][k]),
+                            UCL_OR(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]][k]),
+                            Pval(get(paste0("Model_", i, "_", j, "_adj")), prsnames[[j]][k]),
+                            coef(get(paste0("Model_", i, "_", j, "_adj")))[[prsnames[[j]][k]]],
+                            summary(get(paste0("Model_", i, "_", j, "_adj")))$coefficients[prsnames[[j]][k], 2])
+      }
+    }
+    
+    tmplist[[j + length(prsnames)]] <- modstring
   }
   
   modlist[[i]] <- tmplist
@@ -1611,926 +793,295 @@ remove <- remove$value
 rm(list = remove, remove)
 
 
+tmp <- modlist %>% 
+  flatten() %>% 
+  flatten() %>% 
+  as.data.frame() %>% 
+  data.table::transpose()
 
-out <- data.frame()
-for(i in 1:length(modlist)){
-  tmp <- modlist[[i]] %>% 
-    map(as.data.frame) %>% 
-    bind_cols() %>% 
-    data.table::transpose()
-  
-  colnames(tmp) <- c("Cohort", "N", "N case", "N control", "Outcome", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
-  
-  out <- rbind(out, tmp)
-}
+colnames(tmp) <- c("Cohort", "N", "N case", "N control", "Outcome", "Predictors", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
 
-TophiModels <- out
-
-TophiModels <- TophiModels %>% 
-  mutate(across(c(Cohort, Outcome, Predictor, Covariates), factor),
+TophiModels <- tmp %>% 
+  mutate(across(c(Cohort, Outcome, Predictors, Predictor, Covariates), factor),
          across(c(N, `N case`, `N control`, OR, LCL, UCL, Pval, `log-odds`, SE), as.numeric))
 
-#save(TophiModels, file = here("Output/TophiModels.RData"))
+save(TophiModels, file = here("Output/TophiModels.RData"))
 
-rm(modlist, out, tmp, tmplist, covariates, covariates2, f, i, j, modstring, modstring1, prsnames, variables)
+rm(modlist, tmp, tmplist, covariates, covariates2, f, i, j, k, modstring, modstring1, prsnames, variables)
 
 
-# Flare models
+
+# Flare models ------------------------------------------------------------------------------------
+# First let's do the polr based models with FLARE_CAT as the outcome, which should be done in GlobalGout, ANZ, and Polynesian cohorts with all categories, then subsequently done in all cohorts excluding those with < 2 flares
+# flare_data_list1 <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European - Gout - Male"]] %>% filter(!is.na(FLARE_CAT)),
+#                          "Aus/NZ European - Female" = data_list[["Aus/NZ European - Gout - Female"]] %>% filter(!is.na(FLARE_CAT)),
+#                          "GlobalGout - Male" = data_list[["GlobalGout - Gout - Male"]] %>% filter(!is.na(FLARE_CAT)),
+#                          "GlobalGout - Female" = data_list[["GlobalGout - Gout - Female"]] %>% filter(!is.na(FLARE_CAT)),
+#                          "East Polynesian - Male" = data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(FLARE_CAT)),
+#                          "East Polynesian - Female" = data_list[["East Polynesian - Gout - Female"]] %>% filter(!is.na(FLARE_CAT)),
+#                          "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(FLARE_CAT)),
+#                          "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(FLARE_CAT)))
+# 
+# for(i in length(flare_data_list1):1){
+#   if(nrow(flare_data_list1[[i]]) < 50){
+#     flare_data_list1[[i]] <- NULL
+#   }
+# }
+# 
+# 
+# 
+# flare_data_list2 <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European - Gout - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Aus/NZ European - Female" = data_list[["Aus/NZ European - Gout - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "GlobalGout - Male" = data_list[["GlobalGout - Gout - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "GlobalGout - Female" = data_list[["GlobalGout - Gout - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - LASSO - Male" = data_list[["Ardea - LASSO - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - LASSO - Female" = data_list[["Ardea - LASSO - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - CLEAR1 - Male" = data_list[["Ardea - CLEAR1 - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - CLEAR1 - Female" = data_list[["Ardea - CLEAR1 - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - CLEAR2 - Male" = data_list[["Ardea - CLEAR2 - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - CLEAR2 - Female" = data_list[["Ardea - CLEAR2 - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - CRYSTAL - Male" = data_list[["Ardea - CRYSTAL - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - CRYSTAL - Female" = data_list[["Ardea - CRYSTAL - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - LIGHT - Male" = data_list[["Ardea - LIGHT - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "Ardea - LIGHT - Female" = data_list[["Ardea - LIGHT - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "East Polynesian - Male" = data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "East Polynesian - Female" = data_list[["East Polynesian - Gout - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
+#                          "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1))
+# 
+# for(i in length(flare_data_list2):1){
+#   if(nrow(flare_data_list2[[i]]) < 50){
+#     flare_data_list2[[i]] <- NULL
+#   }
+# }
+# 
+# modlist <- vector("list", length(flare_data_list1))
+# for(i in seq_along(flare_data_list1)){
+#   prsnames <- list("PRS2", Poly_Gene_OR$RSID)
+#   
+#   if(!str_detect(names(flare_data_list1)[i], "Polynesian")){
+#     prsnames <- append(prsnames, list("PRS1", UKBB_Gene_OR$RSID))
+#   }
+#   
+#   covariates <- c()
+#   
+#   if(!str_detect(names(flare_data_list1)[i], "UK Biobank")){
+#     covariates <- c(covariates, "Geno.PCVector1", "Geno.PCVector2", "Geno.PCVector3", "Geno.PCVector4", "Geno.PCVector5", "Geno.PCVector6", "Geno.PCVector7", "Geno.PCVector8", "Geno.PCVector9", "Geno.PCVector10")
+#   }
+#   
+#   if(str_detect(names(flare_data_list1)[i], "Polynesian")){
+#     covariates <- c(covariates, "Geno.PCVector1_Oc", "Geno.PCVector2_Oc", "Geno.PCVector3_Oc", "Geno.PCVector4_Oc", "Geno.PCVector5_Oc", "Geno.PCVector6_Oc", "Geno.PCVector7_Oc", "Geno.PCVector8_Oc", "Geno.PCVector9_Oc", "Geno.PCVector10_Oc")
+#   }
+#   
+#   tmplist <- vector("list", length(prsnames))
+#   
+#   for(j in seq_along(prsnames)) {
+#     variables <- c(prsnames[[j]], covariates)
+#     f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
+#     assign(paste0("Model_", i, "_", j), polr(f, Hess = TRUE, data = flare_data_list1[[i]]))
+#     # columns will be: Cohort, N, N group 0, N group 1, N group 2, N group 3, N group 4, N group 5, N group 6 - 11, N group 12 - 52, Outcome, Predictors, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
+#     modstring1 <- c(names(flare_data_list1)[[i]],
+#                     nrow(flare_data_list1[[i]]),
+#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "0")),
+#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "1")),
+#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "2")),
+#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "3")),
+#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "4")),
+#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "5")),
+#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "6 - 11")),
+#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "12 - 52")),
+#                     "Number of Flares in Last Year (categorical)")
+#     
+#     modstring <- list()
+#     if(any(str_detect(prsnames[[j]], "PRS"))) {
+#       modstring[[1]] <- c(modstring1,
+#                           paste(prsnames[[j]], collapse = " + "),
+#                           paste(prsnames[[j]], collapse = " + "),
+#                           paste(covariates, collapse = " + "),
+#                           exp(summary(get(paste0("Model_", i, "_", j)))$coefficients)[prsnames[[j]]],
+#                           exp(confint.default(get(paste0("Model_", i, "_", j))))[prsnames[[j]], 1],
+#                           exp(confint.default(get(paste0("Model_", i, "_", j))))[prsnames[[j]], 2],
+#                           pnorm(abs(summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]], "t value"]), lower.tail = FALSE) * 2,
+#                           coef(get(paste0("Model_", i, "_", j)))[[prsnames[[j]]]],
+#                           summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]], 2])
+#     } else{
+#       for(k in 1:length(prsnames[[j]])){
+#         modstring[[k]] <- c(modstring1,
+#                             paste(prsnames[[j]], collapse = " + "),
+#                             paste(prsnames[[j]][k], collapse = " + "),
+#                             paste(covariates, collapse = " + "),
+#                             exp(summary(get(paste0("Model_", i, "_", j)))$coefficients)[prsnames[[j]][k]],
+#                             exp(confint.default(get(paste0("Model_", i, "_", j))))[prsnames[[j]][k], 1],
+#                             exp(confint.default(get(paste0("Model_", i, "_", j))))[prsnames[[j]][k], 2],
+#                             pnorm(abs(summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]][k], "t value"]), lower.tail = FALSE) * 2,
+#                             coef(get(paste0("Model_", i, "_", j)))[[prsnames[[j]][k]]],
+#                             summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]][k], 2])
+#       }
+#     }
+#     
+#     tmplist[[j]] <- modstring
+#   }
+#   
+#   modlist[[i]] <- tmplist
+# }
+# 
+# remove <- ls()
+# remove <- as_tibble(remove) %>% 
+#   filter(str_detect(value, "Model_"))
+# remove <- remove$value
+# rm(list = remove, remove)
+# 
+# 
+# tmp <- modlist %>% 
+#   flatten() %>% 
+#   flatten() %>% 
+#   as.data.frame() %>% 
+#   data.table::transpose()
+# 
+# colnames(tmp) <- c("Cohort", "N", "N group 0", "N group 1", "N group 2", "N group 3", "N group 4", "N group 5", "N group 6 - 11", "N group 12 - 52", "Outcome", "Predictors", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
+# 
+# FlareModels1 <- tmp %>% 
+#   mutate(across(c(Cohort, Outcome, Predictors, Predictor, Covariates), factor),
+#          across(c(N, `N group 0`, `N group 1`, `N group 2`, `N group 3`, `N group 4`, `N group 5`, `N group 6 - 11`, `N group 12 - 52`, OR, LCL, UCL, Pval, `log-odds`, SE), as.numeric))
+# 
+# 
+# 
+# modlist <- vector("list", length(flare_data_list1))
+# for(i in seq_along(flare_data_list1)){
+#   tmplist <- vector("list", length(prsnames))
+#   for(j in seq_along(prsnames)) {
+#     # columns will be: Cohort, N, N group 0, N group 1, N group 2, N group 3, N group 4, N group 5, N group 6 - 11, N group 12 - 52, Outcome, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
+#     modstring <- c(names(flare_data_list1)[[i]],
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]))),
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "0")),
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "1")),
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "2")),
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "3")),
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "4")),
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "5")),
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "6 - 11")),
+#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "12 - 52")),
+#                    "Number of Flares in Last Year (categorical)",
+#                    prsnames[[j]],
+#                    paste(covariates, collapse = " + "),
+#                    exp(summary(get(paste0("Model_", i, "_", j)))$coefficients)[1],
+#                    exp(confint.default(get(paste0("Model_", i, "_", j))))[1, 1],
+#                    exp(confint.default(get(paste0("Model_", i, "_", j))))[1, 2],
+#                    pnorm(abs(summary(get(paste0("Model_", i, "_", j)))$coefficients[1, "t value"]), lower.tail = FALSE) * 2,
+#                    coef(get(paste0("Model_", i, "_", j)))[[1]],
+#                    summary(get(paste0("Model_", i, "_", j)))$coefficients[1, 2])
+#     tmplist[[j]] <- modstring
+#   }
+#   
+#   modlist[[i]] <- tmplist
+# }
+# 
+# remove <- ls()
+# remove <- as_tibble(remove) %>% 
+#   filter(str_detect(value, "Model_"))
+# remove <- remove$value
+# rm(list = remove, remove)
+# 
+# 
+# 
+# out <- data.frame()
+# for(i in 1:length(modlist)){
+#   tmp <- modlist[[i]] %>% 
+#     map(as.data.frame) %>% 
+#     bind_cols() %>% 
+#     data.table::transpose()
+#   
+#   colnames(tmp) <- c("Cohort", "N", "N group 0", "N group 1", "N group 2", "N group 3", "N group 4", "N group 5", "N group 6 - 11", "N group 12 - 52", "Outcome", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
+#   
+#   out <- rbind(out, tmp)
+# }
+# 
+# FlareModels1 <- out
+# 
+# FlareModels1 <- FlareModels1 %>% 
+#   mutate(across(c(Cohort, Outcome, Predictor, Covariates), factor),
+#          across(c(N, `N group 0`, `N group 1`, `N group 2`, `N group 3`, `N group 4`, `N group 5`, `N group 6 - 11`, `N group 12 - 52`, OR, LCL, UCL, Pval, `log-odds`, SE), as.numeric))
+# 
+# #save(FlareModels1, file = here("Output/FlareModels1.RData"))
+# 
+# rm(modlist, out, tmp, tmplist, covariates, f, i, j, modstring, prsnames, variables)
+# 
+# modlist <- vector("list", length(flare_data_list2))
+# for(i in seq_along(flare_data_list2)){
+#   if(flare_data_list2[[i]] %>% nrow() > 50){
+#     prsnames <- flare_data_list2[[i]] %>% 
+#       select(PRS1, PRS2, starts_with("rs")) %>% 
+#       select(where(~ !all(is.na(.x)))) %>% 
+#       colnames()
+#   
+#     covariates <- c("Geno.PCVector1", "Geno.PCVector2", "Geno.PCVector3", "Geno.PCVector4", "Geno.PCVector5", "Geno.PCVector6", "Geno.PCVector7", "Geno.PCVector8", "Geno.PCVector9", "Geno.PCVector10")
+#     
+#     
+#     if(str_detect(names(flare_data_list2)[i], "Polynesian")){
+#       covariates <- c(covariates, "Geno.PCVector1_Oc", "Geno.PCVector2_Oc", "Geno.PCVector3_Oc", "Geno.PCVector4_Oc", "Geno.PCVector5_Oc", "Geno.PCVector6_Oc", "Geno.PCVector7_Oc", "Geno.PCVector8_Oc", "Geno.PCVector9_Oc", "Geno.PCVector10_Oc")
+#     }
+#     
+#     tmplist <- vector("list", length(prsnames))
+#     for(j in seq_along(prsnames)) {
+#       variables <- c(prsnames[j], covariates)
+#       f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
+#       assign(paste0("Model_", i, "_", j), polr(f, Hess = TRUE, data = flare_data_list2[[i]]))
+#       # columns will be: Cohort, N, N group 0, N group 1, N group 2, N group 3, N group 4, N group 5, N group 6 - 11, N group 12 - 52, Outcome, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
+#       modstring <- c(names(flare_data_list2)[[i]],
+#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]))),
+#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "2")),
+#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "3")),
+#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "4")),
+#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "5")),
+#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "6 - 11")),
+#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "12 - 52")),
+#                      "Number of Flares in Last Year (categorical)",
+#                      prsnames[[j]],
+#                      paste(covariates, collapse = " + "),
+#                      exp(summary(get(paste0("Model_", i, "_", j)))$coefficients)[1],
+#                      exp(confint.default(get(paste0("Model_", i, "_", j))))[1, 1],
+#                      exp(confint.default(get(paste0("Model_", i, "_", j))))[1, 2],
+#                      pnorm(abs(summary(get(paste0("Model_", i, "_", j)))$coefficients[1, "t value"]), lower.tail = FALSE) * 2,
+#                      coef(get(paste0("Model_", i, "_", j)))[[1]],
+#                      summary(get(paste0("Model_", i, "_", j)))$coefficients[1, 2])
+#       tmplist[[j]] <- modstring
+#     }
+#     
+#     modlist[[i]] <- tmplist
+#   }
+# }
+# 
+# remove <- ls()
+# remove <- as_tibble(remove) %>% 
+#   filter(str_detect(value, "Model_"))
+# remove <- remove$value
+# rm(list = remove, remove)
+# 
+# 
+# 
+# out <- data.frame()
+# for(i in seq_along(modlist)){
+#   if(!is.null(modlist[[i]])){
+#     tmp <- modlist[[i]] %>% 
+#       map(as.data.frame) %>% 
+#       bind_cols() %>% 
+#       data.table::transpose()
+#   } else{
+#     tmp <- data.frame(matrix(ncol = 17, nrow = 0))
+#   }
+#   
+#   colnames(tmp) <- c("Cohort", "N", "N group 2", "N group 3", "N group 4", "N group 5", "N group 6 - 11", "N group 12 - 52", "Outcome", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
+#   
+#   out <- rbind(out, tmp)
+# }
+# 
+# FlareModels2 <- out
+# 
+# FlareModels2 <- FlareModels2 %>% 
+#   mutate(across(c(Cohort, Outcome, Predictor, Covariates), factor),
+#          across(c(N, `N group 2`, `N group 3`, `N group 4`, `N group 5`, `N group 6 - 11`, `N group 12 - 52`, OR, LCL, UCL, Pval, `log-odds`, SE), as.numeric))
+# 
+# #save(FlareModels2, file = here("Output/FlareModels2.RData"))
+# 
+# rm(modlist, out, tmp, tmplist, covariates, f, i, j, modstring, prsnames, variables)
 ```
-
-
-```{r MainSeverityModels, echo = FALSE}
-onset_meta_euro(covariates = c(), PCs = FALSE, modelname = "metaONSET")
-
-onset_meta_direct_euro(covariates = c(), PCs = FALSE, modelname = "metaONSETdirecteuro")
-
-onset_meta_direct_poly(covariates = c(), PCs = FALSE, modelname = "metaONSETdirectpoly")
-
-onset_meta_direct_both(covariates = c(), PCs = FALSE, modelname = "metaONSETdirectboth")
-
-onset_meta_euro(covariates = c(), PCs = TRUE, modelname = "metaONSETadj")
-
-onset_meta_direct_euro(covariates = c(), PCs = TRUE, modelname = "metaONSETdirecteuroadj")
-
-onset_meta_direct_poly(covariates = c(), PCs = TRUE, modelname = "metaONSETdirectpolyadj")
-
-onset_meta_direct_both(covariates = c(), PCs = TRUE, modelname = "metaONSETdirectbothadj")
-
-tophi_meta_euro(covariates = c(), PCs = FALSE, modelname = "metaTOPHI")
-
-tophi_meta_direct_euro(covariates = c(), PCs = FALSE, modelname = "metaTOPHIdirecteuro")
-
-tophi_meta_direct_poly(covariates = c(), PCs = FALSE, modelname = "metaTOPHIdirectpoly")
-
-tophi_meta_direct_both(covariates = c(), PCs = FALSE, modelname = "metaTOPHIdirectboth")
-
-tophi_meta_euro(covariates = "DURATION", PCs = TRUE, modelname = "metaTOPHIadj")
-
-tophi_meta_direct_euro(covariates = "DURATION", PCs = TRUE, modelname = "metaTOPHIdirecteuroadj")
-
-tophi_meta_direct_poly(covariates = "DURATION", PCs = TRUE, modelname = "metaTOPHIdirectpolyadj")
-
-tophi_meta_direct_both(covariates = "DURATION", PCs = TRUE, modelname = "metaTOPHIdirectbothadj")
-
-flare_meta_euro1(covariates = c(), PCs = FALSE, modelname = "metaFLARE1")
-
-flare_meta_direct_euro1(covariates = c(), PCs = FALSE, modelname = "metaFLARE1directeuro")
-
-flare_meta_direct_poly1(covariates = c(), PCs = FALSE, modelname = "metaFLARE1directpoly")
-
-flare_meta_direct_both1(covariates = c(), PCs = FALSE, modelname = "metaFLARE1directboth")
-
-flare_meta_euro1(covariates = "AGE1ATK", PCs = TRUE, modelname = "metaFLARE1adj")
-
-flare_meta_direct_euro1(covariates = "AGE1ATK", PCs = TRUE, modelname = "metaFLARE1directeuroadj")
-
-flare_meta_direct_poly1(covariates = "AGE1ATK", PCs = TRUE, modelname = "metaFLARE1directpolyadj") # Issue with female west poly model
-
-flare_meta_direct_both1(covariates = "AGE1ATK", PCs = TRUE, modelname = "metaFLARE1directbothadj") # Issue with female west poly model
-
-flare_meta_euro2(covariates = c(), PCs = FALSE, modelname = "metaFLARE2")
-
-flare_meta_direct_euro2(covariates = c(), PCs = FALSE, modelname = "metaFLARE2directeuro")
-
-flare_meta_direct_poly2(covariates = c(), PCs = FALSE, modelname = "metaFLARE2directpoly")
-
-flare_meta_direct_both2(covariates = c(), PCs = FALSE, modelname = "metaFLARE2directboth")
-
-flare_meta_euro2(covariates = "AGE1ATK", PCs = TRUE, modelname = "metaFLARE2adj")
-
-flare_meta_direct_euro2(covariates = "AGE1ATK", PCs = TRUE, modelname = "metaFLARE2directeuroadj")
-
-flare_meta_direct_poly2(covariates = "AGE1ATK", PCs = TRUE, modelname = "metaFLARE2directpolyadj") # Issue with female west poly model
-
-flare_meta_direct_both2(covariates = "AGE1ATK", PCs = TRUE, modelname = "metaFLARE2directbothadj") # Issue with female west poly model
-
-
-
-# Creating table of results
-prsnames1 <- anz_gout %>% 
-  select(PRS, starts_with("rs")) %>% 
-  colnames()
-
-x <- prsnames1 %>% 
-  length()
-
-prsnames2 <- anz_gout_poly %>% 
-  select(PRS, starts_with("rs")) %>% 
-  colnames()
-
-y <- prsnames2 %>% 
-  length()
-
-NAstring1 <- rep(NA, x)
-
-NAstring2 <- rep(NA, y)
-
-OutcomeString <- c(rep("Age at onset (years)", 2*x),
-                   rep("Age at onset (years)", 6*y),
-                   rep("Age at onset (years)", 2*x),
-                   rep("Age at onset (years)", 6*y),
-                   rep("Presence of tophi", 2*x),
-                   rep("Presence of tophi", 6*y),
-                   rep("Presence of tophi", 2*x),
-                   rep("Presence of tophi", 6*y),
-                   rep("Higher flare frequency (categorical)", 2*x),
-                   rep("Higher flare frequency (categorical)", 6*y),
-                   rep("Higher flare frequency (categorical)", 2*x),
-                   rep("Higher flare frequency (categorical)", 6*y),
-                   rep("Higher flare frequency (categorical > 1)", 2*x),
-                   rep("Higher flare frequency (categorical > 1)", 6*y),
-                   rep("Higher flare frequency (categorical > 1)", 2*x),
-                   rep("Higher flare frequency (categorical > 1)", 6*y))
-
-PredictorString <- c(rep(prsnames1, 2),
-                     rep(prsnames2, 6),
-                     rep(prsnames1, 2),
-                     rep(prsnames2, 6),
-                     rep(prsnames1, 2),
-                     rep(prsnames2, 6),
-                     rep(prsnames1, 2),
-                     rep(prsnames2, 6),
-                     rep(prsnames1, 2),
-                     rep(prsnames2, 6),
-                     rep(prsnames1, 2),
-                     rep(prsnames2, 6),
-                     rep(prsnames1, 2),
-                     rep(prsnames2, 6),
-                     rep(prsnames1, 2),
-                     rep(prsnames2, 6))
-
-CovariateString <- c(rep("None", 2*x + 6*y),
-                     rep("10 Global PCs", 2*x + 2*y),
-                     rep("10 Global PCs + 10 Oceanian PCs", 2*y),
-                     rep("10 Global PCs", 2*y),
-                     rep("None", 2*x + 6*y),
-                     rep("Disease duration + 10 Global PCs", 2*x + 2*y),
-                     rep("Disease duration + 10 Global PCs + 10 Oceanian PCs", 2*y),
-                     rep("Disease duration + 10 Global PCs", 2*y),
-                     rep("None", 2*x + 6*y),
-                     rep("Age at onset + 10 Global PCs", 2*x + 2*y),
-                     rep("Age at onset + 10 Global PCs + 10 Oceanian PCs", 2*y),
-                     rep("Age at onset + 10 Global PCs", 2*y),
-                     rep("None", 2*x + 6*y),
-                     rep("Age at onset + 10 Global PCs", 2*x + 2*y),
-                     rep("Age at onset + 10 Global PCs + 10 Oceanian PCs", 2*y),
-                     rep("Age at onset + 10 Global PCs", 2*y))
-
-CohortString <- rep(c(rep("European Gout", 2*x + 2*y),
-                      rep("Polynesian Gout", 2*y),
-                      rep("All Gout", 2*y)), 8)
-
-BetaFixedString <- c(clean_lapply("metaONSET", Beta_meta_fixed),
-                     clean_lapply("metaONSETdirecteuro", Beta_meta_fixed),
-                     clean_lapply("metaONSETdirectpoly", Beta_meta_fixed),
-                     clean_lapply("metaONSETdirectboth", Beta_meta_fixed),
-                     clean_lapply("metaONSETadj", Beta_meta_fixed),
-                     clean_lapply("metaONSETdirecteuroadj", Beta_meta_fixed),
-                     clean_lapply("metaONSETdirectpolyadj", Beta_meta_fixed),
-                     clean_lapply("metaONSETdirectbothadj", Beta_meta_fixed),
-                     rep(NAstring1, 12),
-                     rep(NAstring2, 36))
-
-ORFixedString <- c(rep(NAstring1, 4),
-                   rep(NAstring2, 12),
-                   clean_lapply("metaTOPHI", OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirecteuro", OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirectpoly", OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirectboth", OR_meta_fixed),
-                   clean_lapply("metaTOPHIadj", OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirecteuroadj", OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirectpolyadj", OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirectbothadj", OR_meta_fixed),
-                   clean_lapply("metaFLARE1", OR_meta_fixed),
-                   clean_lapply("metaFLARE1directeuro", OR_meta_fixed),
-                   clean_lapply("metaFLARE1directpoly", OR_meta_fixed),
-                   clean_lapply("metaFLARE1directboth", OR_meta_fixed),
-                   clean_lapply("metaFLARE1adj", OR_meta_fixed),
-                   clean_lapply("metaFLARE1directeuroadj", OR_meta_fixed),
-                   clean_lapply("metaFLARE1directpolyadj", OR_meta_fixed),
-                   clean_lapply("metaFLARE1directbothadj", OR_meta_fixed),
-                   clean_lapply("metaFLARE2", OR_meta_fixed),
-                   clean_lapply("metaFLARE2directeuro", OR_meta_fixed),
-                   clean_lapply("metaFLARE2directpoly", OR_meta_fixed),
-                   clean_lapply("metaFLARE2directboth", OR_meta_fixed),
-                   clean_lapply("metaFLARE2adj", OR_meta_fixed),
-                   clean_lapply("metaFLARE2directeuroadj", OR_meta_fixed),
-                   clean_lapply("metaFLARE2directpolyadj", OR_meta_fixed),
-                   clean_lapply("metaFLARE2directbothadj", OR_meta_fixed))
-
-CIFixedString <- c(clean_lapply("metaONSET", CI_Beta_meta_fixed),
-                   clean_lapply("metaONSETdirecteuro", CI_Beta_meta_fixed),
-                   clean_lapply("metaONSETdirectpoly", CI_Beta_meta_fixed),
-                   clean_lapply("metaONSETdirectboth", CI_Beta_meta_fixed),
-                   clean_lapply("metaONSETadj", CI_Beta_meta_fixed),
-                   clean_lapply("metaONSETdirecteuroadj", CI_Beta_meta_fixed),
-                   clean_lapply("metaONSETdirectpolyadj", CI_Beta_meta_fixed),
-                   clean_lapply("metaONSETdirectbothadj", CI_Beta_meta_fixed),
-                   clean_lapply("metaTOPHI", CI_OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirecteuro", CI_OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirectpoly", CI_OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirectboth", CI_OR_meta_fixed),
-                   clean_lapply("metaTOPHIadj", CI_OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirecteuroadj", CI_OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirectpolyadj", CI_OR_meta_fixed),
-                   clean_lapply("metaTOPHIdirectbothadj", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE1", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE1directeuro", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE1directpoly", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE1directboth", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE1adj", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE1directeuroadj", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE1directpolyadj", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE1directbothadj", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE2", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE2directeuro", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE2directpoly", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE2directboth", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE2adj", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE2directeuroadj", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE2directpolyadj", CI_OR_meta_fixed),
-                   clean_lapply("metaFLARE2directbothadj", CI_OR_meta_fixed))
-
-PvalFixedString <- c(clean_lapply("metaONSET", Pval_meta_fixed),
-                     clean_lapply("metaONSETdirecteuro", Pval_meta_fixed),
-                     clean_lapply("metaONSETdirectpoly", Pval_meta_fixed),
-                     clean_lapply("metaONSETdirectboth", Pval_meta_fixed),
-                     clean_lapply("metaONSETadj", Pval_meta_fixed),
-                     clean_lapply("metaONSETdirecteuroadj", Pval_meta_fixed),
-                     clean_lapply("metaONSETdirectpolyadj", Pval_meta_fixed),
-                     clean_lapply("metaONSETdirectbothadj", Pval_meta_fixed),
-                     clean_lapply("metaTOPHI", Pval_meta_fixed),
-                     clean_lapply("metaTOPHIdirecteuro", Pval_meta_fixed),
-                     clean_lapply("metaTOPHIdirectpoly", Pval_meta_fixed),
-                     clean_lapply("metaTOPHIdirectboth", Pval_meta_fixed),
-                     clean_lapply("metaTOPHIadj", Pval_meta_fixed),
-                     clean_lapply("metaTOPHIdirecteuroadj", Pval_meta_fixed),
-                     clean_lapply("metaTOPHIdirectpolyadj", Pval_meta_fixed),
-                     clean_lapply("metaTOPHIdirectbothadj", Pval_meta_fixed),
-                     clean_lapply("metaFLARE1", Pval_meta_fixed),
-                     clean_lapply("metaFLARE1directeuro", Pval_meta_fixed),
-                     clean_lapply("metaFLARE1directpoly", Pval_meta_fixed),
-                     clean_lapply("metaFLARE1directboth", Pval_meta_fixed),
-                     clean_lapply("metaFLARE1adj", Pval_meta_fixed),
-                     clean_lapply("metaFLARE1directeuroadj", Pval_meta_fixed),
-                     clean_lapply("metaFLARE1directpolyadj", Pval_meta_fixed),
-                     clean_lapply("metaFLARE1directbothadj", Pval_meta_fixed),
-                     clean_lapply("metaFLARE2", Pval_meta_fixed),
-                     clean_lapply("metaFLARE2directeuro", Pval_meta_fixed),
-                     clean_lapply("metaFLARE2directpoly", Pval_meta_fixed),
-                     clean_lapply("metaFLARE2directboth", Pval_meta_fixed),
-                     clean_lapply("metaFLARE2adj", Pval_meta_fixed),
-                     clean_lapply("metaFLARE2directeuroadj", Pval_meta_fixed),
-                     clean_lapply("metaFLARE2directpolyadj", Pval_meta_fixed),
-                     clean_lapply("metaFLARE2directbothadj", Pval_meta_fixed))
-
-BetaRandomString <- c(clean_lapply("metaONSET", Beta_meta_random),
-                      clean_lapply("metaONSETdirecteuro", Beta_meta_random),
-                      clean_lapply("metaONSETdirectpoly", Beta_meta_random),
-                      clean_lapply("metaONSETdirectboth", Beta_meta_random),
-                      clean_lapply("metaONSETadj", Beta_meta_random),
-                      clean_lapply("metaONSETdirecteuroadj", Beta_meta_random),
-                      clean_lapply("metaONSETdirectpolyadj", Beta_meta_random),
-                      clean_lapply("metaONSETdirectbothadj", Beta_meta_random),
-                      rep(NAstring1, 12),
-                      rep(NAstring2, 36))
-
-ORRandomString <- c(rep(NAstring1, 4),
-                    rep(NAstring2, 12),
-                    clean_lapply("metaTOPHI", OR_meta_random),
-                    clean_lapply("metaTOPHIdirecteuro", OR_meta_random),
-                    clean_lapply("metaTOPHIdirectpoly", OR_meta_random),
-                    clean_lapply("metaTOPHIdirectboth", OR_meta_random),
-                    clean_lapply("metaTOPHIadj", OR_meta_random),
-                    clean_lapply("metaTOPHIdirecteuroadj", OR_meta_random),
-                    clean_lapply("metaTOPHIdirectpolyadj", OR_meta_random),
-                    clean_lapply("metaTOPHIdirectbothadj", OR_meta_random),
-                    clean_lapply("metaFLARE1", OR_meta_random),
-                    clean_lapply("metaFLARE1directeuro", OR_meta_random),
-                    clean_lapply("metaFLARE1directpoly", OR_meta_random),
-                    clean_lapply("metaFLARE1directboth", OR_meta_random),
-                    clean_lapply("metaFLARE1adj", OR_meta_random),
-                    clean_lapply("metaFLARE1directeuroadj", OR_meta_random),
-                    clean_lapply("metaFLARE1directpolyadj", OR_meta_random),
-                    clean_lapply("metaFLARE1directbothadj", OR_meta_random),
-                    clean_lapply("metaFLARE2", OR_meta_random),
-                    clean_lapply("metaFLARE2directeuro", OR_meta_random),
-                    clean_lapply("metaFLARE2directpoly", OR_meta_random),
-                    clean_lapply("metaFLARE2directboth", OR_meta_random),
-                    clean_lapply("metaFLARE2adj", OR_meta_random),
-                    clean_lapply("metaFLARE2directeuroadj", OR_meta_random),
-                    clean_lapply("metaFLARE2directpolyadj", OR_meta_random),
-                    clean_lapply("metaFLARE2directbothadj", OR_meta_random))
-
-CIRandomString <- c(clean_lapply("metaONSET", CI_Beta_meta_random),
-                    clean_lapply("metaONSETdirecteuro", CI_Beta_meta_random),
-                    clean_lapply("metaONSETdirectpoly", CI_Beta_meta_random),
-                    clean_lapply("metaONSETdirectboth", CI_Beta_meta_random),
-                    clean_lapply("metaONSETadj", CI_Beta_meta_random),
-                    clean_lapply("metaONSETdirecteuroadj", CI_Beta_meta_random),
-                    clean_lapply("metaONSETdirectpolyadj", CI_Beta_meta_random),
-                    clean_lapply("metaONSETdirectbothadj", CI_Beta_meta_random),
-                    clean_lapply("metaTOPHI", CI_OR_meta_random),
-                    clean_lapply("metaTOPHIdirecteuro", CI_OR_meta_random),
-                    clean_lapply("metaTOPHIdirectpoly", CI_OR_meta_random),
-                    clean_lapply("metaTOPHIdirectboth", CI_OR_meta_random),
-                    clean_lapply("metaTOPHIadj", CI_OR_meta_random),
-                    clean_lapply("metaTOPHIdirecteuroadj", CI_OR_meta_random),
-                    clean_lapply("metaTOPHIdirectpolyadj", CI_OR_meta_random),
-                    clean_lapply("metaTOPHIdirectbothadj", CI_OR_meta_random),
-                    clean_lapply("metaFLARE1", CI_OR_meta_random),
-                    clean_lapply("metaFLARE1directeuro", CI_OR_meta_random),
-                    clean_lapply("metaFLARE1directpoly", CI_OR_meta_random),
-                    clean_lapply("metaFLARE1directboth", CI_OR_meta_random),
-                    clean_lapply("metaFLARE1adj", CI_OR_meta_random),
-                    clean_lapply("metaFLARE1directeuroadj", CI_OR_meta_random),
-                    clean_lapply("metaFLARE1directpolyadj", CI_OR_meta_random),
-                    clean_lapply("metaFLARE1directbothadj", CI_OR_meta_random),
-                    clean_lapply("metaFLARE2", CI_OR_meta_random),
-                    clean_lapply("metaFLARE2directeuro", CI_OR_meta_random),
-                    clean_lapply("metaFLARE2directpoly", CI_OR_meta_random),
-                    clean_lapply("metaFLARE2directboth", CI_OR_meta_random),
-                    clean_lapply("metaFLARE2adj", CI_OR_meta_random),
-                    clean_lapply("metaFLARE2directeuroadj", CI_OR_meta_random),
-                    clean_lapply("metaFLARE2directpolyadj", CI_OR_meta_random),
-                    clean_lapply("metaFLARE2directbothadj", CI_OR_meta_random))
-
-PvalRandomString <- c(clean_lapply("metaONSET", Pval_meta_random),
-                      clean_lapply("metaONSETdirecteuro", Pval_meta_random),
-                      clean_lapply("metaONSETdirectpoly", Pval_meta_random),
-                      clean_lapply("metaONSETdirectboth", Pval_meta_random),
-                      clean_lapply("metaONSETadj", Pval_meta_random),
-                      clean_lapply("metaONSETdirecteuroadj", Pval_meta_random),
-                      clean_lapply("metaONSETdirectpolyadj", Pval_meta_random),
-                      clean_lapply("metaONSETdirectbothadj", Pval_meta_random),
-                      clean_lapply("metaTOPHI", Pval_meta_random),
-                      clean_lapply("metaTOPHIdirecteuro", Pval_meta_random),
-                      clean_lapply("metaTOPHIdirectpoly", Pval_meta_random),
-                      clean_lapply("metaTOPHIdirectboth", Pval_meta_random),
-                      clean_lapply("metaTOPHIadj", Pval_meta_random),
-                      clean_lapply("metaTOPHIdirecteuroadj", Pval_meta_random),
-                      clean_lapply("metaTOPHIdirectpolyadj", Pval_meta_random),
-                      clean_lapply("metaTOPHIdirectbothadj", Pval_meta_random),
-                      clean_lapply("metaFLARE1", Pval_meta_random),
-                      clean_lapply("metaFLARE1directeuro", Pval_meta_random),
-                      clean_lapply("metaFLARE1directpoly", Pval_meta_random),
-                      clean_lapply("metaFLARE1directboth", Pval_meta_random),
-                      clean_lapply("metaFLARE1adj", Pval_meta_random),
-                      clean_lapply("metaFLARE1directeuroadj", Pval_meta_random),
-                      clean_lapply("metaFLARE1directpolyadj", Pval_meta_random),
-                      clean_lapply("metaFLARE1directbothadj", Pval_meta_random),
-                      clean_lapply("metaFLARE2", Pval_meta_random),
-                      clean_lapply("metaFLARE2directeuro", Pval_meta_random),
-                      clean_lapply("metaFLARE2directpoly", Pval_meta_random),
-                      clean_lapply("metaFLARE2directboth", Pval_meta_random),
-                      clean_lapply("metaFLARE2adj", Pval_meta_random),
-                      clean_lapply("metaFLARE2directeuroadj", Pval_meta_random),
-                      clean_lapply("metaFLARE2directpolyadj", Pval_meta_random),
-                      clean_lapply("metaFLARE2directbothadj", Pval_meta_random))
-
-SexString <- rep(c(rep(rep(c("Male", "Female"), each = x), 1),
-                   rep(rep(c("Male", "Female"), each = y), 3)), 8)
-
-PRSString <- rep(c(rep("Imputed", 2*x),
-                   rep("Directly genotyped", 6*y)), 8)
-
-Meta3traitsvsPRS <- tibble("Outcome" = OutcomeString,
-                           "Predictor" = PredictorString,
-                           "PRS type" = PRSString,
-                           "Covariates" = CovariateString, 
-                           "Cohort" = CohortString,
-                           "Sex" = SexString, 
-                           "Beta (Fixed)" = BetaFixedString, 
-                           "OR (Fixed)" = ORFixedString, 
-                           "95% CI (Fixed)" = CIFixedString, 
-                           "Pval (Fixed)" = PvalFixedString, 
-                           "Beta (Random)" = BetaRandomString, 
-                           "OR (Random)" = ORRandomString, 
-                           "95% CI (Random)" = CIRandomString, 
-                           "Pval (Random)" = PvalRandomString)
-Meta3traitsvsPRS <- Meta3traitsvsPRS %>% mutate("Signif. (Fixed)" = case_when(`Pval (Fixed)` < (0.05 / nrow(UKBB_Gene_OR)) ~ "**", `Pval (Fixed)` >= (0.05 / nrow(UKBB_Gene_OR)) & `Pval (Fixed)` < 0.05 ~ "*", TRUE ~ "-"),
-                                                "Signif. (Random)" = case_when(`Pval (Random)` < (0.05 / nrow(UKBB_Gene_OR)) ~ "**", `Pval (Random)` >= (0.05 / nrow(UKBB_Gene_OR)) & `Pval (Random)` < 0.05 ~ "*", TRUE ~ "-"))
-save(Meta3traitsvsPRS, file = here("Output/Meta3traitsvsPRS.RData"))
-
-remove <- ls()
-remove <- as_tibble(remove) %>% 
-  filter(str_detect(value, "modlist"))
-remove <- remove$value
-rm(list = remove, remove)
-   
-remove2 <- ls()
-remove2 <- as_tibble(remove2) %>% 
-  filter(str_detect(value, "String"))
-remove2 <- remove2$value
-rm(list = remove2, remove2, prsnames1, prsnames2, x, y)
-```
-
-```{r SigModels}
-# All significant gout models:
-GoutvsPRS_sig <- GoutvsPRS %>% 
-  filter(`Signif.` == "**",
-         Cohort != "UK Biobank")
-
-table(GoutvsPRS_sig$Predictor)
-
-# All significant severity models:
-Meta3traitsvsPRS_sig <- Meta3traitsvsPRS %>% 
-  filter(`Signif. (Fixed)` == "**" | `Signif. (Random)` == "**")
-```
-
-```{r Relationships, echo = FALSE}
-# Now I want to determine the relationship between the three severity traits themselves alongside age and sex
-# I will do this for each cohort independently
-# First testing how sex and age affect each trait (which I kind of already tested in the models)
-tmp1 <- lm(AGE1ATK ~ SEX, data = anz_gout)
-tmp2 <- lm(AGE1ATK ~ SEX, data = eurogout)
-tmp3 <- lm(AGE1ATK ~ SEX, data = ardea_clear_lasso)
-tmp4 <- lm(AGE1ATK ~ SEX, data = ardea_lasso_other)
-tmp5 <- lm(AGE1ATK ~ SEX, data = ardea_crystal)
-tmp6 <- lm(AGE1ATK ~ SEX, data = ardea_light)
-
-mod <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]], tmp3$coefficients[[2]], tmp4$coefficients[[2]], tmp5$coefficients[[2]], tmp6$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2], summary(tmp3)$coefficients[2,2], summary(tmp4)$coefficients[2,2], summary(tmp5)$coefficients[2,2], summary(tmp6)$coefficients[2,2]), studlab = c("Aus/NZ", "EuroGout", "Ardea - CLEAR + LASSO", "Ardea - LASSO (other)", "Ardea - CRYSTAL", "Ardea - LIGHT"))
-summary(mod)
-mod$pval.fixed # Females have around 13 years later age at onset on average (p = 7.6e-63)
-
-# No need to test age vs age at onset (obviously correlated)
-
-
-# Flare activity vs sex
-tmp1 <- glm(FLAREHIGH ~ SEX, family = "binomial", data = anz_gout)
-tmp2 <- glm(FLAREHIGH ~ SEX, family = "binomial", data = eurogout)
-
-mod <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2]), studlab = c("Aus/NZ", "GlobalGout"), sm = "OR")
-summary(mod)
-mod$pval.fixed # Non-significant reduced flare activity in females (p = 0.99)
-
-# Flare activity vs age
-tmp1 <- glm(FLAREHIGH ~ AGECOL, family = "binomial", data = anz_gout)
-tmp2 <- glm(FLAREHIGH ~ AGECOL, family = "binomial", data = eurogout)
-
-mod <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2]), studlab = c("Aus/NZ", "GlobalGout"), sm = "OR")
-summary(mod)
-mod$pval.fixed # Reduced flare activity in older people (OR of 0.98 per year older, p = 7.0e-9)
-
-
-# Tophi vs sex
-tmp1 <- glm(TOPHIGOUT ~ SEX, family = "binomial", data = anz_gout)
-tmp2 <- glm(TOPHIGOUT ~ SEX, family = "binomial", data = eurogout)
-tmp3 <- glm(TOPHIGOUT ~ SEX, family = "binomial", data = ardea_clear_lasso)
-tmp4 <- glm(TOPHIGOUT ~ SEX, family = "binomial", data = ardea_lasso_other)
-tmp5 <- glm(TOPHIGOUT ~ SEX, family = "binomial", data = ardea_light)
-
-mod <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]], tmp3$coefficients[[2]], tmp4$coefficients[[2]], tmp5$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2], summary(tmp3)$coefficients[2,2], summary(tmp4)$coefficients[2,2], summary(tmp5)$coefficients[2,2]), studlab = c("Aus/NZ", "GlobalGout", "Ardea - CLEAR + LASSO", "Ardea - LASSO (other)", "Ardea - LIGHT"), sm = "OR")
-summary(mod)
-mod$pval.fixed # Non-significant reduction in tophi presence in females (p = 0.66)
-
-# Tophi vs age
-tmp1 <- glm(TOPHIGOUT ~ AGECOL, family = "binomial", data = anz_gout)
-tmp2 <- glm(TOPHIGOUT ~ AGECOL, family = "binomial", data = eurogout)
-tmp3 <- glm(TOPHIGOUT ~ AGECOL, family = "binomial", data = ardea_clear_lasso)
-tmp4 <- glm(TOPHIGOUT ~ AGECOL, family = "binomial", data = ardea_lasso_other)
-tmp5 <- glm(TOPHIGOUT ~ AGECOL, family = "binomial", data = ardea_light)
-
-mod <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]], tmp3$coefficients[[2]], tmp4$coefficients[[2]], tmp5$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2], summary(tmp3)$coefficients[2,2], summary(tmp4)$coefficients[2,2], summary(tmp5)$coefficients[2,2]), studlab = c("Aus/NZ", "GlobalGout", "Ardea - CLEAR + LASSO", "Ardea - LASSO (other)", "Ardea - LIGHT"), sm = "OR")
-summary(mod) 
-mod$pval.fixed # More tophi presence in older individuals (due to duration increase, OR 1.01, p = 1.5e-5)
-
-
-# Now to test relationship between severity traits
-# Flare activity vs age at onset
-tmp1 <- glm(FLAREHIGH ~ AGE1ATK, family = "binomial", data = anz_gout)
-tmp2 <- glm(FLAREHIGH ~ AGE1ATK, family = "binomial", data = eurogout)
-
-mod <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2]), studlab = c("Aus/NZ", "GlobalGout"), sm = "OR")
-summary(mod)
-mod$pval.fixed # Non-significant decrease in flare activity per year later age at onset (p = 0.10)
-
-# Tophi positivity vs age at onset
-tmp1 <- glm(TOPHIGOUT ~ AGE1ATK, family = "binomial", data = anz_gout)
-tmp2 <- glm(TOPHIGOUT ~ AGE1ATK, family = "binomial", data = eurogout)
-tmp3 <- glm(TOPHIGOUT ~ AGE1ATK, family = "binomial", data = ardea_clear_lasso)
-tmp4 <- glm(TOPHIGOUT ~ AGE1ATK, family = "binomial", data = ardea_lasso_other)
-tmp5 <- glm(TOPHIGOUT ~ AGE1ATK, family = "binomial", data = ardea_light)
-
-mod <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]], tmp3$coefficients[[2]], tmp4$coefficients[[2]], tmp5$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2], summary(tmp3)$coefficients[2,2], summary(tmp4)$coefficients[2,2], summary(tmp5)$coefficients[2,2]), studlab = c("Aus/NZ", "GlobalGout", "Ardea - CLEAR + LASSO", "Ardea - LASSO (other)", "Ardea - LIGHT"), sm = "OR")
-summary(mod) 
-mod$pval.fixed # Decrease in tophus positivity per year later age at onset (OR = 0.99, p = 0.003)
-
-# Flare activity vs tophi
-tmp1 <- glm(FLAREHIGH ~ TOPHIGOUT, family = "binomial", data = anz_gout)
-tmp2 <- glm(FLAREHIGH ~ TOPHIGOUT, family = "binomial", data = eurogout)
-
-mod <- metagen(TE = c(tmp1$coefficients[[2]], tmp2$coefficients[[2]]), seTE = c(summary(tmp1)$coefficients[2,2], summary(tmp2)$coefficients[2,2]), studlab = c("Aus/NZ", "GlobalGout"), sm = "OR")
-summary(mod)
-mod$pval.fixed # Flare activity significantly increases with presence of tophi (OR = 1.81, p = 7.4e-9)
-
-
-# Cleaning up
-rm(tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, mod)
-```
-
-```{r TophusGWAS}
-alltophi <- allgout %>% 
-  filter(!is.na(TOPHIGOUT)) %>% 
-  mutate(FID = IID) %>% 
-  select(FID, IID, TOPHIGOUT, COHORT2, DURATION, SEX, SURICACID:PC10)
-
-write_delim(alltophi, delim = "\t", file = here("Output/TophiGWAS/tophi.covar"))
-
-system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --vcf /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Imputed_Genotypes/QC1-10_Impute_EUR_only/CZ-MB1.2-QC1.10_EUR_imputed_chr{}.vcf.gz --make-bed --out ', here("Output/TophiGWAS/"), 'matched_snps_chr{}.txt" ::: {1..22}'))
-
-system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/TophiGWAS/"), 'merged_poly_multi --logistic sex --ci 0.95 --covar ', here("Output/TophiGWAS/", "tophi.covar"), ' --covar-name PC1-PC10 --out ', here("Output/TophiGWAS/"), 'allgout'))
-```
-
-```{r Oldcode}
-anz_gout_poly <- anz_euro_pheno_prs_poly %>% 
-  mutate(COHORT2 = "Aus/NZ",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-
-anz_control <- control_anz_euro_pheno_prs %>%
-  mutate(GOUT = FALSE,
-         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
-         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
-  rename(IID = Pheno.SampleID,
-         AGECOL = Pheno.Age,
-         COHORT = Pheno.Study,
-         PC1 = Geno.PCVector1,
-         PC2 = Geno.PCVector2,
-         PC3 = Geno.PCVector3,
-         PC4 = Geno.PCVector4,
-         PC5 = Geno.PCVector5,
-         PC6 = Geno.PCVector6,
-         PC7 = Geno.PCVector7,
-         PC8 = Geno.PCVector8,
-         PC9 = Geno.PCVector9,
-         PC10 = Geno.PCVector10) %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408)
-
-anz_control_poly <- control_anz_euro_pheno_prs_poly %>%
-  mutate(GOUT = FALSE,
-         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
-         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
-  rename(IID = Pheno.SampleID,
-         AGECOL = Pheno.Age,
-         COHORT = Pheno.Study,
-         PC1 = Geno.PCVector1,
-         PC2 = Geno.PCVector2,
-         PC3 = Geno.PCVector3,
-         PC4 = Geno.PCVector4,
-         PC5 = Geno.PCVector5,
-         PC6 = Geno.PCVector6,
-         PC7 = Geno.PCVector7,
-         PC8 = Geno.PCVector8,
-         PC9 = Geno.PCVector9,
-         PC10 = Geno.PCVector10) %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738409, -rs35332062)
-
-tmp <- anz_gout %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738408)
-
-anz_full <- rbind(tmp, anz_control)
-
-tmp <- anz_gout_poly %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, PRS:rs738409)
-
-anz_full_poly <- rbind(tmp, anz_control_poly)
-
-
-eurogout <- eurogout_euro_pheno_prs %>% 
-  mutate(COHORT2 = "EuroGout",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID)
-
-eurogout_poly <- eurogout_euro_pheno_prs_poly %>% 
-  mutate(COHORT2 = "EuroGout",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-
-
-ardea_clear1 <- clear1_euro_pheno_prs %>% 
-  mutate(COHORT2 = "Ardea - CLEAR1",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID)
-
-ardea_clear1_poly <- clear1_euro_pheno_prs_poly %>% 
-  mutate(COHORT2 = "Ardea - CLEAR1",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-
-
-ardea_clear2 <- clear2_euro_pheno_prs %>% 
-  mutate(COHORT2 = "Ardea - CLEAR2",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID)
-
-ardea_clear2_poly <- clear2_euro_pheno_prs_poly %>% 
-  mutate(COHORT2 = "Ardea - CLEAR2",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-
-
-ardea_lasso <- lasso_euro_pheno_prs %>% 
-  mutate(COHORT2 = "Ardea - LASSO",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID)
-
-ardea_lasso_poly <- lasso_euro_pheno_prs_poly %>% 
-  mutate(COHORT2 = "Ardea - LASSO",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-
-
-ardea_crystal <- crystal_euro_pheno_prs %>% 
-  mutate(COHORT2 = "Ardea - CRYSTAL",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID)
-
-ardea_crystal_poly <- crystal_euro_pheno_prs_poly %>% 
-  mutate(COHORT2 = "Ardea - CRYSTAL",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-
-
-ardea_light <- light_euro_pheno_prs %>% 
-  mutate(COHORT2 = "Ardea - LIGHT",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID)
-
-ardea_light_poly <- light_euro_pheno_prs_poly %>% 
-  mutate(COHORT2 = "Ardea - LIGHT",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-  
-
-allgout <- rbind(anz_gout, eurogout, ardea_clear1, ardea_clear2, ardea_crystal, ardea_lasso, ardea_light)
-
-allgout_poly <- rbind(anz_gout_poly, eurogout_poly, ardea_clear1_poly, ardea_clear2_poly, ardea_crystal_poly, ardea_lasso_poly, ardea_light_poly)
-
-rm(anz_euro_pheno_prs, clear1_euro_pheno_prs, clear2_euro_pheno_prs, control_anz_euro_pheno_prs, crystal_euro_pheno_prs, eurogout_euro_pheno_prs, lasso_euro_pheno_prs, light_euro_pheno_prs, anz_euro_pheno_prs_poly, clear1_euro_pheno_prs_poly, clear2_euro_pheno_prs_poly, control_anz_euro_pheno_prs_poly, crystal_euro_pheno_prs_poly, eurogout_euro_pheno_prs_poly, lasso_euro_pheno_prs_poly, light_euro_pheno_prs_poly, tmp)
-
-
-# Polynesian cohort prep
-eastpoly_gout <- eastpoly_pheno_prs %>% 
-  mutate(COHORT2 = "East Polynesian",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-
-eastpoly_control <- control_eastpoly_pheno_prs %>%
-  mutate(GOUT = FALSE,
-         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
-         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
-  rename(IID = Pheno.SampleID,
-         AGECOL = Pheno.Age,
-         COHORT = Pheno.Study,
-         PC1 = Geno.PCVector1,
-         PC2 = Geno.PCVector2,
-         PC3 = Geno.PCVector3,
-         PC4 = Geno.PCVector4,
-         PC5 = Geno.PCVector5,
-         PC6 = Geno.PCVector6,
-         PC7 = Geno.PCVector7,
-         PC8 = Geno.PCVector8,
-         PC9 = Geno.PCVector9,
-         PC10 = Geno.PCVector10,
-         PC1_Oc = Geno.PCVector1_Oc,
-         PC2_Oc = Geno.PCVector2_Oc,
-         PC3_Oc = Geno.PCVector3_Oc,
-         PC4_Oc = Geno.PCVector4_Oc,
-         PC5_Oc = Geno.PCVector5_Oc,
-         PC6_Oc = Geno.PCVector6_Oc,
-         PC7_Oc = Geno.PCVector7_Oc,
-         PC8_Oc = Geno.PCVector8_Oc,
-         PC9_Oc = Geno.PCVector9_Oc,
-         PC10_Oc = Geno.PCVector10_Oc) %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:rs738409, -rs35332062)
-
-tmp <- eastpoly_gout %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:rs738409)
-
-eastpoly_full <- rbind(tmp, eastpoly_control)
-
-westpoly_gout <- westpoly_pheno_prs %>% 
-  mutate(COHORT2 = "West Polynesian",
-         NUMATK = round(NUMATK),
-         FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
-                                      between(NUMATK, 6, 11) ~ "One every one to two months", 
-                                      between(NUMATK, 12, 52) ~ "One or more per month"),
-                            levels = c(paste0(0:5, " flares in last year"), "One every one to two months", "One or more per month"),
-                            labels = c(paste0(0:5), "6 - 11", "12 - 52"),
-                            ordered = TRUE)) %>% 
-  select(-Geno.SampleID, -rs35332062)
-
-westpoly_control <- control_westpoly_pheno_prs %>%
-  mutate(GOUT = rep(FALSE, nrow(.)),
-         SEX = factor(Pheno.Gender, levels = c("Female", "Male")),
-         SURICACID = Pheno.CollectionUrate / 0.05949) %>% 
-  rename(IID = Pheno.SampleID,
-         AGECOL = Pheno.Age,
-         COHORT = Pheno.Study,
-         PC1 = Geno.PCVector1,
-         PC2 = Geno.PCVector2,
-         PC3 = Geno.PCVector3,
-         PC4 = Geno.PCVector4,
-         PC5 = Geno.PCVector5,
-         PC6 = Geno.PCVector6,
-         PC7 = Geno.PCVector7,
-         PC8 = Geno.PCVector8,
-         PC9 = Geno.PCVector9,
-         PC10 = Geno.PCVector10,
-         PC1_Oc = Geno.PCVector1_Oc,
-         PC2_Oc = Geno.PCVector2_Oc,
-         PC3_Oc = Geno.PCVector3_Oc,
-         PC4_Oc = Geno.PCVector4_Oc,
-         PC5_Oc = Geno.PCVector5_Oc,
-         PC6_Oc = Geno.PCVector6_Oc,
-         PC7_Oc = Geno.PCVector7_Oc,
-         PC8_Oc = Geno.PCVector8_Oc,
-         PC9_Oc = Geno.PCVector9_Oc,
-         PC10_Oc = Geno.PCVector10_Oc) %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:rs738409, -rs35332062)
-
-tmp <- westpoly_gout %>% 
-  select(IID, COHORT, SEX, AGECOL, GOUT, SURICACID, PC1:PC10, Geno.PolynesianGroup, PC1_Oc:PC10_Oc, PRS:rs738409)
-
-westpoly_full <- rbind(tmp, westpoly_control)
-
-allgout_poly2 <- allgout_poly %>% 
-  full_join(eastpoly_gout) %>% 
-  full_join(westpoly_gout)
-
-rm(control_eastpoly_pheno_prs, control_westpoly_pheno_prs, eastpoly_pheno_prs, westpoly_pheno_prs, tmp)
-
-
-# UK Biobank prep
-ukbb_gout <- ukbb_euro_pheno_prs %>% 
-  filter(GOUT == TRUE,
-         !is.na(PRS)) %>% 
-  mutate(NUMATK = NA,
-         TOPHIGOUT = NA,
-         AGE1ATK = NA,
-         DURATION = NA,
-         PC1 = NA,
-         PC2 = NA,
-         PC3 = NA,
-         PC4 = NA,
-         PC5 = NA,
-         PC6 = NA,
-         PC7 = NA,
-         PC8 = NA,
-         PC9 = NA,
-         PC10 = NA) %>% 
-  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:rs738408)
-
-ukbb_control <- ukbb_euro_pheno_prs %>% 
-  filter(GOUT == FALSE,
-         !is.na(PRS)) %>%
-  mutate(NUMATK = NA,
-         TOPHIGOUT = NA,
-         AGE1ATK = NA,
-         DURATION = NA,
-         PC1 = NA,
-         PC2 = NA,
-         PC3 = NA,
-         PC4 = NA,
-         PC5 = NA,
-         PC6 = NA,
-         PC7 = NA,
-         PC8 = NA,
-         PC9 = NA,
-         PC10 = NA,
-         ULT = NA) %>% 
-  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:rs738408)
-
-ukbb <- rbind(ukbb_gout, ukbb_control)
-
-rm(ukbb_euro_pheno_prs)
-
-ukbb_gout_poly <- ukbb_poly_pheno_prs %>% 
-  filter(GOUT == TRUE,
-         !is.na(PRS)) %>% 
-  mutate(NUMATK = NA,
-         TOPHIGOUT = NA,
-         AGE1ATK = NA,
-         DURATION = NA,
-         PC1 = NA,
-         PC2 = NA,
-         PC3 = NA,
-         PC4 = NA,
-         PC5 = NA,
-         PC6 = NA,
-         PC7 = NA,
-         PC8 = NA,
-         PC9 = NA,
-         PC10 = NA) %>% 
-  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:rs738409, -rs35332062)
-
-ukbb_control_poly <- ukbb_poly_pheno_prs %>% 
-  filter(GOUT == FALSE,
-         !is.na(PRS)) %>%
-  mutate(NUMATK = NA,
-         TOPHIGOUT = NA,
-         AGE1ATK = NA,
-         DURATION = NA,
-         PC1 = NA,
-         PC2 = NA,
-         PC3 = NA,
-         PC4 = NA,
-         PC5 = NA,
-         PC6 = NA,
-         PC7 = NA,
-         PC8 = NA,
-         PC9 = NA,
-         PC10 = NA,
-         ULT = NA) %>% 
-  select(IID, NUMATK, TOPHIGOUT, AGE1ATK, DURATION, COHORT, SEX, AGECOL, GOUT, SURICACID, ULT, PC1:PC10, PRS:rs738409, -rs35332062)
-
-ukbb_poly <- rbind(ukbb_gout_poly, ukbb_control_poly)
-
-rm(ukbb_poly_pheno_prs)
-```
-

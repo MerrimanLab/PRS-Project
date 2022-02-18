@@ -1,16 +1,16 @@
 ## GWAS Code
 
-We first ran a genome-wide association study in the UK Biobank European cohort with gout as the outcome. This was done with a total of 27,287,012 variants (after imputation), and adjusted for age, sex, and the first 40 principal components. Below, we did the following to clean up this summary stats file:
+We first ran a genome-wide association study in the UK Biobank European cohort with gout as the outcome. This was done with a total of 27,287,012 variants (after imputation), and adjusted for age, sex, and the first 40 principal components. Initially, I did the following to clean up this summary stats file:
 
-1. We read in the summary statistics.
+1. I read in the summary statistics.
 
-2. We then did some initial filtering to remove X and Y chromosome SNPs, and some of the indels.
+2. I then did some initial filtering to remove X and Y chromosome SNPs, and some of the indels.
 
-3. We removed variants that were not in the imputed CoreExome genotype data.
+3. I removed variants that were not in the imputed CoreExome genotype data.
 
-4. We then filtered out multi-allelic variants and variants with MAF < 0.01.
+4. I then filtered out multi-allelic variants and variants with MAF < 0.01.
 
-5. For the Polynesian analysis, we additionally filtered out variants that were not directly genotyped in the CoreExome. 
+5. For the genotyped PRS, I additionally filtered out variants that were not genotyped in the CoreExome. 
 
 ```{r sumstat_filtering, eval = F}
 # Reading in summary stats
@@ -24,7 +24,7 @@ if(file.exists(here("Output/Temp/sumstat5.RData"))) {
   
     sumstat2 <- sumstat %>% 
       filter(str_length(A1) == 1,
-             CHR %in% 1:22) # Removing 738,219 indels and keeping only autosomes (removes a further 1,069,966 variants) = 25,478,827 variants
+             CHR %in% 1:22) # Removing 738,219 indels and keeping only autosomes (removes a further 1,069,966 variants) = 25,478,827 variantsco
     
     sumstat2_1 <- sumstat2 %>% 
       mutate(SNP1 = sumstat2 %>% pull(SNP) %>% str_split(",", n = 2, simplify = TRUE) %>% .[,1],
@@ -476,11 +476,11 @@ if(file.exists(here("Output/Temp/multi_allelic_for_later.RData"))) {
 }
 ```
 
-To get from these cleaned up summary statistics to the final list of SNPs for the European PRS, we did the following: 
+To get from these cleaned up summary statistics to the final list of SNPs for the Imputed PRS, I did the following:
 
-1. We filtered out all SNPs with P-values greater than 5e-8.
+1. I filtered out all SNPs with P-values greater than 5e-8.
 
-2. We took each lead SNP within a 1 Mb window and used these to define 23 crude loci.
+2. I took each lead SNP within a 1 Mb window and used these to define 23 crude loci.
 
 3. This list of lead SNPs was further filtered to only include one lead SNP per full locus.
 
@@ -1136,7 +1136,7 @@ save(UKBB_Gene_OR, file = here("Output/UKBB_Gene_OR.RData"))
 rm(list = ls()[str_detect(ls(), "^chr|^gout_top|^final_|gwas.$")], bigOR, first_round, multi_snps, multi_snps2, multi_snps3, out, regions, second_round, single_snps, smallOR, third_round, tmp, tmp2, tmp3, file_names, file_names2, i)
 ```
 
-The European PRS was then further filtered for the Polynesian analysis as follows:
+The Imputed PRS was then modified to form a Genotyped PRS as follows:
 
 1. Biallelic SNPs from the imputed UK Biobank were filtered to only include those directly genotyped in the CoreExome (~ 250,000).
 
@@ -1146,7 +1146,7 @@ The European PRS was then further filtered for the Polynesian analysis as follow
 
 4. The SNP with the highest R-squared for each SNP in the European PRS was extracted, then this list was filtered to only include those SNPs that met P < 5e-8 in the full UK Biobank gout GWAS (15 / 24).
 
-5. The 3 directly genotyped SNPs were combined with these 15 proxies to produce a single file of 18 lead SNPs for the Polynesian analysis.
+5. The 3 directly genotyped SNPs were combined with these 15 proxies to produce a single file of 18 lead SNPs for the Genotyped PRS.
 
 ```{r poly_loci_grouping, eval = F}
 # Load in SNPs for inclusion in Polynesian analysis
@@ -1274,15 +1274,15 @@ tmp <- multi_snps %>% select(RSID)
 
 #system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly --extract ', here("Output/Temp/snps_to_extract_poly.txt"), ' --make-bed --out ', here("Output/Temp/"), 'merged_poly_multi'))
 
-for(i in 4:7){
-  system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly_multi --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition ', multi_snps$RSID[i], ' --out ', here("Output/Temp/"), 'final_gwas_poly_', multi_snps$RSID[i]))
-}
-
-for(i in 1:3){
-  write_delim(multi_snps %>% slice(1:3) %>% select(RSID) %>% filter(RSID != multi_snps$RSID[i]), file = paste0(here("Output/Temp/"), "conditionlist_poly_", multi_snps$RSID[i], ".txt"), delim = "\n", col_names = F)
-  
-  system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly_multi --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition-list ', here("Output/Temp/"), 'conditionlist_poly_', multi_snps$RSID[i], '.txt --out ', here("Output/Temp/"), 'final_gwas_poly_', multi_snps$RSID[i]))
-}
+# for(i in 4:7){
+#   system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly_multi --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition ', multi_snps$RSID[i], ' --out ', here("Output/Temp/"), 'final_gwas_poly_', multi_snps$RSID[i]))
+# }
+# 
+# for(i in 1:3){
+#   write_delim(multi_snps %>% slice(1:3) %>% select(RSID) %>% filter(RSID != multi_snps$RSID[i]), file = paste0(here("Output/Temp/"), "conditionlist_poly_", multi_snps$RSID[i], ".txt"), delim = "\n", col_names = F)
+#   
+#   system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly_multi --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition-list ', here("Output/Temp/"), 'conditionlist_poly_', multi_snps$RSID[i], '.txt --out ', here("Output/Temp/"), 'final_gwas_poly_', multi_snps$RSID[i]))
+# }
 
 file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), "final_gwas_poly_.+logistic")]
 
@@ -1359,15 +1359,72 @@ save(Poly_Gene_OR, file = here("Output/Poly_Gene_OR.RData"))
 rm(biallelic_loci_poly, biallelic_loci_poly2, biallelic_sumstat_final_poly, bigOR, full_list, full_list2, full_list3, locus_names, merged_ld, need_ld, need_proxies, out, out1, out1_1, out2, smallOR, test, tmp, tmp_loci, tmp2, i)
 ```
 
-All of the locus zooms are plotted below:
+### Locus-Zooms {.tabset}
 
-```{r Plots_tables}
+All of the locus zooms are plotted below in separate tabs:
+
+```{r Plots_tables, warning = F, message = F}
 file_names <- list.files(here("Output/Plots"), full.names = T)
 
-tmp <- file_names %>% as_tibble() %>% separate(value, sep = "_", into = c(NA, "X2", "BP1", NA, NA, "Cond", "CondSNPs")) %>% 
-  rownames_to_column() %>% mutate(Cond1 = case_when(Cond == "unconditioned.jpg" ~ FALSE, TRUE ~ TRUE), BP1 = as.numeric(BP1), rowname = as.numeric(rowname)) %>% separate(X2, sep = "/", into = c(NA, NA, NA, NA, NA, NA, NA, "CHR")) %>% mutate(CHR = as.numeric(str_replace(CHR, "Chr", ""))) %>% arrange(CHR, BP1, Cond1, CondSNPs) %>% pull(rowname)
+tmp <- file_names %>% 
+  as_tibble() %>% 
+  separate(value, sep = "_", into = c(NA, "X2", "BP1", NA, NA, "Cond", "CondSNPs")) %>% 
+  rownames_to_column() %>% 
+  mutate(Cond1 = case_when(Cond == "unconditioned.jpg" ~ FALSE, TRUE ~ TRUE), 
+         BP1 = as.numeric(BP1), 
+         rowname = as.numeric(rowname)) %>% 
+  separate(X2, sep = "/", into = c(NA, NA, NA, NA, NA, NA, NA, "CHR")) %>%
+  mutate(CHR = as.numeric(str_replace(CHR, "Chr", ""))) %>% 
+  arrange(CHR, BP1, Cond1, CondSNPs)
 
-file_names2 <- file_names[tmp]
+tmp1 <- tmp %>% 
+  pull(BP1) %>% 
+  unique() %>% 
+  as_tibble() %>% 
+  rename(BP1 = value)
 
-include_graphics(file_names2)
+load(here("Output/UKBB_Gene_OR.RData"))
+
+tmp2 <- UKBB_Gene_OR %>% 
+  pull(Locus_Name) %>% 
+  unique() %>% 
+  as_tibble() %>% 
+  rename(Locus_Name = value) %>% 
+  cbind(tmp1)
+
+tmp3 <- tmp %>% 
+  left_join(tmp2, by = "BP1")
+
+tmp4 <- tmp3 %>% 
+  mutate(CondSNPs2 = str_remove(CondSNPs, ".jpg")) %>% 
+  separate(CondSNPs2, sep = "and", into = c("SNP1", "SNP2", "SNP3", "SNP4")) %>% 
+  mutate(SNPs = case_when(is.na(SNP2) ~ SNP1,
+                          !is.na(SNP2) & is.na(SNP3) ~ str_c(SNP1, SNP2, sep = " and "),
+                          !is.na(SNP3) & is.na(SNP4) ~ str_c(SNP1, SNP2, SNP3, sep = " and "),
+                          !is.na(SNP4) ~ str_c(SNP1, SNP2, SNP3, SNP4, sep = " and ")),
+         Plot_Name = case_when(!Cond1 ~ paste0(Locus_Name, " (Uncond.)"),
+                               Cond1 ~ paste0(Locus_Name, " (Cond. on ", SNPs, ")")))
+
+file_names2 <- file_names[tmp$rowname]
+
+names(file_names2) <- tmp4$Plot_Name
+
+template <- c(
+    "#### {{nm}}\n",
+    "```{r, echo = FALSE}\n",
+    "include_graphics(file_names2['{{nm}}'])\n",
+    "```\n",
+    "\n"
+  )
+
+plots <- lapply(
+  tmp4$Plot_Name, 
+  function(nm) knit_expand(text = template)
+)
 ```
+
+`r knitr::knit(text = unlist(plots))`
+
+### Summary
+
+In summary, I produced2 lists of SNPs that will be used to create two different PRS's. The first uses a mixture of imputed and genotyped SNPs, while the second uses only SNPs genotyped on the Human CoreExome v1.0 chip. This will ensure that no imputation was done on Polynesian individuals, which should make the genotypes more reliable, at the expense of not using the best possible variants for the PRS. Three of the 21 total loci had more than one partially independent genome-wide significant signal. These were at SLC2A9 (5 hits), ABCG2 (2 hits), and SLC22A11 (2 hits). 

@@ -1,52 +1,42 @@
 ## Preparing Phenotype files and making PRS
 
-The purpose of this document is to generate cleaned up phenotype files for each cohort, with the imputed and directly genotyped polygenic risk scores (PRSs) included for each. It contains the code for going from the raw phenotype and genotype data (in combination with the SNP lists generated in PRS_GWAS.Rmd) to the finalized data frames for analysis.
+The purpose of this document is to generate cleaned up phenotype files for each cohort, with the imputed and genotyped polygenic risk scores (PRS's) included for each. It contains the code for going from the raw phenotype and genotype data (in combination with the SNP lists generated in PRS_GWAS.Rmd) to the finalized data frames for analysis.
 
-The phenotypes of interest are the following:
+The phenotypes of interest are the following (note some may be poorly phenotyped):
 
-1. Gout status (i.e. gout vs control) - obtain from CoreExPheno
+1. Self-reported gout status (i.e. gout vs control)
 
-2. Age at recruitment/collection/time of data acquisition
+2. Self-reported age at collection
 
-    - If self-reported age at collection is available, use this
-    - When this is not available derive from DOB and date of collection
-    - Also derive age at serum collection and age at SCL
+3. Genetically determined sex
 
-3. Sex (genetically determined)
+4. Genetic principal components (all 10 global PCs and all 10 Oceanian PCs for Polynesians)
 
-4. Principal components (any and all global PCs as well as Oceanian PCs for Polynesians)
+5. Self-reported age at gout onset
 
-5. Age at gout onset (self-reported)
+    - Disease duration derived from this and age at collection
 
-    - Also derive disease duration from this and age at collection
+6. Self-reported presence of tophi
 
-6. Any and all tophus data (including presence, size, number, locations etc.)
+7. Self-reported flare frequency (number of flares in the last year)
 
-7. Any and all flare data (including frequency, intensity, involved joints etc.)
+8. Serum urate at collection
 
-8. Serum urate (as many measurements as possible)
+9. Self-reported urate lowering therapy data (at collection)
 
-9. Urate lowering therapy data (any ULT, at any point in time, but separate out those that report currently being on ULT)
+10. Self-reported gout prophylaxis data (at collection)
 
-10. Gout prophylaxis data
+11. Genetic ancestry data (i.e. European vs West Polynesian vs East Polynesian)
 
-11. Ethnicity data, including self report and genetic ancestry
+12. Comorbidity data, including BMI, hypertension, diabetes, heart disease (angina, myocardial infarction, or heart failure), kidney disease (serum creatinine/eGFR), dyslipidemia, stroke - including self report, medication, and metrics such as BMI (for descriptive stats table)
 
-12. Comorbidity data, including BMI, hypertension, diabetes, heart disease (angina, mi, hf), kidney disease (serum creatinine/eGFR), dyslipidemia, liver disease, sleep apnea, stroke - including self report, medication, ICD codes? and metrics such as BMI
+13. Lifestyle factors - total alcohol consumption, sugar-sweetened drink consumption, smoking status (for descriptive stats table)
 
-13. Lifestyle factors - total alcohol consumption, sugar-sweetened drink consumption, smoking status
-
-14. Relatedness data - including family history data
+14. Self-reported family history of gout
 
 Exclusion criteria:
 
-1. Genetic sex to self-report mismatch (only if they self-report a gender)
-
-2. Genetic ancestry doesn't reasonably match self-report (evidence for sample mix-up)
-
-3. Mismatch between data on same individual across phenotype files (evidence for sample mix-up)
-
-4. Missing data? Complete case exclusion within each model is probably appropriate, but be cautious with this approach as it will introduce bias (however other approaches such as imputation are not necessarily better in this regard)
+1. Genetic sex to self-report gender mismatch
 
 ```{r dataprep, eval = FALSE}
 # Loading PRS SNPs for European and Polynesian analyses
@@ -54,7 +44,7 @@ load(here("Output/UKBB_Gene_OR.RData"))
 load(here("Output/Poly_Gene_OR.RData"))
 
 
-# Making files for extracting SNPs from the CoreExome VCFs using plink
+# Extracting SNPs from the CoreExome VCFs using plink ----------------------------------
 if(!file.exists(here("Output/Temp/UKBB_SNPs_Plink.txt"))){
   for_plink <- UKBB_Gene_OR %>%
     select(CHR, BP, RSID) %>%
@@ -73,8 +63,6 @@ if(!file.exists(here("Output/Temp/Poly_SNPs_Plink.txt"))){
   rm(for_plink)
 }
 
-# Extracting SNPs from the CoreExome VCFs using plink
-
 #system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --vcf /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Imputed_Genotypes/QC1-10_Impute_EUR_only/CZ-MB1.2-QC1.10_EUR_imputed_chr{}.vcf.gz --extract range ', here("Output/Temp/UKBB_SNPs_Plink.txt"), ' --make-bed --out ', here("Output/Temp/UKBB_SNPs_"), 'chr{}" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
 
 #system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile ', here("Output/Temp/UKBB_SNPs_"), 'chr{} --set-missing-var-ids @:# --make-bed --out ', here("Output/Temp/UKBB_SNPs_"), 'chr{}_2" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
@@ -91,7 +79,7 @@ if(!file.exists(here("Output/Temp/Poly_SNPs_Plink.txt"))){
 
 
 
-# Making bgen file for extracting SNPs from the UK Biobank
+# Extracting SNPs from the UK Biobank  and converting to merged plink file -------------------------------
 if(!file.exists(here("Output/Temp/PRS_SNPs_BGEN.txt"))){
   tmp <- UKBB_Gene_OR %>%
     select(CHR, BP)
@@ -120,8 +108,6 @@ if(!file.exists(here("Output/Temp/PRS_SNPs_BGEN.txt"))){
   rm(tmp, tmp2, tmp3, bgen_range1, bgen_range2, bgen_range)
 }
 
-# Extracting SNPs from UK Biobank and converting to merged plink file
-
 #system(paste0('source ~/.bashrc; parallel "bgenix -g /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/ukb_imp_chr{}_v3.bgen -vcf -incl-range ', here("Output/Temp", "PRS_SNPs_BGEN.txt"), ' | bcftools reheader -h /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/bgen_to_vcf/rename_contigs.txt | bgzip -c > ', here("Output/Temp", "chr"), '{}_forPRS.vcf.gz" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
 
 #system(paste0('source ~/.bashrc; parallel "plink1.9b4.9 --vcf ', here("Output/Temp/"), 'chr{}_forPRS.vcf.gz --make-bed --out ', here("Output/Temp/"), 'chr{}_PRS" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
@@ -134,7 +120,7 @@ if(!file.exists(here("Output/Temp/PRS_SNPs_BGEN.txt"))){
 
 
 
-# Making phenotype files ----------------------------------------------------------------------------------------
+# Making phenotype files -----------------------------------------------------------------------------------
 if(file.exists(here("Output/Phenotypes.RData"))){
   load(here("Output/Phenotypes.RData"))
   } else {
@@ -826,8 +812,9 @@ for(i in 1:nrow(UKBB_Gene_OR)) {
 
 x$PRS <- rowSums(x[2:ncol(x)])
 
-x <- x %>%
-  select(IID, PRS) %>% 
+x <- x %>% 
+  mutate(PRS_noABCG2 = PRS - rs2231142) %>%
+  select(IID, PRS, PRS_noABCG2) %>% 
   left_join(x1)
 
 all_pheno_prs <- all_pheno %>% 
@@ -890,8 +877,9 @@ for(i in 1:nrow(UKBB_Gene_OR)) {
 
 x$PRS <- rowSums(x[2:ncol(x)])
 
-x <- x %>%
-  select(IID, PRS) %>% 
+x <- x %>% 
+  mutate(PRS_noABCG2 = PRS - rs2231142) %>%
+  select(IID, PRS, PRS_noABCG2) %>% 
   left_join(x1)
 
 ukbb_pheno_prs <- ukbb_pheno %>% 
@@ -955,12 +943,14 @@ for(i in 1:nrow(Poly_Gene_OR)) {
 x$PRS2 <- rowSums(x[2:(ncol(x))])
 
 x <- x %>% 
-  select(IID, PRS2) %>% 
+  mutate(PRS2_noABCG2 = PRS2 - rs2231142) %>%
+  select(IID, PRS2, PRS2_noABCG2) %>% 
   left_join(x1)
 
 all_pheno_prs_direct1 <- all_pheno_prs %>% 
   filter(Pheno.Study != "UK Biobank") %>% 
-  rename(PRS1 = PRS) %>%
+  rename(PRS1 = PRS,
+         PRS1_noABCG2 = PRS_noABCG2) %>%
   full_join(x, by = c("Geno.SampleID" = "IID")) %>% 
   filter(!is.na(PRS1)) %>% 
   select(-ends_with(".y")) %>% 
@@ -968,7 +958,8 @@ all_pheno_prs_direct1 <- all_pheno_prs %>%
 
 all_pheno_prs_direct2 <- all_pheno_prs %>% 
   filter(Pheno.Study != "UK Biobank") %>% 
-  rename(PRS1 = PRS) %>%
+  rename(PRS1 = PRS,
+         PRS1_noABCG2 = PRS_noABCG2) %>%
   full_join(x, by = c("Geno.SampleID" = "IID")) %>% 
   filter(is.na(PRS1)) %>% 
   select(-ends_with(".x")) %>% 
@@ -1033,7 +1024,8 @@ for(i in 1:nrow(Poly_Gene_OR)) {
 x$PRS2 <- rowSums(x[2:ncol(x)])
 
 x <- x %>% 
-  select(IID, PRS2) %>% 
+  mutate(PRS2_noABCG2 = PRS2 - rs2231142) %>%
+  select(IID, PRS2, PRS2_noABCG2) %>% 
   left_join(x1)
 
 x <- x %>% 
@@ -1041,7 +1033,8 @@ x <- x %>%
 
 all_pheno_prs_direct3 <- all_pheno_prs %>% 
   filter(Pheno.Study == "UK Biobank") %>% 
-  rename(PRS1 = PRS) %>%
+  rename(PRS1 = PRS,
+         PRS1_noABCG2 = PRS_noABCG2) %>%
   full_join(x, by = "IID") %>% 
   select(-ends_with(".y")) %>% 
   rename_with(~ str_remove(.x, ".x"), ends_with(".x"))

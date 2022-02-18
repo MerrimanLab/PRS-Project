@@ -2,14 +2,14 @@
 title: "Full PRS Script"
 author: "Nick Sumpter"
 date: "`r Sys.Date()`"
-knit: (function(inputFile, encoding) { 
+knit: (function(inputFile, encoding) {
       rmarkdown::render(inputFile,
                         encoding = encoding, 
                         output_file = here::here("Output/HTMLs", "PRS.html")) })
-output: 
+output:
   html_document:
     code_folding: hide
-      toc: TRUE
+    toc: TRUE
 ---
 
 ```{r setup, warning = FALSE, message = FALSE}
@@ -30,34 +30,43 @@ library(qqman)
 library(ggrepel)
 library(ez)
 library(MASS)
+library(DT)
 library(tidyverse)
 
 # library(rsq)
 # library(ROCR)
 # library(fitdistrplus)
 
-
+knitr::opts_chunk$set(fig.width = 8.5)
 
 # Set theme for ggplot
 theme_set(theme_bw())
 ```
 
-```{r child = here("Script/Rmds", "PRS_GWAS.Rmd")}
+```{r GWAS, child = here::here("Script/Rmds", "PRS_GWAS.Rmd")}
 
 ```
 
-```{r child = here("Script/Rmds", "PRS_Dataprep.Rmd")}
+<br/>
+
+```{r Data Preparation, child = here::here("Script/Rmds", "PRS_Dataprep.Rmd")}
 
 ```
 
-```{r child = here("Script/Rmds", "PRS_DataExploration.Rmd")}
+<br/>
+
+```{r Data Exploration, child = here::here("Script/Rmds", "PRS_DataExploration.Rmd")}
 
 ```
 
-```{r child = here("Script/Rmds", "PRS_Models.Rmd")}
+<br/>
+
+```{r Models, child = here::here("Script/Rmds", "PRS_Models.Rmd")}
 
 ```
 
-```{r child = here("Script/Rmds", "PRS_Plots.Rmd")}
+<br/>
+
+```{r Plots, child = here::here("Script/Rmds", "PRS_Plots.Rmd")}
 
 ```
