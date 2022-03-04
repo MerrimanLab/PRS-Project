@@ -1,12 +1,12 @@
 # Running all models of interest
 
-The purpose of this document is to run all models of interest for assessing the relationship between gout genetic risk and severity of gout. This includes modeling gout vs both PRS's, and modeling age at onset, tophi, and flare frequency vs both PRS's. For now, I have decided to not run flare frequency models and to just display the plots while discussing how complex the flare phenotype is.
+The purpose of this section is to run all models of interest for assessing the relationship between gout genetic risk and severity of gout. This includes modeling gout vs the PRS, and modeling age at onset, tophi, and flare frequency vs the PRS. For now, I have decided to not run flare frequency models and to just display the plots while discussing how complex the flare phenotype is.
 
 ```{r dataprep3}
 # Datasets
 load(here("Output/all_pheno_prs.RData"))
 
-# Making FLARE_CAT variable and setting all control gout severity traits to NA and removing any non-Europeans with an imputed PRS
+# Making FLARE_CAT variable and setting all control gout severity traits to NA
 all_pheno_prs <- all_pheno_prs %>%
   mutate(FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
                                       between(NUMATK, 6, 11) ~ "One every one to two months", 
@@ -27,11 +27,13 @@ all_pheno_prs <- all_pheno_prs %>%
          GOUT2 = factor(GOUT, levels = c(TRUE, FALSE), labels = c("Gout", "Control")),
          GROUP = factor(case_when(GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Gout",
                                   !GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Control",
-                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian Gout",
-                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian Control",
+                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian Gout",
+                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian Control",
+                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian Gout - NP",
+                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian Control - NP",
                                   GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Gout",
                                   !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Control"), 
-                        levels = c("European Gout", "European Control", "East Polynesian Gout", "East Polynesian Control", "West Polynesian Gout", "West Polynesian Control")),
+                        levels = c("European Gout", "European Control", "East Polynesian Gout", "East Polynesian Control", "East Polynesian Gout - NP", "East Polynesian Control - NP", "West Polynesian Gout", "West Polynesian Control")),
          GROUP2 = factor(case_when(GROUP == "European Gout" & SEX == "Male" ~ "European Gout - male",
                                   GROUP == "European Gout" & SEX == "Female" ~ "European Gout - female",
                                   GROUP == "European Control" & SEX == "Male" ~ "European Control - male",
@@ -40,11 +42,15 @@ all_pheno_prs <- all_pheno_prs %>%
                                   GROUP == "East Polynesian Gout" & SEX == "Female" ~ "East Polynesian Gout - female",
                                   GROUP == "East Polynesian Control" & SEX == "Male" ~ "East Polynesian Control - male",
                                   GROUP == "East Polynesian Control" & SEX == "Female" ~ "East Polynesian Control - female",
+                                  GROUP == "East Polynesian Gout - NP" & SEX == "Male" ~ "East Polynesian Gout - NP - male",
+                                  GROUP == "East Polynesian Gout - NP" & SEX == "Female" ~ "East Polynesian Gout - NP - female",
+                                  GROUP == "East Polynesian Control - NP" & SEX == "Male" ~ "East Polynesian Control - NP - male",
+                                  GROUP == "East Polynesian Control - NP" & SEX == "Female" ~ "East Polynesian Control - NP - female",
                                   GROUP == "West Polynesian Gout" & SEX == "Male" ~ "West Polynesian Gout - male",
                                   GROUP == "West Polynesian Gout" & SEX == "Female" ~ "West Polynesian Gout - female",
                                   GROUP == "West Polynesian Control" & SEX == "Male" ~ "West Polynesian Control - male",
                                   GROUP == "West Polynesian Control" & SEX == "Female" ~ "West Polynesian Control - female"), 
-                        levels = c("European Gout - male", "European Gout - female", "European Control - male", "European Control - female", "East Polynesian Gout - male", "East Polynesian Gout - female", "East Polynesian Control - male", "East Polynesian Control - female", "West Polynesian Gout - male", "West Polynesian Gout - female", "West Polynesian Control - male", "West Polynesian Control - female")),
+                        levels = c("European Gout - male", "European Gout - female", "European Control - male", "European Control - female", "East Polynesian Gout - male", "East Polynesian Gout - female", "East Polynesian Control - male", "East Polynesian Control - female", "East Polynesian Gout - NP - male", "East Polynesian Gout - NP - female", "East Polynesian Control - NP - male", "East Polynesian Control - NP - female", "West Polynesian Gout - male", "West Polynesian Gout - female", "West Polynesian Control - male", "West Polynesian Control - female")),
          GROUP3 = factor(case_when(GOUT & SEX == "Male" ~ "Male Gout",
                                    GOUT & SEX == "Female" ~ "Female Gout",
                                    !GOUT & SEX == "Male" ~ "Male Control",
@@ -61,16 +67,16 @@ all_pheno_prs <- all_pheno_prs %>%
                                     Pheno.Study == "Ardea: CLEAR2" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CLEAR2",
                                     Pheno.Study == "Ardea: CRYSTAL" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CRYSTAL",
                                     Pheno.Study == "Ardea: LIGHT" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - LIGHT",
-                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian - Gout",
-                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian - Control",
+                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian - Gout",
+                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian - Control",
+                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - Gout - NP",
+                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - Control - NP",
                                     GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Gout",
                                     !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Control"), 
-                          levels = c("UK Biobank - Gout", "UK Biobank - Control", "Aus/NZ - Gout", "Aus/NZ - Control", "GlobalGout - Gout", "GlobalGout - Control", "Ardea - LASSO", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - CRYSTAL", "Ardea - LIGHT", "East Polynesian - Gout", "East Polynesian - Control", "West Polynesian - Gout", "West Polynesian - Control")),
+                          levels = c("UK Biobank - Gout", "UK Biobank - Control", "Aus/NZ - Gout", "Aus/NZ - Control", "GlobalGout - Gout", "GlobalGout - Control", "Ardea - LASSO", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - CRYSTAL", "Ardea - LIGHT", "East Polynesian - Gout", "East Polynesian - Control", "East Polynesian - Gout - NP", "East Polynesian - Control - NP", "West Polynesian - Gout", "West Polynesian - Control")),
          NUMATK = round(NUMATK)) %>% 
-  filter(Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") | !(Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")) & is.na(PRS1),
-         !is.na(AGECOL),
-         !is.na(PRS2),
-         !(is.na(PRS1) & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+  filter(!is.na(AGECOL),
+         !is.na(PRS),
          (Pheno.Study == "UK Biobank" | !GOUT | GOUT & !(is.na(AGE1ATK) & is.na(NUMATK) & is.na(TOPHIGOUT))),
          !is.na(COHORT2))
 
@@ -133,13 +139,29 @@ data_list <- list("UK Biobank - Gout - Male" = all_pheno_prs_male %>% filter(GOU
                   "Ardea - LIGHT - Female" = all_pheno_prs_female %>% filter(Pheno.Study == "Ardea: LIGHT",
                                                                              Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
                   "East Polynesian - Gout - Male" = all_pheno_prs_male %>% filter(GOUT,
-                                                                                  Geno.SpecificAncestry %in% c("East Polynesian")),
+                                                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study != "Ngati Porou"),
                   "East Polynesian - Gout - Female" = all_pheno_prs_female %>% filter(GOUT,
-                                                                                      Geno.SpecificAncestry %in% c("East Polynesian")),
+                                                                                      Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study != "Ngati Porou"),
                   "East Polynesian - Control - Male" = all_pheno_prs_male %>% filter(!GOUT,
-                                                                                     Geno.SpecificAncestry %in% c("East Polynesian")),
+                                                                                     Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study != "Ngati Porou"),
                   "East Polynesian - Control - Female" = all_pheno_prs_female %>% filter(!GOUT,
-                                                                                         Geno.SpecificAncestry %in% c("East Polynesian")),
+                                                                                         Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study != "Ngati Porou"),
+                  "East Polynesian - Gout - NP - Male" = all_pheno_prs_male %>% filter(GOUT,
+                                                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study == "Ngati Porou"),
+                  "East Polynesian - Gout - NP - Female" = all_pheno_prs_female %>% filter(GOUT,
+                                                                                      Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study == "Ngati Porou"),
+                  "East Polynesian - Control - NP - Male" = all_pheno_prs_male %>% filter(!GOUT,
+                                                                                     Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study == "Ngati Porou"),
+                  "East Polynesian - Control - NP - Female" = all_pheno_prs_female %>% filter(!GOUT,
+                                                                                         Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study == "Ngati Porou"),
                   "West Polynesian - Gout - Male" = all_pheno_prs_male %>% filter(GOUT,
                                                                                   Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
                   "West Polynesian - Gout - Female" = all_pheno_prs_female %>% filter(GOUT,
@@ -150,7 +172,6 @@ data_list <- list("UK Biobank - Gout - Male" = all_pheno_prs_male %>% filter(GOU
                                                                                          Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")))
 
 load(here("Output/UKBB_Gene_OR.RData"))
-load(here("Output/Poly_Gene_OR.RData"))
 ```
 
 ```{r functions}
@@ -196,17 +217,17 @@ All assumptions should be tested for all models, but I will just test some repre
 
 ```{r Assumptions, eval = F}
 # Age at onset -------------------------------------------------------------------------------------
-# Representative linear model of age at onset vs the imputed PRS in the combined male gout cohort
+# Representative linear model of age at onset vs the PRS in the combined male gout cohort
 tmp <- all_pheno_prs %>% 
   filter(SEX == "Male",
          GOUT,
          Geno.SpecificAncestry %in% c("European", "Iberian", "European; Iberian"))
 
-ggplot(tmp, aes(x = PRS1, y = AGE1ATK, color = COHORT2)) +
+ggplot(tmp, aes(x = PRS, y = AGE1ATK, color = COHORT2)) +
   geom_point(shape = 1) +
   geom_smooth(se = FALSE) # No evidence of non-linearity
 
-mod <- lm(AGE1ATK ~ PRS1 + Geno.PCVector1 + Geno.PCVector2 + Geno.PCVector3 + Geno.PCVector4 + Geno.PCVector5 + Geno.PCVector6 + Geno.PCVector7 + Geno.PCVector8 + Geno.PCVector9 + Geno.PCVector10, data = tmp)
+mod <- lm(AGE1ATK ~ PRS + Geno.PCVector1 + Geno.PCVector2 + Geno.PCVector3 + Geno.PCVector4 + Geno.PCVector5 + Geno.PCVector6 + Geno.PCVector7 + Geno.PCVector8 + Geno.PCVector9 + Geno.PCVector10, data = tmp)
 
 test <- augment(mod)
 
@@ -251,11 +272,11 @@ tmp <- tmp %>%
                             TRUE ~ NUMATK)) %>% 
   filter(NUMATK >= 2)
 
-ggplot(tmp, aes(x = PRS1, y = NUMATK, color = COHORT2)) +
+ggplot(tmp, aes(x = PRS, y = NUMATK, color = COHORT2)) +
   geom_point(shape = 1) +
   geom_smooth(se = FALSE)
 
-mod <- lm(NUMATK ~ PRS1 + Geno.PCVector1 + Geno.PCVector2 + Geno.PCVector3 + Geno.PCVector4 + Geno.PCVector5 + Geno.PCVector6 + Geno.PCVector7 + Geno.PCVector8 + Geno.PCVector9 + Geno.PCVector10, data = tmp)
+mod <- lm(NUMATK ~ PRS + Geno.PCVector1 + Geno.PCVector2 + Geno.PCVector3 + Geno.PCVector4 + Geno.PCVector5 + Geno.PCVector6 + Geno.PCVector7 + Geno.PCVector8 + Geno.PCVector9 + Geno.PCVector10, data = tmp)
 
 test <- augment(mod)
 
@@ -316,7 +337,7 @@ vif(mod) # no multicollinearity (no values over 5 or 10)
 
 # The parallel to this in our example would be that for those individuals with 1 unit more PRS than another group, the odds of being in a higher flare category (i.e. >= 3 flares vs < 3 flares) were X times those of the other group (i.e. those with 1 unit PRS lower - the reference group). Let's test this using an example model
 
-mod <- polr(FLARE_CAT ~ PRS2, data = tmp, Hess = TRUE)
+mod <- polr(FLARE_CAT ~ PRS, data = tmp, Hess = TRUE)
 
 modsum <- tibble("Group of interest" = row.names(summary(mod)$coefficients)[1],
                  "OR" = exp(summary(mod)$coefficients)[1],
@@ -324,13 +345,13 @@ modsum <- tibble("Group of interest" = row.names(summary(mod)$coefficients)[1],
                  "Upper CI" = exp(confint.default(mod))[2],
                  "P-value" = pnorm(abs(summary(mod)$coefficients[1, "t value"]), lower.tail = FALSE) * 2)
 
-# This suggests that the model is significant for the full male gout cohort, with an OR of 1.11 [1.00, 1.24], p = 0.047 per PRS unit
+# This suggests that the model is significant for the full male gout cohort, with an OR of 1.14 [1.03, 1.26], p = 0.0112 per PRS unit
 
 # Can try to visualize this by looking at proportions of FLARE_CAT within bins of PRS
 
 tmp %>% 
-  filter(!is.na(PRS2)) %>% 
-  mutate(PRS_bin = factor(ntile(PRS2, 6), ordered = T),
+  filter(!is.na(PRS)) %>% 
+  mutate(PRS_bin = factor(ntile(PRS, 6), ordered = T),
          FLARE_CAT = factor(case_when(is.na(FLARE_CAT) ~ "No Data",
                                       TRUE ~ as.character(FLARE_CAT)), 
                             levels = rev(c(paste0(0:5), 
@@ -372,7 +393,7 @@ mod <- tmp %>%
   mutate(IID = factor(IID),
          FLARE_CAT = factor(FLARE_CAT)) %>% 
   ezANOVA(data = .,
-               dv = PRS2,
+               dv = PRS,
                between = FLARE_CAT,
                wid = IID,
                type = 3,
@@ -381,7 +402,7 @@ mod <- tmp %>%
 mod
 
 tmp %>% 
-  ggplot(aes(x = FLARE_CAT, y = PRS2)) +
+  ggplot(aes(x = FLARE_CAT, y = PRS)) +
   geom_boxplot()
 
 rm(tmp, mod, modsum, test)
@@ -392,7 +413,7 @@ Based on the above, it should be appropriate to run linear regression models on 
 <br/>
 
 ```{r GoutModels, eval = F}
-# We need to model both PRS and all SNPs against gout, adjusting for global PCs. It needs to be in males and females separately, and needs to be both adjusted for age at collection and unadjusted. It also needs to run with the 10 oceanian PCs for Polynesian cohorts. We want the output of all of these models to be stored in a list object which we can then extract all of the important elements from in a table format.
+# We need to model the PRS, the PRS without ABCG2, and both ABCG2 SNPs against gout, adjusting for global PCs. It needs to be in males and females separately, and needs to be both adjusted for age at collection and unadjusted. It also needs to run with the 10 oceanian PCs for Polynesian cohorts. We want the output of all of these models to be stored in a list object which we can then extract all of the important elements from in a table format.
 
 gout_data_list <- list("UK Biobank - Male" = full_join(data_list[["UK Biobank - Gout - Male"]], 
                                                        data_list[["UK Biobank - Control - Male"]]),
@@ -406,21 +427,27 @@ gout_data_list <- list("UK Biobank - Male" = full_join(data_list[["UK Biobank - 
                                                             data_list[["East Polynesian - Control - Male"]]),
                        "East Polynesian - Female" = full_join(data_list[["East Polynesian - Gout - Female"]],
                                                               data_list[["East Polynesian - Control - Female"]]),
+                       "East Polynesian - NP - Male" = full_join(data_list[["East Polynesian - Gout - NP - Male"]],
+                                                            data_list[["East Polynesian - Control - NP - Male"]]),
+                       "East Polynesian - NP - Female" = full_join(data_list[["East Polynesian - Gout - NP - Female"]],
+                                                              data_list[["East Polynesian - Control - NP - Female"]]),
                        "West Polynesian - Male" = full_join(data_list[["West Polynesian - Gout - Male"]],
                                                             data_list[["West Polynesian - Control - Male"]]),
                        "West Polynesian - Female" = full_join(data_list[["West Polynesian - Gout - Female"]],
                                                               data_list[["West Polynesian - Control - Female"]]))
 
-# I want to model the following for every cohort: genotyped PRS, all SNPs in the genotyped PRS at the same time; next, for European cohorts only, I want to model the imputed PRS and all of its SNPs at the same time; all models should be run with and without AGECOL as a covariate
+for(i in length(gout_data_list):1){
+  if(nrow(gout_data_list[[i]]) < 20){
+    gout_data_list[[i]] <- NULL
+  }
+}
+
+# I want to model the following for every cohort: PRS, PRS less ABCG2, both ABCG2 variants simultaneously; all models should be run with and without AGECOL as a covariate
 
 
 modlist <- vector("list", length(gout_data_list))
 for(i in seq_along(gout_data_list)){
-  prsnames <- list("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
-  
-  if(!str_detect(names(gout_data_list)[i], "Polynesian")){
-    prsnames <- append(prsnames, list("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID))
-  }
+  prsnames <- list("PRS", "PRS_noABCG2", c("rs2231142", "rs10011796"))
   
   covariates <- c()
   
@@ -543,7 +570,7 @@ rm(modlist, tmp, tmplist, covariates, covariates2, f, i, j, k, modstring, modstr
 ```
 
 ```{r SeverityModels, eval = F}
-# We need to model both PRSs and all SNPs against age at onset, tophi, and flare category (by both ordinal logistic regression and ANOVA), adjusting for global PCs. It needs to be in males and females separately, and needs to be both adjusted for disease duration (for tophi) and unadjusted. It also needs to run with the 10 oceanian PCs for Polynesian cohorts. We want the output of all of these models to be stored in a list object which we can then extract all of the important elements from in a table format.
+# We need to model the PRS, the PRS without ABCG2, and both ABCG2 variants simultaneously against age at onset and tophi, adjusting for global PCs. It needs to be in males and females separately, and needs to be both adjusted for disease duration (for tophi) and unadjusted. It also needs to run with the 10 oceanian PCs for Polynesian cohorts.
 
 # Onset --------------------------------------------------------
 onset_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European - Gout - Male"]] %>% filter(!is.na(AGE1ATK)),
@@ -562,22 +589,20 @@ onset_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European -
                         "Ardea - LIGHT - Female" = data_list[["Ardea - LIGHT - Female"]] %>% filter(!is.na(AGE1ATK)),
                         "East Polynesian - Male" = data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(AGE1ATK)),
                         "East Polynesian - Female" = data_list[["East Polynesian - Gout - Female"]] %>% filter(!is.na(AGE1ATK)),
+                        "East Polynesian - NP - Male" = data_list[["East Polynesian - Gout - NP - Male"]] %>% filter(!is.na(AGE1ATK)),
+                        "East Polynesian - NP - Female" = data_list[["East Polynesian - Gout - NP - Female"]] %>% filter(!is.na(AGE1ATK)),
                         "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(AGE1ATK)),
                         "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(AGE1ATK)))
 
 for(i in length(onset_data_list):1){
-  if(nrow(onset_data_list[[i]]) < 50){
+  if(nrow(onset_data_list[[i]]) < 20){
     onset_data_list[[i]] <- NULL
   }
 }
 
 modlist <- vector("list", length(onset_data_list))
 for(i in seq_along(onset_data_list)){
-  prsnames <- list("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
-  
-  if(!str_detect(names(onset_data_list)[i], "Polynesian")){
-    prsnames <- append(prsnames, list("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID))
-  }
+  prsnames <- list("PRS", "PRS_noABCG2", c("rs2231142", "rs10011796"))
   
   covariates <- c()
   
@@ -671,11 +696,13 @@ tophi_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European -
                         "Ardea - LIGHT - Female" = data_list[["Ardea - LIGHT - Female"]] %>% filter(!is.na(TOPHIGOUT)),
                         "East Polynesian - Male" = data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)),
                         "East Polynesian - Female" = data_list[["East Polynesian - Gout - Female"]] %>% filter(!is.na(TOPHIGOUT)),
+                        "East Polynesian - NP - Male" = data_list[["East Polynesian - Gout - NP - Male"]] %>% filter(!is.na(TOPHIGOUT)),
+                        "East Polynesian - NP - Female" = data_list[["East Polynesian - Gout - NP - Female"]] %>% filter(!is.na(TOPHIGOUT)),
                         "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)),
                         "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(TOPHIGOUT)))
 
 for(i in length(tophi_data_list):1){
-  if(nrow(tophi_data_list[[i]]) < 50){
+  if(nrow(tophi_data_list[[i]]) < 20){
     tophi_data_list[[i]] <- NULL
   }
 }
@@ -684,11 +711,7 @@ for(i in length(tophi_data_list):1){
 
 modlist <- vector("list", length(tophi_data_list))
 for(i in seq_along(tophi_data_list)){
-  prsnames <- list("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
-  
-  if(!str_detect(names(tophi_data_list)[i], "Polynesian")){
-    prsnames <- append(prsnames, list("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID))
-  }
+  prsnames <- list("PRS", "PRS_noABCG2", c("rs2231142", "rs10011796"))
   
   covariates <- c()
   
@@ -808,280 +831,4 @@ TophiModels <- tmp %>%
 save(TophiModels, file = here("Output/TophiModels.RData"))
 
 rm(modlist, tmp, tmplist, covariates, covariates2, f, i, j, k, modstring, modstring1, prsnames, variables)
-
-
-
-# Flare models ------------------------------------------------------------------------------------
-# First let's do the polr based models with FLARE_CAT as the outcome, which should be done in GlobalGout, ANZ, and Polynesian cohorts with all categories, then subsequently done in all cohorts excluding those with < 2 flares
-# flare_data_list1 <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European - Gout - Male"]] %>% filter(!is.na(FLARE_CAT)),
-#                          "Aus/NZ European - Female" = data_list[["Aus/NZ European - Gout - Female"]] %>% filter(!is.na(FLARE_CAT)),
-#                          "GlobalGout - Male" = data_list[["GlobalGout - Gout - Male"]] %>% filter(!is.na(FLARE_CAT)),
-#                          "GlobalGout - Female" = data_list[["GlobalGout - Gout - Female"]] %>% filter(!is.na(FLARE_CAT)),
-#                          "East Polynesian - Male" = data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(FLARE_CAT)),
-#                          "East Polynesian - Female" = data_list[["East Polynesian - Gout - Female"]] %>% filter(!is.na(FLARE_CAT)),
-#                          "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(FLARE_CAT)),
-#                          "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(FLARE_CAT)))
-# 
-# for(i in length(flare_data_list1):1){
-#   if(nrow(flare_data_list1[[i]]) < 50){
-#     flare_data_list1[[i]] <- NULL
-#   }
-# }
-# 
-# 
-# 
-# flare_data_list2 <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European - Gout - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Aus/NZ European - Female" = data_list[["Aus/NZ European - Gout - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "GlobalGout - Male" = data_list[["GlobalGout - Gout - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "GlobalGout - Female" = data_list[["GlobalGout - Gout - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - LASSO - Male" = data_list[["Ardea - LASSO - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - LASSO - Female" = data_list[["Ardea - LASSO - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - CLEAR1 - Male" = data_list[["Ardea - CLEAR1 - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - CLEAR1 - Female" = data_list[["Ardea - CLEAR1 - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - CLEAR2 - Male" = data_list[["Ardea - CLEAR2 - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - CLEAR2 - Female" = data_list[["Ardea - CLEAR2 - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - CRYSTAL - Male" = data_list[["Ardea - CRYSTAL - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - CRYSTAL - Female" = data_list[["Ardea - CRYSTAL - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - LIGHT - Male" = data_list[["Ardea - LIGHT - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "Ardea - LIGHT - Female" = data_list[["Ardea - LIGHT - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "East Polynesian - Male" = data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "East Polynesian - Female" = data_list[["East Polynesian - Gout - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1),
-#                          "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(FLARE_CAT), NUMATK > 1))
-# 
-# for(i in length(flare_data_list2):1){
-#   if(nrow(flare_data_list2[[i]]) < 50){
-#     flare_data_list2[[i]] <- NULL
-#   }
-# }
-# 
-# modlist <- vector("list", length(flare_data_list1))
-# for(i in seq_along(flare_data_list1)){
-#   prsnames <- list("PRS2", Poly_Gene_OR$RSID)
-#   
-#   if(!str_detect(names(flare_data_list1)[i], "Polynesian")){
-#     prsnames <- append(prsnames, list("PRS1", UKBB_Gene_OR$RSID))
-#   }
-#   
-#   covariates <- c()
-#   
-#   if(!str_detect(names(flare_data_list1)[i], "UK Biobank")){
-#     covariates <- c(covariates, "Geno.PCVector1", "Geno.PCVector2", "Geno.PCVector3", "Geno.PCVector4", "Geno.PCVector5", "Geno.PCVector6", "Geno.PCVector7", "Geno.PCVector8", "Geno.PCVector9", "Geno.PCVector10")
-#   }
-#   
-#   if(str_detect(names(flare_data_list1)[i], "Polynesian")){
-#     covariates <- c(covariates, "Geno.PCVector1_Oc", "Geno.PCVector2_Oc", "Geno.PCVector3_Oc", "Geno.PCVector4_Oc", "Geno.PCVector5_Oc", "Geno.PCVector6_Oc", "Geno.PCVector7_Oc", "Geno.PCVector8_Oc", "Geno.PCVector9_Oc", "Geno.PCVector10_Oc")
-#   }
-#   
-#   tmplist <- vector("list", length(prsnames))
-#   
-#   for(j in seq_along(prsnames)) {
-#     variables <- c(prsnames[[j]], covariates)
-#     f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-#     assign(paste0("Model_", i, "_", j), polr(f, Hess = TRUE, data = flare_data_list1[[i]]))
-#     # columns will be: Cohort, N, N group 0, N group 1, N group 2, N group 3, N group 4, N group 5, N group 6 - 11, N group 12 - 52, Outcome, Predictors, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
-#     modstring1 <- c(names(flare_data_list1)[[i]],
-#                     nrow(flare_data_list1[[i]]),
-#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "0")),
-#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "1")),
-#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "2")),
-#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "3")),
-#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "4")),
-#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "5")),
-#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "6 - 11")),
-#                     nrow(flare_data_list1[[i]] %>% filter(FLARE_CAT == "12 - 52")),
-#                     "Number of Flares in Last Year (categorical)")
-#     
-#     modstring <- list()
-#     if(any(str_detect(prsnames[[j]], "PRS"))) {
-#       modstring[[1]] <- c(modstring1,
-#                           paste(prsnames[[j]], collapse = " + "),
-#                           paste(prsnames[[j]], collapse = " + "),
-#                           paste(covariates, collapse = " + "),
-#                           exp(summary(get(paste0("Model_", i, "_", j)))$coefficients)[prsnames[[j]]],
-#                           exp(confint.default(get(paste0("Model_", i, "_", j))))[prsnames[[j]], 1],
-#                           exp(confint.default(get(paste0("Model_", i, "_", j))))[prsnames[[j]], 2],
-#                           pnorm(abs(summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]], "t value"]), lower.tail = FALSE) * 2,
-#                           coef(get(paste0("Model_", i, "_", j)))[[prsnames[[j]]]],
-#                           summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]], 2])
-#     } else{
-#       for(k in 1:length(prsnames[[j]])){
-#         modstring[[k]] <- c(modstring1,
-#                             paste(prsnames[[j]], collapse = " + "),
-#                             paste(prsnames[[j]][k], collapse = " + "),
-#                             paste(covariates, collapse = " + "),
-#                             exp(summary(get(paste0("Model_", i, "_", j)))$coefficients)[prsnames[[j]][k]],
-#                             exp(confint.default(get(paste0("Model_", i, "_", j))))[prsnames[[j]][k], 1],
-#                             exp(confint.default(get(paste0("Model_", i, "_", j))))[prsnames[[j]][k], 2],
-#                             pnorm(abs(summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]][k], "t value"]), lower.tail = FALSE) * 2,
-#                             coef(get(paste0("Model_", i, "_", j)))[[prsnames[[j]][k]]],
-#                             summary(get(paste0("Model_", i, "_", j)))$coefficients[prsnames[[j]][k], 2])
-#       }
-#     }
-#     
-#     tmplist[[j]] <- modstring
-#   }
-#   
-#   modlist[[i]] <- tmplist
-# }
-# 
-# remove <- ls()
-# remove <- as_tibble(remove) %>% 
-#   filter(str_detect(value, "Model_"))
-# remove <- remove$value
-# rm(list = remove, remove)
-# 
-# 
-# tmp <- modlist %>% 
-#   flatten() %>% 
-#   flatten() %>% 
-#   as.data.frame() %>% 
-#   data.table::transpose()
-# 
-# colnames(tmp) <- c("Cohort", "N", "N group 0", "N group 1", "N group 2", "N group 3", "N group 4", "N group 5", "N group 6 - 11", "N group 12 - 52", "Outcome", "Predictors", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
-# 
-# FlareModels1 <- tmp %>% 
-#   mutate(across(c(Cohort, Outcome, Predictors, Predictor, Covariates), factor),
-#          across(c(N, `N group 0`, `N group 1`, `N group 2`, `N group 3`, `N group 4`, `N group 5`, `N group 6 - 11`, `N group 12 - 52`, OR, LCL, UCL, Pval, `log-odds`, SE), as.numeric))
-# 
-# 
-# 
-# modlist <- vector("list", length(flare_data_list1))
-# for(i in seq_along(flare_data_list1)){
-#   tmplist <- vector("list", length(prsnames))
-#   for(j in seq_along(prsnames)) {
-#     # columns will be: Cohort, N, N group 0, N group 1, N group 2, N group 3, N group 4, N group 5, N group 6 - 11, N group 12 - 52, Outcome, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
-#     modstring <- c(names(flare_data_list1)[[i]],
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]))),
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "0")),
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "1")),
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "2")),
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "3")),
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "4")),
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "5")),
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "6 - 11")),
-#                    nrow(flare_data_list1[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "12 - 52")),
-#                    "Number of Flares in Last Year (categorical)",
-#                    prsnames[[j]],
-#                    paste(covariates, collapse = " + "),
-#                    exp(summary(get(paste0("Model_", i, "_", j)))$coefficients)[1],
-#                    exp(confint.default(get(paste0("Model_", i, "_", j))))[1, 1],
-#                    exp(confint.default(get(paste0("Model_", i, "_", j))))[1, 2],
-#                    pnorm(abs(summary(get(paste0("Model_", i, "_", j)))$coefficients[1, "t value"]), lower.tail = FALSE) * 2,
-#                    coef(get(paste0("Model_", i, "_", j)))[[1]],
-#                    summary(get(paste0("Model_", i, "_", j)))$coefficients[1, 2])
-#     tmplist[[j]] <- modstring
-#   }
-#   
-#   modlist[[i]] <- tmplist
-# }
-# 
-# remove <- ls()
-# remove <- as_tibble(remove) %>% 
-#   filter(str_detect(value, "Model_"))
-# remove <- remove$value
-# rm(list = remove, remove)
-# 
-# 
-# 
-# out <- data.frame()
-# for(i in 1:length(modlist)){
-#   tmp <- modlist[[i]] %>% 
-#     map(as.data.frame) %>% 
-#     bind_cols() %>% 
-#     data.table::transpose()
-#   
-#   colnames(tmp) <- c("Cohort", "N", "N group 0", "N group 1", "N group 2", "N group 3", "N group 4", "N group 5", "N group 6 - 11", "N group 12 - 52", "Outcome", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
-#   
-#   out <- rbind(out, tmp)
-# }
-# 
-# FlareModels1 <- out
-# 
-# FlareModels1 <- FlareModels1 %>% 
-#   mutate(across(c(Cohort, Outcome, Predictor, Covariates), factor),
-#          across(c(N, `N group 0`, `N group 1`, `N group 2`, `N group 3`, `N group 4`, `N group 5`, `N group 6 - 11`, `N group 12 - 52`, OR, LCL, UCL, Pval, `log-odds`, SE), as.numeric))
-# 
-# #save(FlareModels1, file = here("Output/FlareModels1.RData"))
-# 
-# rm(modlist, out, tmp, tmplist, covariates, f, i, j, modstring, prsnames, variables)
-# 
-# modlist <- vector("list", length(flare_data_list2))
-# for(i in seq_along(flare_data_list2)){
-#   if(flare_data_list2[[i]] %>% nrow() > 50){
-#     prsnames <- flare_data_list2[[i]] %>% 
-#       select(PRS1, PRS2, starts_with("rs")) %>% 
-#       select(where(~ !all(is.na(.x)))) %>% 
-#       colnames()
-#   
-#     covariates <- c("Geno.PCVector1", "Geno.PCVector2", "Geno.PCVector3", "Geno.PCVector4", "Geno.PCVector5", "Geno.PCVector6", "Geno.PCVector7", "Geno.PCVector8", "Geno.PCVector9", "Geno.PCVector10")
-#     
-#     
-#     if(str_detect(names(flare_data_list2)[i], "Polynesian")){
-#       covariates <- c(covariates, "Geno.PCVector1_Oc", "Geno.PCVector2_Oc", "Geno.PCVector3_Oc", "Geno.PCVector4_Oc", "Geno.PCVector5_Oc", "Geno.PCVector6_Oc", "Geno.PCVector7_Oc", "Geno.PCVector8_Oc", "Geno.PCVector9_Oc", "Geno.PCVector10_Oc")
-#     }
-#     
-#     tmplist <- vector("list", length(prsnames))
-#     for(j in seq_along(prsnames)) {
-#       variables <- c(prsnames[j], covariates)
-#       f <- as.formula(paste("FLARE_CAT", paste(variables, collapse = " + "), sep = " ~ "))
-#       assign(paste0("Model_", i, "_", j), polr(f, Hess = TRUE, data = flare_data_list2[[i]]))
-#       # columns will be: Cohort, N, N group 0, N group 1, N group 2, N group 3, N group 4, N group 5, N group 6 - 11, N group 12 - 52, Outcome, Predictor, Covariates, OR, LCL, UCL, Pval, log-odds, standard error
-#       modstring <- c(names(flare_data_list2)[[i]],
-#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]))),
-#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "2")),
-#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "3")),
-#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "4")),
-#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "5")),
-#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "6 - 11")),
-#                      nrow(flare_data_list2[[i]] %>% filter(!is.na(prsnames[[j]]), FLARE_CAT == "12 - 52")),
-#                      "Number of Flares in Last Year (categorical)",
-#                      prsnames[[j]],
-#                      paste(covariates, collapse = " + "),
-#                      exp(summary(get(paste0("Model_", i, "_", j)))$coefficients)[1],
-#                      exp(confint.default(get(paste0("Model_", i, "_", j))))[1, 1],
-#                      exp(confint.default(get(paste0("Model_", i, "_", j))))[1, 2],
-#                      pnorm(abs(summary(get(paste0("Model_", i, "_", j)))$coefficients[1, "t value"]), lower.tail = FALSE) * 2,
-#                      coef(get(paste0("Model_", i, "_", j)))[[1]],
-#                      summary(get(paste0("Model_", i, "_", j)))$coefficients[1, 2])
-#       tmplist[[j]] <- modstring
-#     }
-#     
-#     modlist[[i]] <- tmplist
-#   }
-# }
-# 
-# remove <- ls()
-# remove <- as_tibble(remove) %>% 
-#   filter(str_detect(value, "Model_"))
-# remove <- remove$value
-# rm(list = remove, remove)
-# 
-# 
-# 
-# out <- data.frame()
-# for(i in seq_along(modlist)){
-#   if(!is.null(modlist[[i]])){
-#     tmp <- modlist[[i]] %>% 
-#       map(as.data.frame) %>% 
-#       bind_cols() %>% 
-#       data.table::transpose()
-#   } else{
-#     tmp <- data.frame(matrix(ncol = 17, nrow = 0))
-#   }
-#   
-#   colnames(tmp) <- c("Cohort", "N", "N group 2", "N group 3", "N group 4", "N group 5", "N group 6 - 11", "N group 12 - 52", "Outcome", "Predictor", "Covariates", "OR", "LCL", "UCL", "Pval", "log-odds", "SE")
-#   
-#   out <- rbind(out, tmp)
-# }
-# 
-# FlareModels2 <- out
-# 
-# FlareModels2 <- FlareModels2 %>% 
-#   mutate(across(c(Cohort, Outcome, Predictor, Covariates), factor),
-#          across(c(N, `N group 2`, `N group 3`, `N group 4`, `N group 5`, `N group 6 - 11`, `N group 12 - 52`, OR, LCL, UCL, Pval, `log-odds`, SE), as.numeric))
-# 
-# #save(FlareModels2, file = here("Output/FlareModels2.RData"))
-# 
-# rm(modlist, out, tmp, tmplist, covariates, f, i, j, modstring, prsnames, variables)
 ```

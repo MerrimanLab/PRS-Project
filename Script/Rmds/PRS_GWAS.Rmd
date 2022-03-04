@@ -1,486 +1,353 @@
 ## GWAS Code
 
-We first ran a genome-wide association study in the UK Biobank European cohort with gout as the outcome. This was done with a total of 27,287,012 variants (after imputation), and adjusted for age, sex, and the first 40 principal components. Initially, I did the following to clean up this summary stats file:
+Murray first ran a genome-wide association study in the UK Biobank European cohort with gout as the outcome. This was done with a total of 27,287,012 variants (after imputation), and adjusted for age, sex, and the first 40 principal components. The code for this is seen below:
 
-1. I read in the summary statistics.
+```{bash, engine.opts = '-l', eval = F}
+# Save the following as do_gout_gwas.sh
 
-2. I then did some initial filtering to remove X and Y chromosome SNPs, and some of the indels.
+file=$1
+mem=36000
 
-3. I removed variants that were not in the imputed CoreExome genotype data.
+plink1.9b6.10 --vcf ${file}.vcf.gz --make-bed --out ${file} --memory $mem
 
-4. I then filtered out multi-allelic variants and variants with MAF < 0.01.
+plink1.9b6.10 --bfile ${file} --out ${file}_tmp --keep gout_gwas_keep_ids_w_sex.txt --pheno gout_gwas_covar.covar  --pheno-name plink_goutaff --update-sex gout_gwas_keep_ids_w_sex.txt --make-bed --memory $mem
+# --geno 0.1 is default
+plink1.9b6.10 --bfile ${file}_tmp --logistic sex --freq case-control --geno 0.1 --missing --ci 0.95 --maf 0.0001 --hwe 0.000001 --hardy --out gout_gwas/${file} --covar gout_gwas_covar.covar --covar-name Age,pc1-pc40 --memory $mem
 
-5. For the genotyped PRS, I additionally filtered out variants that were not genotyped in the CoreExome. 
+rm ${file}.{bed,bim,fam} ${file}_tmp.{bed,bim,fam}
 
-```{r sumstat_filtering, eval = F}
-# Reading in summary stats
-if(file.exists(here("Output/Temp/sumstat5.RData"))) {
-  #load(here("Output/Temp/sumstat5.RData"))
-} else {
-  if(file.exists(here("Output/Temp/sumstat3.RData"))) {
-    load(here("Output/Temp/sumstat3.RData"))
-  } else {
-    sumstat <- vroom(here("Data/GWAS/ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv"), delim = "\t", col_names = TRUE) # start with 27,287,012 variants in the summary stats
-  
-    sumstat2 <- sumstat %>% 
-      filter(str_length(A1) == 1,
-             CHR %in% 1:22) # Removing 738,219 indels and keeping only autosomes (removes a further 1,069,966 variants) = 25,478,827 variantsco
-    
-    sumstat2_1 <- sumstat2 %>% 
-      mutate(SNP1 = sumstat2 %>% pull(SNP) %>% str_split(",", n = 2, simplify = TRUE) %>% .[,1],
-             SNP2 = sumstat2 %>% pull(SNP) %>% str_split(",", n = 2, simplify = TRUE) %>% .[,2]) # this takes forever to run
-    
-    # test <- sumstat2_1 %>% 
-    #   filter(str_detect(SNP2, ",")) %>% 
-    #   separate(SNP2, into = c("SNP2", "extra"), sep = ",") # 1,696 variants had an extra comma in their ID
-    # 
-    # test1 <- test %>% 
-    #   mutate(extra = as.numeric(extra)) %>% 
-    #   filter(extra != CHR) # All just had their chromosome attached, can just remove the extra bit
-    
-    sumstat2_2 <- sumstat2 %>% 
-      mutate(SNP1 = sumstat2 %>% pull(SNP) %>% str_split(",", simplify = TRUE) %>% .[,1],
-             SNP2 = sumstat2 %>% pull(SNP) %>% str_split(",", simplify = TRUE) %>% .[,2])
-    
-    # test <- sumstat2_2 %>% filter(str_detect(SNP2, ",")) # none with ,
-    
-    test1 <- sumstat2_2 %>% 
-      filter(str_detect(SNP1, regex("^rs[0-9]+"))) # 24,248,522 variants have an rsID in SNP1 column
-    
-    # test1_1 <- test1 %>% 
-    #   filter(str_detect(SNP2, regex("^rs[0-9]+"))) # 633,645 of these have an rsID in SNP2 column
-    # 
-    # test1_1_1 <- test1_1 %>%
-    #   filter(SNP1 != SNP2) # 1,367 variants have two rsIDs, for the most part SNP1 appears to be the newest rsID, but I might want to keep the extra rsID in a separate column
-    
-    test1_2 <- test1 %>% 
-      filter(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$"))) # 23,610,697 variants have rsID in SNP1 column and chr:bp_a1_a2 in SNP2 column
-    
-    test1_2_1 <- test1_2 %>% 
-      mutate(CHR2 = test1_2 %>% pull(SNP2) %>% str_split(":", simplify = TRUE) %>% .[,1] %>% as.numeric(),
-             BP2 = test1_2 %>% pull(SNP2) %>% str_split(":", simplify = TRUE) %>% .[,2] %>% str_split("_", simplify = TRUE) %>% .[,1] %>% as.numeric(),
-             Allele1 = test1_2 %>% pull(SNP2) %>% str_split("_", simplify = TRUE) %>% .[,2],
-             Allele2 = test1_2 %>% pull(SNP2) %>% str_split("_", simplify = TRUE) %>% .[,3])
-    
-    # tmp <- test1_2_1 %>% 
-    #   filter(BP != BP2) # all BPs are equal
-    # 
-    # tmp <- test1_2_1 %>% 
-    #   filter(CHR != CHR2) # all CHRs are equal
-    # 
-    # tmp <- test1_2_1 %>% 
-    #   filter(A1 != Allele2) # Allele2 is not always A1
-    
-    test1_2_2 <- test1_2_1 %>% 
-      select(-CHR2, -BP2) %>% 
-      filter(str_length(Allele1) == 1,
-             str_length(Allele2) == 1) # removes a further 219,771 indels = 23,390,926 SNPs
-    
-    test1_2_final <- test1_2_2 %>% 
-      select(SNP, Allele1, Allele2)
-    
-    # test1_3 <- test1 %>% 
-    #   filter(!str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$|^rs[0-9]+$"))) # 4,180 variants have neither rsID nor chr:bp_a1_a2 in SNP2 column
-    # 
-    # test1_4 <- test1_3 %>% 
-    #   filter(!str_detect(SNP2, regex("^Affx-[0-9]+$"))) # All of these are in the format Affx-<number>
-    
-    test1_final <- test1 %>% 
-      mutate(RSID = SNP1,
-             ALT_RSID = case_when(str_detect(SNP2, regex("^rs[0-9]+$")) & SNP1 != SNP2 ~ SNP2, TRUE ~ NA_character_),
-             AFFYID = case_when(str_detect(SNP2, regex("^Affx-[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
-             SNP_ID = case_when(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")) ~ SNP2, TRUE ~ NA_character_)) %>% 
-      left_join(test1_2_final, by = "SNP")
-    
-    test1_final2 <- test1_final %>% 
-      filter(is.na(SNP_ID) | (!is.na(SNP_ID) & !is.na(Allele1)))
-    
-    # nrow(test1_final2) - nrow(test1_final) # successfully removed indels from final dataset
-    
-    # sum(!is.na(test1_final2$RSID))
-    # sum(!is.na(test1_final2$ALT_RSID))
-    # sum(!is.na(test1_final2$AFFYID))
-    # sum(!is.na(test1_final2$SNP_ID))
-    # sum(!is.na(test1_final2$Allele1))
-    # sum(!is.na(test1_final2$Allele2))
-    
-    test2 <- sumstat2_2 %>% 
-      filter(!str_detect(SNP1, regex("^rs[0-9]+"))) # 1,230,305 variants don't have an rsID in SNP1 column
-    
-    test2_1 <- test2 %>% 
-      filter(str_detect(SNP1, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$"))) # 1,230,053 have the SNP_ID format in SNP1
-    
-    test2_1_1 <- test2_1 %>% 
-      mutate(CHR2 = test2_1 %>% pull(SNP1) %>% str_split(":", simplify = TRUE) %>% .[,1] %>% as.numeric(),
-             BP2 = test2_1 %>% pull(SNP1) %>% str_split(":", simplify = TRUE) %>% .[,2] %>% str_split("_", simplify = TRUE) %>% .[,1] %>% as.numeric(),
-             Allele1 = test2_1 %>% pull(SNP1) %>% str_split("_", simplify = TRUE) %>% .[,2],
-             Allele2 = test2_1 %>% pull(SNP1) %>% str_split("_", simplify = TRUE) %>% .[,3])
-    
-    # tmp <- test2_1_1 %>%
-    #   filter(BP != BP2) # all BPs are equal
-    # 
-    # tmp <- test2_1_1 %>%
-    #   filter(CHR != CHR2) # all CHRs are equal
-    
-    test2_1_2 <- test2_1_1 %>% 
-      select(-CHR2, -BP2) %>% 
-      filter(str_length(Allele1) == 1,
-             str_length(Allele2) == 1)
-    
-    # nrow(test2_1_2) - nrow(test2_1_1) # removed 975,583
-    
-    test2_1_final <- test2_1_2 %>% 
-      select(SNP, Allele1, Allele2)
-    
-    # test2_1_1 <- test2_1 %>% 
-    #   filter(str_detect(SNP2, regex("^rs[0-9]+"))) # 23 of these have RSID in SNP2
-    
-    # test2_1_2 <- test2_1 %>% 
-    #   filter(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$"))) # 1,230,029 of these have SNP_ID in SNP2
-    # 
-    # test2_1_2_1 <- test2_1_2 %>% 
-    #   filter(SNP1 != SNP2) # All SNP_ID columns identical in these individuals
-    
-    # test2_1_3 <- test2_1 %>% 
-    #   filter(str_detect(SNP2, regex("^Affx-[0-9]+$"))) # 1 has AffyID in SNP2
-      
-    
-    # test2_2 <- test2 %>% 
-    #   filter(str_detect(SNP1, regex("^Affx-[0-9]+$"))) # 252 have an AffyID in SNP1
-    # 
-    # test2_2_1 <- test2_2 %>% 
-    #   filter(str_detect(SNP2, regex("^Affx-[0-9]+$"))) # All have AffyID in SNP2
-    # 
-    # test2_2_1_1 <- test2_2_1 %>% 
-    #   filter(SNP1 != SNP2) # All AffyID columns identical in these individuals
-    
-    test2_final <- test2 %>% 
-      mutate(RSID = case_when(str_detect(SNP2, regex("^rs[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
-             ALT_RSID = NA_character_,
-             AFFYID = case_when(str_detect(SNP2, regex("^Affx-[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
-             SNP_ID = case_when(str_detect(SNP1, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")) ~ SNP1, TRUE ~ NA_character_)) %>% 
-      left_join(test2_1_final, by = "SNP")
-    
-    test2_final2 <- test2_final %>% 
-      filter(is.na(SNP_ID) | (!is.na(SNP_ID) & !is.na(Allele1)))
-    
-    sumstat3 <- rbind(test1_final2, test2_final2) %>% arrange(CHR, BP)
-    
-    save(sumstat3, file = here("Output/Temp/sumstat3.RData"))
-  }
-  
-  # tmp <- sumstat3 %>%
-  #  select(CHR, BP) %>%
-  #  unique()
-  
-  # for(i in 1:22) {
-  #   write_delim(select(filter(tmp, CHR == i), BP), file = paste0(here("Output/Temp/"), "chr", i, "_snplist.txt"), delim = "\n")
-  # }
-  
-  # Now we will work out which of these SNPs are present in the Imputed CoreEx data
-  
-  #system(paste0('source ~/.bashrc; parallel "zcat /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Imputed_Genotypes/QC1-10_Impute_EUR_only/CZ-MB1.2-QC1.10_EUR_imputed_chr{}.vcf.gz | grep -v ', "'#'",' | cut -f2 | grep -Fwf ', here("Output/Temp/"),'chr{}_snplist.txt > ', here("Output/Temp/"),'matched_snps_chr{}.txt" ::: {1..22}'))
-  
-  out <- tibble()
-  for(i in 1:22) {
-    assign(paste0("chr", i, "_snps"), read_delim(here("Output/Temp", paste0("matched_snps_chr", i, ".txt")), delim = "\t", col_names = FALSE) %>% mutate(CHR = i))
-    out <- rbind(out, get(paste0("chr", i, "_snps")))
-    rm(list = paste0("chr", i, "_snps"), i)
-  }
-  
-  out <- out %>% 
-    select(CHR, X1) %>% 
-    mutate(C_B = paste0(CHR, "_", X1))
-  
-  sumstat4 <- sumstat3 %>% 
-    mutate(C_B = paste0(CHR, "_", BP)) %>% 
-    filter(C_B %in% out$C_B)
-  
-  rm(sumstat3)
-  
-  # Now to pull out the MAF for all SNPs
-  # Already have CHR and BP for all SNPs separated by chr in matched_snps_chr* and mfi files are per chr so can simply match location in grep
-  
-  #system(paste0('source ~/.bashrc; parallel "grep -Fwhf ', here("Output/Temp/"), 'matched_snps_chr{}.txt /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/splits/ukb_mfi_chr{}_v3.txt > ', here("Output/Temp/"), 'ukb_maf_info_chr{}.txt" ::: {1..22}'))
-  
-  out <- tibble()
-  for(i in 1:22) {
-    assign(paste0("chr", i, "_snps"), read_delim(here("Output/Temp", paste0("ukb_maf_info_chr", i, ".txt")), delim = "\t", col_names = FALSE) %>% mutate(CHR = i))
-    out <- rbind(out, get(paste0("chr", i, "_snps")))
-    rm(list = paste0("chr", i, "_snps"), i)
-  }
-  
-  colnames(out) <- c("SNP1", "SNP2", "BP", "Allele1", "Allele2", "MAF", "Minor_Allele", "INFO", "CHR")
-  
-  # test <- out %>% 
-  #   filter(is.na(Allele1) | is.na(Allele2))
-  
-  out <- out %>% 
-    mutate(C_B = paste0(CHR, "_", BP)) %>% 
-    filter(str_length(Allele1) == 1,
-           str_length(Allele2) == 1,
-           MAF > 0.01,
-           MAF < 0.99,
-           INFO > 0.3)
-  
-  out2 <- out %>% 
-    filter(C_B %in% sumstat4$C_B) %>% 
-    arrange(CHR, BP)
-  
-  sumstat5 <- sumstat4 %>% 
-    semi_join(out2, by = c("CHR", "BP"))
-  
-  save(sumstat5, file = here("Output/Temp", "sumstat5.RData"))
-}
-
-# Pulling out biallelic SNPs only and adding MAF and INFO columns, also making sure MAF etc are correct for allele1/2
-if(file.exists(here("Output/Temp/biallelic_sumstat_final.RData"))) {
-  # load(here("Output/Temp/biallelic_sumstat_final.RData"))
-  # load(here("Output/Temp/biallelic_sumstat_final_poly.RData"))
-} else {
-  tmp <- sumstat5 %>% 
-    filter(duplicated(C_B))
-  
-  sumstat5_biallelic <- sumstat5 %>% 
-    filter(!(C_B %in% tmp$C_B))
-  
-  out <- tibble()
-  for(i in 1:22) {
-    assign(paste0("chr", i, "_snps"), read_delim(here("Output/Temp", paste0("ukb_maf_info_chr", i, ".txt")), delim = "\t", col_names = FALSE) %>% mutate(CHR = i))
-    out <- rbind(out, get(paste0("chr", i, "_snps")))
-    rm(list = paste0("chr", i, "_snps"), i)
-  }
-  
-  colnames(out) <- c("SNP1", "SNP2", "BP", "Allele1", "Allele2", "MAF", "Minor_Allele", "INFO", "CHR")
-  
-  out <- out %>% 
-    mutate(C_B = paste0(CHR, "_", BP)) %>% 
-    filter(str_length(Allele1) == 1,
-           str_length(Allele2) == 1,
-           MAF > 0.01,
-           MAF < 0.99,
-           INFO > 0.3)
-  
-  out2 <- out %>% 
-    filter(C_B %in% sumstat5_biallelic$C_B) %>% 
-    arrange(CHR, BP)
-  
-  tmp <- out2 %>% 
-    filter(duplicated(C_B))
-  
-  out2 <- out2 %>% 
-    filter(!(C_B %in% tmp$C_B))
-    
-  sumstat5_biallelic <- sumstat5_biallelic %>% 
-    left_join(out2, by = c("CHR", "BP"))
-    
-  sumstat5_biallelic <- sumstat5_biallelic %>% 
-    semi_join(out2, by = c("CHR", "BP"))
-  
-  # test <- sumstat5_biallelic %>% 
-  #   filter(str_length(Allele1.x) == 1,
-  #          str_length(Allele1.y) == 1)
-  # 
-  # test2 <- sumstat5_biallelic %>% 
-  #   filter(!(C_B.x %in% test$C_B.x))
-  # 
-  # test3 <- test2 %>% 
-  #   filter(!is.na(Allele1.x)) # This just removed all of the SNPs without SNP_ID column
-  
-  # sum(sumstat5_biallelic$SNP1.x != sumstat5_biallelic$SNP2.y) # only 5 SNPs don't match by name
-  test <- sumstat5_biallelic %>% 
-    filter(sumstat5_biallelic$SNP1.x != sumstat5_biallelic$SNP2.y) # 4 are multiallelic, one is an indel (looked it up in dbSNP)
-  extra_multiallelic1 <- test %>% 
-    slice(-2)
-  
-  #sum(sumstat5_biallelic$Allele2.x != sumstat5_biallelic$Allele2.y, na.rm = T) # 878 don't match
-  test <- sumstat5_biallelic %>% 
-    filter(sumstat5_biallelic$Allele2.x != sumstat5_biallelic$Allele2.y) # these are all mismatched alleles (i.e. multi-allellic)
-  extra_multiallelic2 <- sumstat5_biallelic %>%
-    filter((Allele1.x == Allele1.y & Allele2.x != Allele2.y) | (Allele1.x != Allele1.y & Allele2.x == Allele2.y))
-  
-  sumstat5_biallelic1 <- sumstat5_biallelic %>% 
-    filter(is.na(Allele1.x),
-           !(SNP %in% extra_multiallelic2$SNP)) %>% 
-    rename(Allele1 = Allele1.y,
-           Allele2 = Allele2.y,
-           Effect_Allele = A1) %>% 
-    select(-Allele1.x, -Allele2.x)
-  
-  sumstat5_biallelic2 <- sumstat5_biallelic %>% 
-    filter(Allele1.x == Allele1.y,
-           Allele2.x == Allele2.y,
-           !(SNP %in% extra_multiallelic2$SNP)) %>% 
-    rename(Allele1 = Allele1.x,
-           Allele2 = Allele2.x,
-           Effect_Allele = A1) %>% 
-    select(-Allele1.y, -Allele2.y)
-  
-  # test <- sumstat5_biallelic %>% 
-    # filter(!(SNP %in% sumstat5_biallelic1$SNP) & !(SNP %in% sumstat5_biallelic2$SNP))
-  
-  sumstat5_biallelic3 <- sumstat5_biallelic2 %>% 
-    select(CHR:SNP_ID, C_B.x:SNP2.y, Allele1, Allele2, MAF:C_B.y) %>% 
-    rbind(sumstat5_biallelic1) %>% 
-    arrange(CHR, BP)
-  
-  test <- sumstat5_biallelic3 %>% 
-    filter(Minor_Allele != Effect_Allele)
-  
-  #summary(test$MAF) # all really close to 0.5 MAF, just need to flip OR, L95, and U95 then set Effect_Allele to Minor_Allele column
-  
-  test <- test %>% 
-    mutate(OR = 1/OR,
-           tmp = 1/L95,
-           tmp2 = 1/U95,
-           L95 = tmp2,
-           U95 = tmp,
-           Effect_Allele = Minor_Allele) %>% 
-    rename(EAF = MAF) %>% 
-    select(-tmp, -tmp2, -Minor_Allele)
-  
-  sumstat5_biallelic4 <- sumstat5_biallelic3 %>% 
-    filter(Minor_Allele == Effect_Allele) %>% 
-    select(-Minor_Allele) %>% 
-    rename(EAF = MAF) %>% 
-    rbind(test) %>% 
-    arrange(CHR, BP)
-  
-  test <- sumstat5_biallelic4 %>% 
-    filter(Allele2 == Effect_Allele) %>% 
-    rename(Alternate_Allele = Allele1) %>% 
-    select(CHR:Effect_Allele, Alternate_Allele, TEST:SNP2.y, EAF:C_B.y)
-  
-  test2 <- sumstat5_biallelic4 %>% 
-    filter(Allele1 == Effect_Allele) %>% 
-    rename(Alternate_Allele = Allele2) %>% 
-    select(CHR:Effect_Allele, Alternate_Allele, TEST:SNP2.y, EAF:C_B.y)
-  
-  sumstat5_biallelic5 <- rbind(test, test2) %>% 
-    arrange(CHR, BP)
-  
-  biallelic_sumstat_final <- sumstat5_biallelic5
-  
-  # tmp <- biallelic_sumstat_final %>% 
-  #   filter(C_B.x != C_B.y)
-  # 
-  # tmp <- biallelic_sumstat_final %>% 
-  #   filter(SNP1.x != SNP2.y) # Only non-matching site was an indel (can remove)
-  # 
-  # tmp <- biallelic_sumstat_final %>% 
-  #   filter(SNP2.x != SNP1.y) # This includes the non-matching site from above and every other site is just wrong in the SNP1.y column (but they are the same SNP) => keep SNP2.x
-  
-  biallelic_sumstat_final <- biallelic_sumstat_final %>% 
-    filter(SNP1.x == SNP2.y) %>% 
-    select(-C_B.x, -C_B.y, -SNP2.y, -SNP1.y) %>% 
-    rename(SNP1 = SNP1.x,
-           SNP2 = SNP2.x)
-  
-  
-  
-  # Removing variants that aren't in the directly genotyped CoreEx data (for Polynesian analysis)
-  # snplist_plink2 <- biallelic_sumstat_final %>% 
-  #   mutate(BP2 = BP) %>% 
-  #   select(CHR, BP, BP2, SNP)
-  
-  #write_delim(snplist_plink2, delim = " ", file = here("Output/Temp/snplist_plink2.txt"), col_names = F)
-  
-  # First filtering CoreEx files to only include individuals of interest and SNPs with a callrate of 95%
-  CoreExPheno <- read_delim(here("Data/Phenotypes/CZ-MB1.2-QC1.10_MergedPhenotypes_20082020.txt"), delim = "\t")
-  
-  All_Euro_ID <- read_delim(here("Output/Temp/merged_PRS_UKBB.fam"), delim = " ", col_names = F)
-  
-  CoreExPheno_Euro <- CoreExPheno %>% 
-    filter(Geno.BroadAncestry == "European",
-           Geno.SampleID %in% All_Euro_ID$X2,
-           General.Use != "No",
-           !(Pheno.Study %in% c("Auckland Controls", "Australian Controls", "ESR", "Rheumatoid Arthritis")))
-  
-  All_CoreEx_ID <- read_delim("/Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam", delim = " ", col_names = F)
-  
-  CoreExPheno_Poly <- CoreExPheno %>% 
-    filter(Geno.BroadAncestry == "Oceanian",
-           Geno.SampleID %in% All_CoreEx_ID$X2,
-           General.Use != "No",
-           !(Pheno.Study %in% c("ESR", "Pacific Trust")),
-           !is.na(Pheno.GoutSummary))
-  
-  rm(CoreExPheno, All_CoreEx_ID, All_Euro_ID)
-  
-  all_coreex_ids <- rbind(CoreExPheno_Euro, CoreExPheno_Poly) %>% 
-    select(Geno.FamilyID, Geno.SampleID)
-  
-  #write_delim(all_coreex_ids, delim = "\t", file = here("Output/Temp/all_coreex_ids.txt"), col_names = F)
-  
-  #system(paste0("source ~/.bashrc; plink1.9b4.9 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --keep ", here("Output/Temp/all_coreex_ids.txt"), " --extract range ", here("Output/Temp/snplist_plink2.txt"), " --geno 0.05 --make-bed --out ", here("Output/Temp/inCoreExGeno")))
-  
-  geno <- read_delim(here("Output/Temp", "inCoreExGeno.bim"), delim = "\t", col_names = FALSE) %>% 
-    mutate(CHR_BP = paste0(X1, "_", X4))
-  
-  biallelic_sumstat_final_poly <- biallelic_sumstat_final %>% 
-    mutate(CHR_BP = paste0(CHR, "_", BP)) %>% 
-    filter(CHR_BP %in% geno$CHR_BP)
-  
-  rm(geno, snplist_plink2)
-  
-  save(biallelic_sumstat_final, file = here("Output/Temp", "biallelic_sumstat_final.RData"))
-  
-  save(biallelic_sumstat_final_poly, file = here("Output/Temp", "biallelic_sumstat_final_poly.RData"))
-}
-  
-
-# Dealing with multi-allelic SNPs (leave for later)
-if(file.exists(here("Output/Temp/multi_allelic_for_later.RData"))) {
-  #load(here("Output/Temp/multi_allelic_for_later.RData"))
-} else {
-  tmp <- biallelic_sumstat_final %>% 
-    mutate(C_B = paste0(CHR, "_", BP))
-  
-  sumstat5_multi <- sumstat5 %>% 
-    filter(!(C_B %in% tmp$C_B)) # 38,991 rows contain multi-allelic sites
-  
-  out <- tibble()
-  for(i in 1:22) {
-    assign(paste0("chr", i, "_snps"), read_delim(here("Output/Temp", paste0("ukb_maf_info_chr", i, ".txt")), delim = "\t", col_names = FALSE) %>% mutate(CHR = i))
-    out <- rbind(out, get(paste0("chr", i, "_snps")))
-    rm(list = paste0("chr", i, "_snps"), i)
-  }
-  
-  colnames(out) <- c("SNP1", "SNP2", "BP", "Allele1", "Allele2", "MAF", "Minor_Allele", "INFO", "CHR")
-  
-  out <- out %>% 
-    mutate(C_B = paste0(CHR, "_", BP)) %>% 
-    filter(str_length(Allele1) == 1,
-           str_length(Allele2) == 1,
-           MAF > 0.01,
-           MAF < 0.99,
-           INFO > 0.3)
-  
-  out2 <- out %>% 
-    filter(C_B %in% sumstat5_multi$C_B) %>% 
-    arrange(CHR, BP) # 26,235 of the 38,991 chr/bp locations match
-  
-  sumstat5_multi <- sumstat5_multi %>% 
-    left_join(out2, by = c("CHR", "BP"))
-  
-  # tmp <- sumstat5_multi %>% 
-  #   unique() # all unique
-  
-  # tmp <- sumstat5_multi %>% 
-  #   filter(duplicated(C_B.x))
-  # 
-  # test <- sumstat5_multi %>% 
-  #   filter(C_B.x %in% tmp$C_B.x) # 27,909 rows contain duplicated C_B.x
-  
-  save(sumstat5_multi, file = here("Output/Temp", "multi_allelic_for_later.RData"))
-}
+tr -s ' ' < gout_gwas/${file}.assoc.logistic | tr ' ' '\t' | sed 's/^\t//g' | sed 's/\t$//g' | gzip -c > gout_gwas/${file}.assoc.logistic.tsv.gz && rm gout_gwas/${file}.assoc.logistic
+tr -s ' ' < gout_gwas/${file}.frq.cc  | tr ' ' '\t' | sed 's/^\t//g' | sed 's/\t$//g' | gzip -c > gout_gwas/${file}.frq.cc.tsv.gz && rm gout_gwas/${file}.frq.cc
+tr -s ' ' < gout_gwas/${file}.hwe | tr ' ' '\t' | sed 's/^\t//g' |sed 's/\t$//g' | gzip -c > gout_gwas/${file}.hwe.tsv.gz && rm gout_gwas/${file}.hwe
+tr -s ' ' < gout_gwas/${file}.imiss | tr ' ' '\t' | sed 's/^\t//g' | sed 's/\t$//g' | gzip -c > gout_gwas/${file}.imiss.tsv.gz && rm gout_gwas/${file}.imiss
+tr -s ' ' < gout_gwas/${file}.lmiss | tr ' ' '\t' | sed 's/^\t//g' | sed 's/\t$//g' | gzip -c > gout_gwas/${file}.lmiss.tsv.gz && rm gout_gwas/${file}.lmiss
 ```
 
-To get from these cleaned up summary statistics to the final list of SNPs for the Imputed PRS, I did the following:
+```{bash, engine.opts = '-l', eval = F}
+# Then run this code
+
+cd /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/splits
+
+parallel --progress -P parallel_process.txt --tmp ./tmp/ 'bash do_gout_gwas.sh {}' ::: $(basename -s .vcf.gz -a $(ls bgenix_convert_chr*.gz ))
+
+# These were then concatenated together into ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv which was copied to the Data directory
+```
+
+Next, I filtered the summary stats to only include SNPs that were genotyped in the CoreExome chip. Additionally, I removed any indels, variants with MAF < 0.01, and X/Y chromosome SNPs, and ensured that all variants were biallelic.
+
+```{r sumstat_filtering, eval = F}
+CoreExPheno <- read_delim(here("Data/Phenotypes/CZ-MB1.2-QC1.10_MergedPhenotypes_20082020.txt"), delim = "\t")
+  
+All_CoreEx_ID <- read_delim("/Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam", delim = " ", col_names = F)
+
+CoreExPheno_Euro <- CoreExPheno %>% 
+  filter(Geno.BroadAncestry == "European",
+         Geno.SampleID %in% All_CoreEx_ID$X2,
+         General.Use != "No",
+         !(Pheno.Study %in% c("Auckland Controls", "Australian Controls", "ESR", "Rheumatoid Arthritis")))
+
+CoreExPheno_Poly <- CoreExPheno %>% 
+  filter(Geno.BroadAncestry == "Oceanian",
+         Geno.SampleID %in% All_CoreEx_ID$X2,
+         General.Use != "No",
+         !(Pheno.Study %in% c("ESR", "Pacific Trust")),
+         !is.na(Pheno.GoutSummary))
+
+all_coreex_ids <- rbind(CoreExPheno_Euro, CoreExPheno_Poly) %>% 
+  select(Geno.FamilyID, Geno.SampleID)
+
+# write_delim(all_coreex_ids, delim = "\t", file = here("Output/Temp/all_coreex_ids.txt"), col_names = F)
+
+rm(CoreExPheno, CoreExPheno_Euro, CoreExPheno_Poly, all_coreex_ids, All_CoreEx_ID)
+
+# system(paste0("source ~/.bashrc; plink1.9b4.9 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --keep ", here("Output/Temp/all_coreex_ids.txt"), " --geno 0.05 --make-bed --out ", here("Output/Temp/inCoreExGeno")))
+
+geno <- read_delim(here("Output/Temp", "inCoreExGeno.bim"), delim = "\t", col_names = FALSE) %>% 
+  mutate(CHR_BP = paste0(X1, "_", X4))
+
+sumstat <- vroom(here("Data/GWAS/ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv"), 
+                 delim = "\t", 
+                 col_names = TRUE)
+
+sumstat2 <- sumstat %>% 
+  mutate(CHR_BP = paste0(CHR, "_", BP)) %>% 
+  filter(CHR %in% 1:22,
+         CHR_BP %in% geno$CHR_BP,
+         str_length(A1) == 1) %>% 
+  separate(SNP, into = c("SNP1", "SNP2", "SNP3"), sep = ",", remove = FALSE) # total of 307,368 variants
+
+# table(sumstat2$SNP3) # just chromosomes, can remove
+
+sumstat2_2 <- sumstat2 %>% 
+  select(-SNP3)
+
+test1 <- sumstat2_2 %>% 
+  filter(str_detect(SNP1, regex("^rs[0-9]+"))) # 307,066 variants have an rsID in SNP1 column
+  
+test1_1 <- test1 %>%
+  filter(str_detect(SNP2, regex("^rs[0-9]+"))) # 74,955 of these have an rsID in SNP2 column
+
+test1_1_1 <- test1_1 %>%
+  filter(SNP1 != SNP2) # 63 variants have two rsIDs, for the most part SNP1 appears to be the newest rsID, but I will keep the extra rsID in a separate column
+
+test1_2 <- test1 %>% 
+  filter(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$"))) # 231,166 variants have rsID in SNP1 column and chr:bp_a1_a2 in SNP2 column
+
+test1_2_1 <- test1_2 %>% 
+  mutate(CHR2 = SNP2 %>% str_split(":", simplify = TRUE) %>% .[,1] %>% as.numeric(),
+         BP2 = SNP2 %>% str_split(":", simplify = TRUE) %>% .[,2] %>% str_split("_", simplify = TRUE) %>% .[,1] %>% as.numeric(),
+         Allele1 = SNP2 %>% str_split("_", simplify = TRUE) %>% .[,2],
+         Allele2 = SNP2 %>% str_split("_", simplify = TRUE) %>% .[,3])
+
+# sum(test1_2_1$BP != test1_2_1$BP2) # all BPs are equal
+
+# sum(test1_2_1$CHR != test1_2_1$CHR2) # all CHRs are equal
+
+# sum(test1_2_1$A1 != test1_2_1$Allele2) # Allele2 is not always A1
+
+test1_2_2 <- test1_2_1 %>% 
+  select(-CHR2, -BP2) %>% 
+  filter(str_length(Allele1) == 1,
+         str_length(Allele2) == 1) # removes a further 13 indels = 231,153 variants
+
+test1_2_final <- test1_2_2 %>% 
+  select(SNP, Allele1, Allele2)
+
+test1_3 <- test1 %>%
+  filter(!str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$|^rs[0-9]+$"))) # 945 variants have neither rsID nor chr:bp_a1_a2 in SNP2 column
+
+sum(!str_detect(test1_3$SNP2, regex("^Affx-[0-9]+$"))) # All of these are in the format Affx-<number>
+
+test1_final <- test1 %>% 
+  mutate(RSID = SNP1,
+         ALT_RSID = case_when(str_detect(SNP2, regex("^rs[0-9]+$")) & SNP1 != SNP2 ~ SNP2, TRUE ~ NA_character_),
+         AFFYID = case_when(str_detect(SNP2, regex("^Affx-[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
+         SNP_ID = case_when(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")) ~ SNP2, TRUE ~ NA_character_)) %>% 
+  left_join(test1_2_final, by = "SNP")
+
+test1_final2 <- test1_final %>% 
+  filter(is.na(SNP_ID) | (!is.na(SNP_ID) & !is.na(Allele1))) # removing the indels
+
+test2 <- sumstat2_2 %>% 
+  filter(!str_detect(SNP1, regex("^rs[0-9]+"))) # 302 variants don't have an rsID in SNP1 column
+
+test2_1 <- test2 %>% 
+  filter(str_detect(SNP1, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$"))) # 300 have the SNP_ID format in SNP1
+
+test2_1_1 <- test2_1 %>% 
+  mutate(CHR2 = SNP1 %>% str_split(":", simplify = TRUE) %>% .[,1] %>% as.numeric(),
+         BP2 = SNP1 %>% str_split(":", simplify = TRUE) %>% .[,2] %>% str_split("_", simplify = TRUE) %>% .[,1] %>% as.numeric(),
+         Allele1 = SNP1 %>% str_split("_", simplify = TRUE) %>% .[,2],
+         Allele2 = SNP1 %>% str_split("_", simplify = TRUE) %>% .[,3])
+
+# sum(test2_1_1$BP != test2_1_1$BP2) # all BPs are equal
+
+# sum(test2_1_1$CHR != test2_1_1$CHR2) # all CHRs are equal
+
+# sum(test2_1_1$A1 != test2_1_1$Allele2) # Allele2 is not always A1
+
+test2_1_2 <- test2_1_1 %>% 
+  select(-CHR2, -BP2) %>% 
+  filter(str_length(Allele1) == 1,
+         str_length(Allele2) == 1)
+
+# nrow(test2_1_2) - nrow(test2_1_1) # removed 12 indels
+
+test2_1_final <- test2_1_2 %>% 
+  select(SNP, Allele1, Allele2) # 288 total
+
+test2_1_1 <- test2_1 %>%
+  filter(str_detect(SNP2, regex("^rs[0-9]+"))) # 7 of the 300 have RSID in SNP2
+
+test2_1_2 <- test2_1 %>%
+  filter(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$"))) # 292 have SNP_ID in SNP2
+
+# sum(test2_1_2$SNP1 != test2_1_2$SNP2) # All SNP_ID columns identical in these individuals
+
+test2_1_3 <- test2_1 %>%
+  filter(str_detect(SNP2, regex("^Affx-[0-9]+$"))) # 1 has AffyID in SNP2
+  
+test2_2 <- test2 %>%
+  filter(str_detect(SNP1, regex("^Affx-[0-9]+$"))) # 2 have an AffyID in SNP1
+
+test2_2_1 <- test2_2 %>%
+  filter(str_detect(SNP2, regex("^Affx-[0-9]+$"))) # Both have AffyID in SNP2
+
+# sum(test2_2_1$SNP1 != test2_2_1$SNP2) # All AffyID columns identical in these individuals
+
+test2_final <- test2 %>% 
+  mutate(RSID = case_when(str_detect(SNP2, regex("^rs[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
+         ALT_RSID = NA_character_,
+         AFFYID = case_when(str_detect(SNP2, regex("^Affx-[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
+         SNP_ID = case_when(str_detect(SNP1, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")) ~ SNP1, TRUE ~ NA_character_)) %>% 
+  left_join(test2_1_final, by = "SNP")
+
+test2_final2 <- test2_final %>% 
+  filter(is.na(SNP_ID) | (!is.na(SNP_ID) & !is.na(Allele1))) # removing the indels
+
+sumstat3 <- rbind(test1_final2, test2_final2) %>% arrange(CHR, BP) # 307,343 variants
+
+remove <- ls()
+remove <- as_tibble(remove) %>%
+  filter(str_detect(value, "test"))
+remove <- remove$value
+rm(list = remove, remove)
+rm(sumstat2_2, tmp)
+
+tmp <- sumstat3 %>%
+ select(CHR, BP) %>%
+ unique()
+
+for(i in 1:22) {
+  write_delim(select(filter(tmp, CHR == i), BP), file = paste0(here("Output/Temp/"), "chr", i, "_snplist.txt"), delim = "\n")
+}
+
+# Now to pull out the MAF and alleles for all SNPs using the mfi files
+
+#system(paste0('source ~/.bashrc; parallel "grep -Fwhf ', here("Output/Temp/"), 'chr{}_snplist.txt /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/splits/ukb_mfi_chr{}_v3.txt > ', here("Output/Temp/"), 'ukb_maf_info_chr{}.txt" ::: {1..22}'))
+
+out <- tibble()
+for(i in 1:22) {
+  assign(paste0("chr", i, "_snps"), read_delim(here("Output/Temp", paste0("ukb_maf_info_chr", i, ".txt")), delim = "\t", col_names = FALSE) %>% mutate(CHR = i))
+  out <- rbind(out, get(paste0("chr", i, "_snps")))
+  rm(list = paste0("chr", i, "_snps"), i)
+}
+
+colnames(out) <- c("SNP1_mfi", "SNP2_mfi", "BP_mfi", "Allele1_mfi", "Allele2_mfi", "MAF_mfi", "Minor_Allele_mfi", "INFO_mfi", "CHR_mfi")
+
+# sum(is.na(out$Allele1_mfi) | is.na(out$Allele2_mfi)) # all have allele1 and allele2
+
+out <- out %>% 
+  mutate(CHR_BP = paste0(CHR_mfi, "_", BP_mfi)) %>% 
+  filter(Allele1_mfi %in% c("A", "C", "G", "T"),
+         Allele2_mfi %in% c("A", "C", "G", "T"),
+         MAF_mfi > 0.01,
+         MAF_mfi < 0.99,
+         INFO_mfi > 0.3) # 246,869 variants
+
+sum(duplicated(out$CHR_BP)) # 224 multi-allelic sites
+
+sumstat4 <- sumstat3 %>% 
+  left_join(out, by = "CHR_BP") %>% 
+  filter(!is.na(Allele1_mfi)) %>% 
+  select(-CHR_mfi, -BP_mfi) # 246,017
+
+geno2 <- geno %>% 
+  filter(CHR_BP %in% sumstat4$CHR_BP,
+         X5 %in% c("A", "C", "G", "T"),
+         X6 %in% c("A", "C", "G", "T")) # only 244,655 variants
+
+# length(unique(sumstat4$CHR_BP)) # same number as above, difference is multi-allelic sites
+
+tmp <- sumstat4 %>% 
+  filter(duplicated(CHR_BP)) %>% 
+  pull(CHR_BP) %>% 
+  unique() # 823 duplicated sites
+
+tmp2 <- sumstat4 %>% 
+  filter(!(CHR_BP %in% tmp)) # 244,015 biallelic sites
+
+tmp3 <- sumstat4 %>% 
+  filter(CHR_BP %in% tmp) # 2,002 total variants, need to go off the one that is in geno2
+
+tmp4 <- tmp3 %>% 
+  left_join(geno2, by = "CHR_BP") %>% 
+  select(-X1, -X3, -X4) %>% 
+  unique()
+
+# test <- tmp4 %>% 
+#   filter(Allele1 != Allele1_mfi | is.na(Allele1)) # Allele1_mfi can be changed to Allele1
+
+tmp5 <- tmp4 %>% 
+  filter(is.na(Allele2) | !is.na(Allele2) & Allele2 == Allele2_mfi)
+
+tmp6 <- tmp5 %>% 
+  filter((Allele1_mfi == X5 | Allele1_mfi == X6) & (Allele2_mfi == X5 | Allele2_mfi == X6))
+
+tmp7a <- tmp6 %>% 
+  filter(duplicated(CHR_BP))
+
+tmp7b <- tmp6 %>% 
+  filter(CHR_BP %in% tmp7a$CHR_BP)
+
+tmp7 <- tmp6 %>% 
+  filter(A1 == X5 | A1 == X6) # now all remaining variants are at unique locations
+
+tmp2 <- sumstat4 %>% 
+  filter(!(CHR_BP %in% tmp)) %>% 
+  left_join(geno2, by = "CHR_BP") %>% 
+  filter((Allele1_mfi == X5 | Allele1_mfi == X6) & (Allele2_mfi == X5 | Allele2_mfi == X6)) %>% 
+  select(-X1, -X3, -X4)
+
+sumstat4_1 <- rbind(tmp2, tmp7) %>% 
+  arrange(CHR, BP) %>% 
+  filter(Allele2 == Allele2_mfi | is.na(Allele2)) %>% 
+  mutate(Allele1 = Allele1_mfi,
+         Allele2 = Allele2_mfi) %>% 
+  select(-Allele1_mfi, -Allele2_mfi)
+
+# test <- sumstat4_1 %>% 
+#   filter(!(A1 == X5 | A1 == X6))
+
+sum(sumstat4_1$SNP1 != sumstat4_1$SNP2_mfi) # same
+
+sum(sumstat4_1$SNP2 != sumstat4_1$SNP1_mfi) # 50 different
+
+test <- sumstat4_1 %>% 
+  filter(SNP2 != SNP1_mfi) # nothing to worry about, can remove mfi versions
+
+sumstat5 <- sumstat4_1 %>% 
+  rename(Effect_Allele = A1,
+         INFO = INFO_mfi,
+         MAF = MAF_mfi,
+         Minor_Allele = Minor_Allele_mfi) %>% 
+  select(-TEST, -NMISS, -CHR_BP, -X2, -X5, -X6, -SNP1_mfi, -SNP2_mfi)
+
+test <- sumstat5 %>% 
+  filter(Minor_Allele != Effect_Allele)
+
+#summary(test$MAF) # all really close to 0.5 MAF, just need to flip OR, L95, and U95 then set Effect_Allele to Minor_Allele column
+
+test <- test %>% 
+  mutate(OR = 1/OR,
+         tmp = 1/L95,
+         tmp2 = 1/U95,
+         L95 = tmp2,
+         U95 = tmp,
+         Effect_Allele = Minor_Allele) %>% 
+  rename(EAF = MAF) %>% 
+  select(-tmp, -tmp2, -Minor_Allele)
+
+sumstat5_1 <- sumstat5 %>% 
+  filter(Minor_Allele == Effect_Allele) %>% 
+  select(-Minor_Allele) %>% 
+  rename(EAF = MAF) %>% 
+  rbind(test) %>% 
+  arrange(CHR, BP)
+
+test <- sumstat5_1 %>% 
+  filter(Allele2 == Effect_Allele) %>% 
+  rename(Alternate_Allele = Allele1) %>% 
+  select(CHR, SNP, BP, Effect_Allele, Alternate_Allele, OR:SNP_ID, EAF:INFO)
+
+test2 <- sumstat5_1 %>% 
+  filter(Allele1 == Effect_Allele) %>% 
+  rename(Alternate_Allele = Allele2) %>% 
+  select(CHR, SNP, BP, Effect_Allele, Alternate_Allele, OR:SNP_ID, EAF:INFO)
+
+sumstat_final <- rbind(test, test2) %>% 
+  arrange(CHR, BP)
+
+# save(sumstat_final, file = here("Output/sumstat_final.RData"))
+
+rm(geno, geno2, out, sumstat, sumstat2, sumstat3, sumstat4, sumstat4_1, sumstat4_final, sumstat5, sumstat5_1, sumstat5_2, test, test2, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp7a, tmp7b, tmp)
+```
+
+To get from these cleaned up summary statistics to the final list of SNPs for the PRS, I did the following:
 
 1. I filtered out all SNPs with P-values greater than 5e-8.
 
-2. I took each lead SNP within a 1 Mb window and used these to define 23 crude loci.
+2. I took each lead SNP within a 1 Mb window and used these to define 15 crude loci.
 
 3. This list of lead SNPs was further filtered to only include one lead SNP per full locus.
 
@@ -496,25 +363,20 @@ To get from these cleaned up summary statistics to the final list of SNPs for th
 
 8. Locus zooms were plotted for each locus, using both the unconditioned and conditioned GWAS results.
 
-9. Finally, the resulting list of 27 lead SNPs were saved in a single file ready for conversion to a PRS.
+9. Finally, the resulting list of 19 lead SNPs were saved in a single file ready for conversion to a PRS.
 
 ```{r new_loci_grouping, eval = F}
 # Defining one SNP per locus ---------------------------------------------------------------------------
 # First, filter out P < 5e-8 SNPs and arrange by P
-if(file.exists(here("Output/Temp/biallelic_signif.RData"))) {
-  load(here("Output/Temp/biallelic_signif.RData"))
-} else {
-  biallelic_signif <- biallelic_sumstat_final %>% 
-    filter(P <= 5e-8) %>% 
-    arrange(P)
-  
-  save(biallelic_signif, file = here("Output/Temp/biallelic_signif.RData"))
-}
+load(here("Output/sumstat_final.RData"))
+sumstat_signif <- sumstat_final %>% 
+  filter(P <= 5e-8) %>% 
+  arrange(P)
 
 # Grouping into loci +- 500 kb of top SNPs
-gout_top <- biallelic_signif %>% 
+gout_top <- sumstat_signif %>% 
   slice(1)
-gout2 <- biallelic_signif %>% 
+gout2 <- sumstat_signif %>% 
   filter(!(CHR == gout_top$CHR[1] & BP %in% ((gout_top$BP[1] - 500000):(gout_top$BP[1] + 500000))))
 
 while(nrow(gout2) > 0) {
@@ -530,29 +392,29 @@ gout_top <- gout_top %>%
 
 
 # Finding regions of loci
-biallelic_signif <- biallelic_signif %>% 
+sumstat_signif <- sumstat_signif %>% 
   arrange(CHR, BP)
 
 out <- NA
-for(i in 2:nrow(biallelic_signif)) {
-  if(biallelic_signif$CHR[i] == biallelic_signif$CHR[i - 1]){
-    out[i] <- biallelic_signif$BP[i] - biallelic_signif$BP[i - 1]
+for(i in 2:nrow(sumstat_signif)) {
+  if(sumstat_signif$CHR[i] == sumstat_signif$CHR[i - 1]){
+    out[i] <- sumstat_signif$BP[i] - sumstat_signif$BP[i - 1]
   } else {
     out[i] <- NA
   }
 }
 
-tmp <- biallelic_signif %>% 
+tmp <- sumstat_signif %>% 
   mutate(Diff = out,
          Diff2 = case_when(Diff < 500000 ~ Diff))
 
-out <- biallelic_signif %>% slice(1)
-for(i in 2:nrow(biallelic_signif)) {
+out <- sumstat_signif %>% slice(1)
+for(i in 2:nrow(sumstat_signif)) {
   if(is.na(tmp$Diff2[i])){
-    out <- rbind(out, biallelic_signif %>% slice(i - 1), biallelic_signif %>% slice(i))
+    out <- rbind(out, sumstat_signif %>% slice(i - 1), sumstat_signif %>% slice(i))
   }
 }
-out <- rbind(out, biallelic_signif %>% slice(nrow(biallelic_signif)))
+out <- rbind(out, sumstat_signif %>% slice(nrow(sumstat_signif)))
 
 # Extracting regions
 bgen_ranges <- out %>% select(CHR, BP)
@@ -586,25 +448,20 @@ rm(bgen_range1, bgen_range2, tmp1, tmp2, out, gout2, i)
 #write_delim(tmp, file = here("Output/Temp", "bgen_range.txt"), delim = "\n", col_names = F)
 
 # Extracting all SNPs from biallelic sumstat that fit within boundaries of loci
-if(file.exists(here("Output/Temp/biallelic_loci.RData"))) {
-  load(here("Output/Temp/biallelic_loci.RData"))
-} else {
-  biallelic_loci <- tibble()
-  for(i in 1:nrow(bgen_ranges)){
-    tmp <- biallelic_sumstat_final %>% 
-    filter(CHR == bgen_ranges$CHR[i] & between(BP, bgen_ranges$BP1[i], bgen_ranges$BP2[i]))
-    biallelic_loci <- rbind(biallelic_loci, tmp)
-  }
-  biallelic_loci <- biallelic_loci %>% 
-    mutate(SNP_ID2 = paste0(CHR, "_", BP, "_", Alternate_Allele, "_", Effect_Allele))
-  #save(biallelic_loci, file = here("Output/Temp/biallelic_loci.RData"))
+loci <- tibble()
+for(i in 1:nrow(bgen_ranges)){
+  tmp <- sumstat_final %>% 
+  filter(CHR == bgen_ranges$CHR[i] & between(BP, bgen_ranges$BP1[i], bgen_ranges$BP2[i]))
+  loci <- rbind(loci, tmp)
 }
+loci <- loci %>% 
+  mutate(SNP_ID2 = paste0(CHR, "_", BP, "_", Alternate_Allele, "_", Effect_Allele))
 
-tmp <- biallelic_loci %>% 
+tmp <- loci %>% 
   mutate(BP2 = BP) %>% 
   select(CHR, BP, BP2, SNP)
 
-#write_delim(tmp, file = here("Output/Temp", "biallelic_loci_snps.txt"), delim = "\t", col_names = F)
+#write_delim(tmp, file = here("Output/Temp", "loci_snps.txt"), delim = "\t", col_names = F)
 
 out <- c()
 for(i in 1:nrow(bgen_ranges)){
@@ -620,12 +477,10 @@ gout_top <- out %>%
 
 rm(tmp, bgen_ranges, out, i)
 
-
-
 # Extracting all SNPs at loci from bgen files and converting to plink format -------------------------------
-#system(paste0('source ~/.bashrc; parallel "bgenix -g /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/ukb_imp_chr{}_v3.bgen -vcf -incl-range ', here("Output/Temp", "bgen_range.txt"), ' | bcftools reheader -h /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/bgen_to_vcf/rename_contigs.txt | bgzip -c > ', here("Output/Temp", "chr"), '{}_forclumping.vcf.gz" ::: ', paste(unique(gout_top$CHR), collapse = " ")))
+# system(paste0('source ~/.bashrc; parallel "bgenix -g /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/ukb_imp_chr{}_v3.bgen -vcf -incl-range ', here("Output/Temp", "bgen_range.txt"), ' | bcftools reheader -h /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/rename_contigs.txt | bgzip -c > ', here("Output/Temp", "chr"), '{}_forclumping.vcf.gz" ::: ', paste(unique(gout_top$CHR), collapse = " ")))
 
-#system(paste0('source ~/.bashrc; parallel "plink1.9b4.9 --vcf ', here("Output/Temp/"), 'chr{}_forclumping.vcf.gz --extract range ', here("Output/Temp/biallelic_loci_snps.txt"), ' --pheno ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --pheno-name plink_goutaff --update-sex ', here("Data/GWAS", "gout_gwas_keep_ids_w_sex.txt"), ' --geno 0.1 --maf 0.01 --hwe 0.000001 --make-bed --out ', here("Output/Temp/"), 'chr{}_tmp" ::: ', paste(unique(gout_top$CHR), collapse = " ")))
+# system(paste0('source ~/.bashrc; parallel "plink1.9b4.9 --vcf ', here("Output/Temp/"), 'chr{}_forclumping.vcf.gz --extract range ', here("Output/Temp/loci_snps.txt"), ' --pheno ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --pheno-name plink_goutaff --update-sex ', here("Data/GWAS", "gout_gwas_keep_ids_w_sex.txt"), ' --geno 0.1 --maf 0.01 --hwe 0.000001 --make-bed --out ', here("Output/Temp/"), 'chr{}_tmp" ::: ', paste(unique(gout_top$CHR), collapse = " ")))
 
 
 # Reading the bim files into R and converting their identifiers to just the rsid
@@ -633,10 +488,10 @@ file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Outpu
 
 for(i in file_names){
   assign(i, read_delim(paste0(here("Output/Temp/"), i), delim = "\t", col_names = F))
-  assign(i, get(i) %>% left_join(biallelic_loci, (by = c("X1" = "CHR", "X4" = "BP"))) %>% mutate(SNP_clean = case_when(is.na(RSID) ~ SNP_ID2, TRUE ~ RSID)))
+  assign(i, get(i) %>% left_join(loci, (by = c("X1" = "CHR", "X4" = "BP"))) %>% mutate(SNP_clean = case_when(is.na(RSID) ~ SNP_ID, TRUE ~ RSID)))
   # assign(paste0(i, "_notequal"), get(i) %>% filter(X2 != SNP)) # all identical
   assign(paste0("new_", i), get(i) %>% select(X1, SNP_clean, X3:X6))
-  #write_delim(get(paste0("new_", i)), file = paste0(here("Output/Temp/"), i), delim = "\t", col_names = F)
+  write_delim(get(paste0("new_", i)), file = paste0(here("Output/Temp/"), i), delim = "\t", col_names = F)
 }
 
 rm(list = ls()[str_detect(ls(), ".bim")], i, file_names)
@@ -650,7 +505,7 @@ gout_top2 <- gout_top %>%
 
 for(i in 1:nrow(gout_top2)){
   tmp <- gout_top2 %>% slice(i)
-  #write_delim(tmp, file = paste0(here("Output/Temp/"), "extractrange_", tmp$RSID, ".txt"), delim = "\t", col_names = F)
+  write_delim(tmp, file = paste0(here("Output/Temp/"), "extractrange_", tmp$RSID, ".txt"), delim = "\t", col_names = F)
 }
 
 #system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_tmp --extract range {1}/Output/Temp/extractrange_{3}.txt --make-bed --out {1}/Output/Temp/{3}" ::: ', paste(rep(here(), nrow(gout_top)), collapse = " "), ' ::: ', paste(gout_top$CHR, collapse = " "), ' ::: ', paste(gout_top$RSID, collapse = " ")))
@@ -661,7 +516,7 @@ for(i in 1:nrow(gout_top2)){
 
 #system(paste0('source ~/.bashrc; parallel "echo {2} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ', here(), ' ::: ', paste(gout_top$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
 
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition {2} --out {1}/Output/Temp/{2}_split{3}" ::: ', here(), ' ::: ', paste(gout_top$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
+system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition {2} --out {1}/Output/Temp/{2}_split{3}" ::: ', here(), ' ::: ', paste(gout_top$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
 
 # Reading all the outputs into R
 file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), regex("rs[0-9]+_split[0-9]+.assoc.logistic"))]
@@ -693,11 +548,11 @@ rm(list = ls()[str_detect(ls(), ".assoc")], i, tmp, tmp2, file_names, tmp3, j)
 
 
 # Second round of conditioning
-#system(paste0('source ~/.bashrc; parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ', here(), ' ::: ', paste(gout_top_resid$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " "), ' ::: ', paste(gout_top_resid$new_lead, collapse = " ")))
+system(paste0('source ~/.bashrc; parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ', here(), ' ::: ', paste(gout_top_resid$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " "), ' ::: ', paste(gout_top_resid$new_lead, collapse = " ")))
 
-#system(paste0('source ~/.bashrc; parallel --xapply "echo $', paste0("'{2}\n{3}'"), ' > {1}/Output/Temp/{2}_2" ::: ', here(), ' ::: ', paste(gout_top_resid$RSID, collapse = " "), ' ::: ', paste(gout_top_resid$new_lead, collapse = " ")))
+system(paste0('source ~/.bashrc; parallel --xapply "echo $', paste0("'{2}\n{3}'"), ' > {1}/Output/Temp/{2}_2" ::: ', here(), ' ::: ', paste(gout_top_resid$RSID, collapse = " "), ' ::: ', paste(gout_top_resid$new_lead, collapse = " ")))
 
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_2 --out {1}/Output/Temp/{2}_split{3}_2" ::: ', here(), ' ::: ', paste(gout_top_resid$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
+system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_2 --out {1}/Output/Temp/{2}_split{3}_2" ::: ', here(), ' ::: ', paste(gout_top_resid$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
 
 file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), regex("rs[0-9]+_split[0-9]+_2.assoc.logistic"))]
 
@@ -728,11 +583,11 @@ gout_top_resid2 <- gout_top3 %>%
 rm(list = ls()[str_detect(ls(), ".assoc")], i, tmp, tmp2, file_names, tmp3, j)
 
 # Third round of conditioning
-#system(paste0('source ~/.bashrc; parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ', here(), ' ::: ', paste(gout_top_resid2$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " "), ' ::: ', paste(gout_top_resid2$new_lead2, collapse = " ")))
+system(paste0('source ~/.bashrc; parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ', here(), ' ::: ', paste(gout_top_resid2$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " "), ' ::: ', paste(gout_top_resid2$new_lead2, collapse = " ")))
 
-#system(paste0('source ~/.bashrc; parallel --xapply "echo $', paste0("'{2}\n{3}\n{4}'"), ' > {1}/Output/Temp/{2}_3" ::: ', here(), ' ::: ', paste(gout_top_resid2$RSID, collapse = " "), ' ::: ', paste(gout_top_resid2$new_lead, collapse = " "), ' ::: ', paste(gout_top_resid2$new_lead2, collapse = " ")))
+system(paste0('source ~/.bashrc; parallel --xapply "echo $', paste0("'{2}\n{3}\n{4}'"), ' > {1}/Output/Temp/{2}_3" ::: ', here(), ' ::: ', paste(gout_top_resid2$RSID, collapse = " "), ' ::: ', paste(gout_top_resid2$new_lead, collapse = " "), ' ::: ', paste(gout_top_resid2$new_lead2, collapse = " ")))
 
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_3 --out {1}/Output/Temp/{2}_split{3}_3" ::: ', here(), ' ::: ', paste(gout_top_resid2$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
+system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_3 --out {1}/Output/Temp/{2}_split{3}_3" ::: ', here(), ' ::: ', paste(gout_top_resid2$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
 
 file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), regex("rs[0-9]+_split[0-9]+_3.assoc.logistic"))]
 
@@ -763,78 +618,6 @@ gout_top_resid3 <- gout_top4 %>%
 rm(list = ls()[str_detect(ls(), ".assoc")], i, tmp, tmp2, file_names, tmp3, j)
 
 
-# Fourth round of conditioning
-#system(paste0('source ~/.bashrc; parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ', here(), ' ::: ', paste(gout_top_resid3$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " "), ' ::: ', paste(gout_top_resid3$new_lead3, collapse = " ")))
-
-#system(paste0('source ~/.bashrc; parallel --xapply "echo $', paste0("'{2}\n{3}\n{4}\n{5}'"), ' > {1}/Output/Temp/{2}_4" ::: ', here(), ' ::: ', paste(gout_top_resid3$RSID, collapse = " "), ' ::: ', paste(gout_top_resid3$new_lead, collapse = " "), ' ::: ', paste(gout_top_resid3$new_lead2, collapse = " "), ' ::: ', paste(gout_top_resid3$new_lead3, collapse = " ")))
-
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_4 --out {1}/Output/Temp/{2}_split{3}_4" ::: ', here(), ' ::: ', paste(gout_top_resid3$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
-
-file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), regex("rs[0-9]+_split[0-9]+_4.assoc.logistic"))]
-
-for(i in file_names){
-  assign(i, read.table(paste0(here("Output/Temp/"), i), header = T) %>% filter(TEST == "ADD"))
-}
-
-tmp <- c()
-for(i in 1:nrow(gout_top_resid3)){
-  tmp3 <- c()
-  for(j in 0:9){
-    tmp2 <- get(paste0(gout_top_resid3$RSID[i], "_split0", j, "_4.assoc.logistic"))
-    tmp3 <- rbind(tmp3, tmp2)
-  }
-  assign(paste0(gout_top_resid3$RSID[i], "_gwas4"), tmp3 %>% na.omit())
-  tmp3 <- tmp3 %>% select(SNP, P) %>% arrange(P) %>% slice(1)
-  tmp <- rbind(tmp, tmp3)
-}
-
-tmp <- tmp %>% 
-  rename(new_lead4 = SNP, new_p4 = P)
-gout_top5 <- gout_top_resid3 %>% 
-  cbind(tmp)
-
-gout_top_resid4 <- gout_top5 %>%
-  filter(new_p4 < 5e-8)
-
-rm(list = ls()[str_detect(ls(), ".assoc")], i, tmp, tmp2, file_names, tmp3, j)
-
-
-# Fifth round of conditioning
-#system(paste0('source ~/.bashrc; parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ', here(), ' ::: ', paste(gout_top_resid4$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " "), ' ::: ', paste(gout_top_resid4$new_lead4, collapse = " ")))
-
-#system(paste0('source ~/.bashrc; parallel --xapply "echo $', paste0("'{2}\n{3}\n{4}\n{5}\n{6}'"), ' > {1}/Output/Temp/{2}_5" ::: ', here(), ' ::: ', paste(gout_top_resid4$RSID, collapse = " "), ' ::: ', paste(gout_top_resid4$new_lead, collapse = " "), ' ::: ', paste(gout_top_resid4$new_lead2, collapse = " "), ' ::: ', paste(gout_top_resid4$new_lead3, collapse = " "), ' ::: ', paste(gout_top_resid4$new_lead4, collapse = " ")))
-
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_5 --out {1}/Output/Temp/{2}_split{3}_5" ::: ', here(), ' ::: ', paste(gout_top_resid4$RSID, collapse = " "), ' ::: ', paste(paste0(0, 0:9), collapse = " ")))
-
-file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), regex("rs[0-9]+_split[0-9]+_5.assoc.logistic"))]
-
-for(i in file_names){
-  assign(i, read.table(paste0(here("Output/Temp/"), i), header = T) %>% filter(TEST == "ADD"))
-}
-
-tmp <- c()
-for(i in 1:nrow(gout_top_resid4)){
-  tmp3 <- c()
-  for(j in 0:9){
-    tmp2 <- get(paste0(gout_top_resid4$RSID[i], "_split0", j, "_5.assoc.logistic"))
-    tmp3 <- rbind(tmp3, tmp2)
-  }
-  assign(paste0(gout_top_resid4$RSID[i], "_gwas5"), tmp3 %>% na.omit())
-  tmp3 <- tmp3 %>% select(SNP, P) %>% arrange(P) %>% slice(1)
-  tmp <- rbind(tmp, tmp3)
-}
-
-tmp <- tmp %>% 
-  rename(new_lead5 = SNP, new_p5 = P)
-gout_top6 <- gout_top_resid4 %>% 
-  cbind(tmp)
-
-gout_top_resid5 <- gout_top6 %>%
-  filter(new_p5 < 5e-8)
-
-rm(list = ls()[str_detect(ls(), ".assoc")], i, tmp, tmp2, file_names, tmp3, j)
-  
-
 
 # Locus zooms ---------------------------------------
 # Loading in code and gene list
@@ -846,7 +629,7 @@ UCSC_GRCh37_Genes_UniqueList.txt <- as.data.frame(read_delim(here("Data/GWAS/UCS
 # Plotting locus zooms of original GWAS
 
 # Calculating LD
-#system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top$CHR, collapse = " "), ' ::: ', paste(gout_top$RSID, collapse = " ")))
+system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top$CHR, collapse = " "), ' ::: ', paste(gout_top$RSID, collapse = " ")))
 
 # Reading the LD reports back into R
 for(i in 1:nrow(gout_top)){
@@ -862,23 +645,15 @@ second_round <- gout_top_resid2 %>%
   select(new_lead2) %>% 
   rename(RSID = new_lead2)
 
-third_round <- gout_top_resid3 %>% 
-  select(new_lead3) %>% 
-  rename(RSID = new_lead3)
-
-fourth_round <- gout_top_resid4 %>% 
-  select(new_lead4) %>% 
-  rename(RSID = new_lead4)
-
 gout_top_full <- gout_top %>% 
   select(RSID) %>% 
-  rbind(first_round, second_round, third_round, fourth_round) %>% 
-  left_join(biallelic_loci, by = "RSID") %>% 
+  rbind(first_round, second_round) %>% 
+  left_join(loci, by = "RSID") %>% 
   arrange(CHR, BP)
 
 # Plotting the locus zooms
 for(i in 1:nrow(gout_top)){
-  locus.zoom(data = biallelic_loci %>% mutate(SNP = RSID) %>% filter(!is.na(SNP), CHR == gout_top$CHR[i] & between(BP, gout_top$BP1[i], gout_top$BP2[i])),
+  locus.zoom(data = loci %>% mutate(SNP = RSID) %>% filter(!is.na(SNP), CHR == gout_top$CHR[i] & between(BP, gout_top$BP1[i], gout_top$BP2[i])),
              region = c(gout_top$CHR[i], gout_top$BP1[i], gout_top$BP2[i]),
              offset_bp = 0,
              ld.file = get(paste0("chr", gout_top$CHR[i], "_", gout_top$RSID[i], "_ld")),
@@ -893,7 +668,7 @@ for(i in 1:nrow(gout_top)){
 # Plotting locus zooms of first round of conditioning
 
 # Remaking LD based on ALL new lead SNPs
-#system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top2$CHR, collapse = " "), ' ::: ', paste(gout_top2$new_lead, collapse = " ")))
+system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top2$CHR, collapse = " "), ' ::: ', paste(gout_top2$new_lead, collapse = " ")))
 
 # Reading the LD reports back into R
 for(i in 1:nrow(gout_top2)){
@@ -917,7 +692,7 @@ for(i in 1:nrow(gout_top2)){
 # Plotting locus zooms of second round of conditioning
 
 # Remaking LD based on new lead SNPs
-#system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top3$CHR, collapse = " "), ' ::: ', paste(gout_top3$new_lead2, collapse = " ")))
+system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top3$CHR, collapse = " "), ' ::: ', paste(gout_top3$new_lead2, collapse = " ")))
 
 # Reading the LD reports back into R
 for(i in 1:nrow(gout_top3)){
@@ -941,7 +716,7 @@ for(i in 1:nrow(gout_top3)){
 # Plotting locus zooms of third round of conditioning
 
 # Remaking LD based on new lead SNP
-#system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top4$CHR, collapse = " "), ' ::: ', paste(gout_top4$new_lead3, collapse = " ")))
+system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top4$CHR, collapse = " "), ' ::: ', paste(gout_top4$new_lead3, collapse = " ")))
 
 # Reading the LD reports back into R
 for(i in 1:nrow(gout_top4)){
@@ -957,53 +732,6 @@ for(i in 1:nrow(gout_top4)){
              genes.data = UCSC_GRCh37_Genes_UniqueList.txt,
              plot.title = paste0("Conditioned on ", gout_top4$RSID[i], " and ", gout_top4$new_lead[i], " and ", gout_top4$new_lead2[i]),
              file.name = paste0(here("Output/Plots/"), "Chr", gout_top4$CHR[i], "_", gout_top4$BP1[i], "_", gout_top4$BP2[i], "_", gout_top4$RSID[i], "_condition_", gout_top4$RSID[i], "and", gout_top4$new_lead[i], "and", gout_top4$new_lead2[i], ".jpg"),
-             secondary.snp = gout_top_full$RSID,
-             secondary.label = TRUE)
-}
-
-
-# Plotting locus zooms of fourth round of conditioning
-
-# Remaking LD based on new lead SNP
-#system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top5$CHR, collapse = " "), ' ::: ', paste(gout_top5$new_lead4, collapse = " ")))
-
-# Next I need to read the ld reports back into R
-
-for(i in 1:nrow(gout_top5)){
-  assign(paste0("chr", gout_top5$CHR[i], "_", gout_top5$new_lead4[i], "_ld"), read_table(paste0(here("Output/Temp/"), "chr", gout_top5$CHR[i], "_", gout_top5$new_lead4[i], "_ld.ld")))
-}
-
-for(i in 1:nrow(gout_top5)){
-  locus.zoom(data = get(paste0(gout_top5$RSID[i], "_gwas4")),
-             region = c(gout_top5$CHR[i], gout_top5$BP1[i], gout_top5$BP2[i]),
-             offset_bp = 0,
-             ld.file = get(paste0("chr", gout_top5$CHR[i], "_", gout_top5$new_lead4[i], "_ld")),
-             genes.data = UCSC_GRCh37_Genes_UniqueList.txt,
-             plot.title = paste0("Conditioned on ", gout_top5$RSID[i], " and ", gout_top5$new_lead[i], " and ", gout_top5$new_lead2[i], " and ", gout_top5$new_lead3[i]),
-             file.name = paste0(here("Output/Plots/"), "Chr", gout_top5$CHR[i], "_", gout_top5$BP1[i], "_", gout_top5$BP2[i], "_", gout_top5$RSID[i], "_condition_", gout_top5$RSID[i], "and", gout_top5$new_lead[i], "and", gout_top5$new_lead2[i], "and", gout_top5$new_lead3[i], ".jpg"),
-             secondary.snp = gout_top_full$RSID,
-             secondary.label = TRUE)
-}
-
-# Plotting locus zooms of fifth round of conditioning
-
-# Remaking LD based on new lead SNP
-#system(paste0('source ~/.bashrc; parallel --xapply "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out ', here("Output/Temp/"), 'chr{1}_{2}_ld" ::: ', paste(gout_top6$CHR, collapse = " "), ' ::: ', paste(gout_top6$new_lead5, collapse = " ")))
-
-# Next I need to read the ld reports back into R
-
-for(i in 1:nrow(gout_top6)){
-  assign(paste0("chr", gout_top6$CHR[i], "_", gout_top6$new_lead4[i], "_ld"), read_table(paste0(here("Output/Temp/"), "chr", gout_top6$CHR[i], "_", gout_top6$new_lead4[i], "_ld.ld")))
-}
-
-for(i in 1:nrow(gout_top6)){
-  locus.zoom(data = get(paste0(gout_top6$RSID[i], "_gwas5")),
-             region = c(gout_top6$CHR[i], gout_top6$BP1[i], gout_top6$BP2[i]),
-             offset_bp = 0,
-             ld.file = get(paste0("chr", gout_top6$CHR[i], "_", gout_top6$new_lead4[i], "_ld")),
-             genes.data = UCSC_GRCh37_Genes_UniqueList.txt,
-             plot.title = paste0("Conditioned on ", gout_top6$RSID[i], " and ", gout_top6$new_lead[i], " and ", gout_top6$new_lead2[i], " and ", gout_top6$new_lead3[i]),
-             file.name = paste0(here("Output/Plots/"), "Chr", gout_top6$CHR[i], "_", gout_top6$BP1[i], "_", gout_top6$BP2[i], "_", gout_top6$RSID[i], "_condition_", gout_top6$RSID[i], "and", gout_top6$new_lead[i], "and", gout_top6$new_lead2[i], "and", gout_top6$new_lead3[i], ".jpg"),
              secondary.snp = gout_top_full$RSID,
              secondary.label = TRUE)
 }
@@ -1032,18 +760,18 @@ multi_snps <- gout_top_full %>%
 
 tmp <- multi_snps %>% select(RSID)
 
-#write_delim(tmp, file = here("Output/Temp/snps_to_extract.txt"), delim = "\n", col_names = F)
+write_delim(tmp, file = here("Output/Temp/snps_to_extract.txt"), delim = "\n", col_names = F)
 
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --extract ', here("Output/Temp/snps_to_extract.txt"), ' --make-bed --out ', here("Output/Temp/"), 'chr{1}_test" ::: ', paste(unique(multi_snps$CHR), collapse = " ")))
+system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --extract ', here("Output/Temp/snps_to_extract.txt"), ' --make-bed --out ', here("Output/Temp/"), 'chr{1}_test" ::: ', paste(unique(multi_snps$CHR), collapse = " ")))
 
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr4_test --bmerge ', here("Output/Temp/"), 'chr11_test --make-bed --out ', here("Output/Temp/"), 'merged_test'))
+system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr4_test --bmerge ', here("Output/Temp/"), 'chr11_test --make-bed --out ', here("Output/Temp/"), 'merged_test'))
 
-for(i in 6:9){
+for(i in 4:7){
   system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_test --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition ', multi_snps$RSID[i], ' --out ', here("Output/Temp/"), 'final_gwas_', multi_snps$RSID[i]))
 }
 
-for(i in 1:5){
-  write_delim(multi_snps %>% slice(1:5) %>% select(RSID) %>% filter(RSID != multi_snps$RSID[i]), file = paste0(here("Output/Temp/"), "conditionlist_", multi_snps$RSID[i], ".txt"), delim = "\n", col_names = F)
+for(i in 1:3){
+  write_delim(multi_snps %>% slice(1:3) %>% select(RSID) %>% filter(RSID != multi_snps$RSID[i]), file = paste0(here("Output/Temp/"), "conditionlist_", multi_snps$RSID[i], ".txt"), delim = "\n", col_names = F)
   
   system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_test --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition-list ', here("Output/Temp/"), 'conditionlist_', multi_snps$RSID[i], '.txt --out ', here("Output/Temp/"), 'final_gwas_', multi_snps$RSID[i]))
 }
@@ -1055,14 +783,14 @@ for(i in file_names){
 }
 
 tmp <- c()
-for(i in 1:5){
+for(i in 1:3){
   tmp2 <- get(paste0("final_gwas_", multi_snps$RSID[i], ".assoc.logistic")) %>% slice(i)
   tmp <- rbind(tmp, tmp2)
 }
 
 tmp2 <- c()
-for(i in 6:9){
-  tmp3 <- get(paste0("final_gwas_", multi_snps$RSID[i], ".assoc.logistic")) %>% slice(-(1:5))
+for(i in 4:7){
+  tmp3 <- get(paste0("final_gwas_", multi_snps$RSID[i], ".assoc.logistic")) %>% slice(-(1:3))
   tmp2 <- rbind(tmp2, tmp3)
 }
 
@@ -1075,7 +803,7 @@ tmp2 <- multi_snps2 %>%
 
 multi_snps3 <- left_join(multi_snps, tmp2, by = c("CHR", "BP"))
 
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_test --r2 inter-chr --ld-window-r2 0 --out ', here("Output/Temp/"), 'merged_ld'))
+system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_test --r2 inter-chr --ld-window-r2 0 --out ', here("Output/Temp/"), 'merged_ld'))
 
 merged_ld <- read_table(paste0(here("Output/Temp/"), "merged_ld.ld"))
 
@@ -1126,237 +854,14 @@ bigOR <- gout_top_final %>%
   filter(OR > 1)
 gout_top_final <- full_join(smallOR, bigOR) %>% 
   arrange(CHR, BP) %>% 
-  mutate(Locus_Name = c("ARID1A", "PDZK1", "TRIM46", "GCKR", "SFMBT1", "SLC2A9", "SLC2A9", "SLC2A9", "SLC2A9", "SLC2A9", "ABCG2", "ABCG2", "ADH1B", "TMEM171", "RREB1", "SLC17A1", "MLXIPL", "SLC16A9", "ANO3", "SLC22A11", "SLC22A11", "OVOL1", "R3HDM2", "MLXIP", "NFAT5", "INSR", "PNPLA3"))
+  mutate(Locus_Name = c("PDZK1", "TRIM46", "GCKR", "SFMBT1", "SLC2A9", "SLC2A9", "SLC2A9", "ABCG2", "ABCG2", "SLC17A1", "ZSCAN31", "MLXIPL", "SLC16A9", "SLC22A11", "SLC22A11", "OVOL1", "R3HDM2", "MLXIP", "PNPLA3"))
 
 UKBB_Gene_OR <- gout_top_final
   
 save(UKBB_Gene_OR, file = here("Output/UKBB_Gene_OR.RData"))
 
 # Cleaning up
-rm(list = ls()[str_detect(ls(), "^chr|^gout_top|^final_|gwas.$")], bigOR, first_round, multi_snps, multi_snps2, multi_snps3, out, regions, second_round, single_snps, smallOR, third_round, tmp, tmp2, tmp3, file_names, file_names2, i)
-```
-
-The Imputed PRS was then modified to form a Genotyped PRS as follows:
-
-1. Biallelic SNPs from the imputed UK Biobank were filtered to only include those directly genotyped in the CoreExome (~ 250,000).
-
-2. This list of SNPs was overlapped with the final SNP list for the European analysis to find those SNPs directly genotyped in the CoreExome (3 / 27).
-
-3. For any SNP that was not directly genotyped, a full LD report was produced with candidate proxy SNPs based on the ~250,000 SNPs above.
-
-4. The SNP with the highest R-squared for each SNP in the European PRS was extracted, then this list was filtered to only include those SNPs that met P < 5e-8 in the full UK Biobank gout GWAS (15 / 24).
-
-5. The 3 directly genotyped SNPs were combined with these 15 proxies to produce a single file of 18 lead SNPs for the Genotyped PRS.
-
-```{r poly_loci_grouping, eval = F}
-# Load in SNPs for inclusion in Polynesian analysis
-load(here("Output/Temp/biallelic_sumstat_final_poly.RData"))
-load(here("Output/UKBB_Gene_OR.RData"))
-
-# Next I need to test the 27 lead SNPs from the European analysis for LD with this list of 243,985 variants in order to find the best proxies
-
-# To make this more efficient, I should initially filter the 243,985 SNP list based on the locus boundaries for the Euro PRS
-biallelic_loci_poly <- tibble()
-tmp_loci <- UKBB_Gene_OR %>% 
-  select(CHR, BP1, BP2) %>% 
-  unique()
-for(i in 1:nrow(tmp_loci)){
-  tmp <- biallelic_sumstat_final_poly %>% 
-  filter(CHR == tmp_loci$CHR[i] & between(BP, tmp_loci$BP1[i], tmp_loci$BP2[i]))
-  biallelic_loci_poly <- rbind(biallelic_loci_poly, tmp)
-}
-
-out <- c()
-for(i in 1:nrow(UKBB_Gene_OR)){
-  test <- biallelic_loci_poly %>% 
-    filter(CHR == UKBB_Gene_OR$CHR[i] & BP == UKBB_Gene_OR$BP[i])
-  out <- rbind(out, test)
-}
-
-need_proxies <- UKBB_Gene_OR %>% 
-  filter(!(BP %in% out$BP))
-
-#write_delim(need_proxies %>% select(RSID), file = here("Output/Temp/need_proxies.txt"), delim = "\t", col_names = F)
-
-biallelic_loci_poly2 <- tibble()
-tmp_loci <- need_proxies %>% 
-  select(CHR, BP1, BP2) %>% 
-  unique()
-for(i in 1:nrow(tmp_loci)){
-  tmp <- biallelic_sumstat_final_poly %>% 
-  filter(CHR == tmp_loci$CHR[i] & between(BP, tmp_loci$BP1[i], tmp_loci$BP2[i]))
-  biallelic_loci_poly2 <- rbind(biallelic_loci_poly2, tmp)
-}
-
-tmp <- biallelic_loci_poly2 %>% 
-  mutate(BP1 = BP) %>% 
-  select(CHR, BP, BP1, RSID)
-
-tmp2 <- need_proxies %>% 
-  mutate(BP1 = BP) %>% 
-  select(CHR, BP, BP1, RSID)
-
-need_ld <- rbind(tmp, tmp2) %>% 
-  arrange(CHR, BP)
-
-# write_delim(need_ld, file = here("Output/Temp/need_ld.txt"), delim = "\t", col_names = F)
-
-# Now I need to make a single UK Biobank plink file with all SNPs above and test LD between the 25 SNPs of interest and all others
-# For each SNP, I will then pull out the best proxy and filter the final list for proxies with at least 0.8 R-squared with the lead SNP - either that or based on whether they associate with gout
-
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile ', here("Output/Temp/"), 'chr{1}_tmp --extract range ', here("Output/Temp/need_ld.txt"), ' --make-bed --out ', here("Output/Temp/"), 'chr{1}_poly" ::: ', paste(unique(need_ld$CHR), collapse = " ")))
-
-#write_delim(as_tibble(paste0(here("Output/Temp/"), "chr", unique(need_ld$CHR), "_poly")), file = here("Output/Temp/mergefile.txt"), delim = "\n", col_names = F)
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --merge-list ', here("Output/Temp/"), 'mergefile.txt --make-bed --out ', here("Output/Temp/"), 'merged_poly'))
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly --r2 inter-chr --ld-snp-list ', here("Output/Temp/"), 'need_proxies.txt --ld-window-r2 0 --out ', here("Output/Temp/"), 'merged_poly_ld'))
-
-merged_ld <- read_table(paste0(here("Output/Temp/"), "merged_poly_ld.ld"))
-
-out1 <- tibble()
-for(i in need_proxies$RSID){
-  tmp <- merged_ld %>% filter(SNP_A == i & SNP_B != i) %>% arrange(desc(R2)) %>% slice(1)
-  out1 <- rbind(out1, tmp)
-}
-
-tmp <- biallelic_loci_poly %>% 
-  filter(RSID %in% out1$SNP_B) # 1 SNP was the best proxy for two of the SLC2A9 SNPs
-
-tmp2 <- tmp %>% 
-  filter(P < 5e-8) # keeping only those that were significant (rather than keeping based on LD)
-
-out2 <- out1 %>% 
-  filter(SNP_B %in% tmp2$RSID)
-
-out <- c()
-for(i in 1:nrow(UKBB_Gene_OR)){
-  test <- biallelic_loci_poly %>% 
-    filter(CHR == UKBB_Gene_OR$CHR[i] & BP == UKBB_Gene_OR$BP[i])
-  out <- rbind(out, test)
-}
-
-full_list <- rbind(out, tmp2) %>% 
-  arrange(CHR, BP) %>% 
-  select(CHR, RSID, BP:Alternate_Allele, OR:U95, P, EAF, INFO)
-
-out1_1 <- out1 %>% 
-  select(SNP_A, SNP_B, R2)
-
-full_list2 <- full_list %>% 
-  left_join(out1_1, by = c("RSID" = "SNP_B")) %>% 
-  slice(-5) # removing the duplicated SLC2A9 SNP
-
-tmp <- UKBB_Gene_OR %>% 
-  filter(RSID %in% full_list2$SNP_A) %>% 
-  select(CHR, BP, RSID, BP1:Locus_Name)
-
-tmp2 <- UKBB_Gene_OR %>% 
-  filter(RSID %in% out$RSID) %>% 
-  select(CHR, BP, RSID, BP1:Locus_Name)
-
-locus_names <- rbind(tmp, tmp2) %>% 
-  arrange(CHR, BP) %>% 
-  select(BP1:Locus_Name)
-
-full_list3 <- full_list2 %>% 
-  cbind(locus_names) %>% 
-  rename(Old_Lead = SNP_A)
-
-# For each of the loci with multiple SNPs, I need to test the association of each SNP after adjusting for all others at the locus
-# So first lets pull out all SNPs from those loci
-multi_snps <- full_list3 %>% 
-  filter(BP1 %in% names(table(full_list3$BP1)[table(full_list3$BP1) > 1]))
-
-tmp <- multi_snps %>% select(RSID)
-
-#write_delim(tmp, file = here("Output/Temp/snps_to_extract_poly.txt"), delim = "\n", col_names = F)
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly --extract ', here("Output/Temp/snps_to_extract_poly.txt"), ' --make-bed --out ', here("Output/Temp/"), 'merged_poly_multi'))
-
-# for(i in 4:7){
-#   system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly_multi --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition ', multi_snps$RSID[i], ' --out ', here("Output/Temp/"), 'final_gwas_poly_', multi_snps$RSID[i]))
-# }
-# 
-# for(i in 1:3){
-#   write_delim(multi_snps %>% slice(1:3) %>% select(RSID) %>% filter(RSID != multi_snps$RSID[i]), file = paste0(here("Output/Temp/"), "conditionlist_poly_", multi_snps$RSID[i], ".txt"), delim = "\n", col_names = F)
-#   
-#   system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_poly_multi --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition-list ', here("Output/Temp/"), 'conditionlist_poly_', multi_snps$RSID[i], '.txt --out ', here("Output/Temp/"), 'final_gwas_poly_', multi_snps$RSID[i]))
-# }
-
-file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), "final_gwas_poly_.+logistic")]
-
-for(i in file_names){
-  assign(i, read.table(paste0(here("Output/Temp/"), i), header = T) %>% filter(TEST == "ADD"))
-}
-
-tmp <- c()
-for(i in 1:3){
-  tmp2 <- get(paste0("final_gwas_poly_", multi_snps$RSID[i], ".assoc.logistic")) %>% slice(i)
-  tmp <- rbind(tmp, tmp2)
-}
-
-tmp2 <- c()
-for(i in 4:7){
-  tmp3 <- get(paste0("final_gwas_poly_", multi_snps$RSID[i], ".assoc.logistic")) %>% slice(-(1:3))
-  tmp2 <- rbind(tmp2, tmp3)
-}
-
-tmp2 <- tmp2 %>% slice(5, 2, 15, 12)
-
-multi_snps2 <- rbind(tmp, tmp2)
-
-tmp2 <- multi_snps2 %>% 
-  select(CHR:BP, OR:U95, P)
-
-multi_snps3 <- left_join(multi_snps, tmp2, by = c("CHR", "BP"))
-
-single_snps <- full_list3 %>% 
-  filter(!(BP1 %in% names(table(full_list3$BP1)[table(full_list3$BP1) > 1])))
-
-single_snps2 <- single_snps %>% 
-  select(CHR, RSID, BP:Alternate_Allele, OR:U95, P, EAF, INFO, Old_Lead, BP1, BP2, Locus_Name)
-
-multi_snps4 <- multi_snps3 %>% 
-  select(CHR, RSID, BP:Alternate_Allele, OR.y:U95.y, P.y, OR.x:U95.x, P.x, EAF, INFO, Old_Lead, BP1, BP2, Locus_Name) %>% 
-  rename(OR = OR.y,
-         SE = SE.y, 
-         L95 = L95.y,
-         U95 = U95.y,
-         P = P.y,
-         OR_old = OR.x,
-         SE_old = SE.x, 
-         L95_old = L95.x,
-         U95_old = U95.x,
-         P_old = P.x)
-
-full_list4 <- full_join(multi_snps4, single_snps2) %>% 
-  arrange(CHR, BP)
-
-smallOR <- full_list4 %>% 
-  filter(OR < 1) %>% 
-  mutate(OR = as.numeric(signif(1/OR, digits = 4)),
-         tmp_L = as.numeric(signif(1/L95, digits = 4)),
-         tmp_U = as.numeric(signif(1/U95, digits = 4)),
-         U95 = tmp_L,
-         L95 = tmp_U,
-         EAF = 1 - EAF) %>% 
-  rename(allele2 = Effect_Allele,
-         allele1 = Alternate_Allele) %>% 
-  rename(Alternate_Allele = allele2,
-         Effect_Allele = allele1) %>% 
-  select(CHR:BP, Effect_Allele, Alternate_Allele, OR:Locus_Name)
-bigOR <- full_list4 %>% 
-  filter(OR > 1)
-full_list4 <- full_join(smallOR, bigOR) %>% 
-  arrange(CHR, BP)
-
-Poly_Gene_OR <- full_list4
-
-save(Poly_Gene_OR, file = here("Output/Poly_Gene_OR.RData"))
-
-# Cleaning up
-rm(biallelic_loci_poly, biallelic_loci_poly2, biallelic_sumstat_final_poly, bigOR, full_list, full_list2, full_list3, locus_names, merged_ld, need_ld, need_proxies, out, out1, out1_1, out2, smallOR, test, tmp, tmp_loci, tmp2, i)
+rm(list = ls()[str_detect(ls(), "^chr|^gout_top|^final_|gwas$")], bigOR, first_round, multi_snps, multi_snps2, multi_snps3, multi_snps4, merged_ld, out, regions, second_round, single_snps, smallOR, third_round, tmp, tmp2, tmp3, file_names, i, sumstat_signif, single_snps2, loci, sumstat_final, UCSC_GRCh37_Genes_UniqueList.txt, check.rsid, elog10, gene.position, get.ld, get.region, locus.zoom, merge.gene.colour, merge.plot.dat, plot.locus, plot.secondary.point, read.plink.loci, round.up, subset.data)
 ```
 
 ### Locus-Zooms {.tabset}
@@ -1364,7 +869,7 @@ rm(biallelic_loci_poly, biallelic_loci_poly2, biallelic_sumstat_final_poly, bigO
 All of the locus zooms are plotted below in separate tabs:
 
 ```{r Plots_tables, warning = F, message = F}
-file_names <- list.files(here("Output/Plots"), full.names = T)
+file_names <- list.files(here("Output/Plots"), full.names = T)[str_detect(list.files(here("Output/Plots"), full.names = T), "Chr")]
 
 tmp <- file_names %>% 
   as_tibble() %>% 
@@ -1427,4 +932,4 @@ plots <- lapply(
 
 ### Summary
 
-In summary, I produced2 lists of SNPs that will be used to create two different PRS's. The first uses a mixture of imputed and genotyped SNPs, while the second uses only SNPs genotyped on the Human CoreExome v1.0 chip. This will ensure that no imputation was done on Polynesian individuals, which should make the genotypes more reliable, at the expense of not using the best possible variants for the PRS. Three of the 21 total loci had more than one partially independent genome-wide significant signal. These were at SLC2A9 (5 hits), ABCG2 (2 hits), and SLC22A11 (2 hits). 
+In summary, I produced a list of SNPs that will be used to create a PRS. This uses SNPs genotyped on the Human CoreExome v1.0 chip. This will ensure that no imputation was done on Polynesian individuals, which should make the genotypes more reliable. Three of the 15 total loci had more than one partially independent genome-wide significant signal. These were at SLC2A9 (3 hits), ABCG2 (2 hits), and SLC22A11 (2 hits). 

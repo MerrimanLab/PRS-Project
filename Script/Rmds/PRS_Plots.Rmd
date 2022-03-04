@@ -1,56 +1,32 @@
 # Making Plots and Tables for the Final Manuscript
 
-The following code details the creation of the final tables and plots that were included in the manuscript (including supplementary material). We wish for the plots and tables to answer the following questions:
-
-1. Does European genetic risk for gout contribute to disease severity in Europeans?
-
-    - First, we will need to describe the gout polygenic risk score, including validation in Europeans and Polynesians
-    
-    - We will also need to emphasize the importance of modeling in males and females separately, and using a PRS vs individual SNPs
-
-2. Does this same genetic risk also contribute to disease severity in Polynesian cohorts?
-
-    - Need to show West and East Polynesians separately, to emphasize their different genetic makeup
-
-3. Which particular genetic variants contribute to these associations? Does removal of these variants completely eliminate the association, or is there residual signal?
-
-4. What are the possible mechanisms contributing to any associations?
-
-    - This may just be discussion fodder, but I could consider some sensitivity analyses (i.e. serum urate stuff, ULT etc.)
+The following code details the creation of the final tables and plots that were included in the manuscript (including supplementary material). 
 
 These include the following figures:
 
-- Figure 1 = Forest plots of PRS effect on age at onset (panel A and B = imputed PRS and genotyped PRS plots respectively) and presence of tophi (panel C and D = imputed PRS and genotyped PRS plots respectively)
-
-    - Just genotyped? - or standardized?
+- Figure 1 = Forest plot(s) of genetic effect on age at onset, A = full PRS model, B = PRS less ABCG2
     
-    - Could also put imputed European model as A, genotyped model as B, but it may be worth standardizing so I can compare between the two PRS in the same cohorts
-    
-    - The issue with standardization is that it is highly dependent on how I define the cohort for calculating the standard deviation. If I use each specific cohort then it will introduce weird issues where the units of the PRS differ between cohorts and thus the model OR etc won't be directly comparable. It seems easiest to just state that the units for the imputed PRS differ from the units for the genotyped PRS and so direct comparisons are not possible, but it is possible to compare all imputed PRS models to eachother, and all genotyped PRS models to eachother.
+- Figure 2 = Effect of individual ABCG2 variants, A = rs2231142, B = rs10011796
 
-- Figure 2A = Individual SNPs contributing to the significant models
-
-- Figure 2B = Residual PRS effect after removing ABCG2 rs2231142
+- Figure 3 = Forest plot of PRS effect on presence of tophi (two panels, before and after adjustment for disease duration)
 
 - Supp Figure 1 = Manhattan plot
 
-- Supp Figure 2 = Tophi forest plots after adjusting for disease duration
+- Supp Figure 2 = Tophi ABCG2 models and PRS without ABCG2
 
-- Supp Figure 3 = Relationship between flares and both PRS (plot as faceted scatter plot, and as grouped category plots)
+- Supp Figure 3 = Relationship between flares and PRS (plot as faceted scatter plot, and/or as grouped category plots)
 
 And the following tables:
 
-- Table 1 = Cohort statistics/demographics
+- Table 1 = Gout cohort statistics/demographics (only key variables)
 
-- Supp Table 1 = Table describing GWAS results and which SNPs are part of each PRS
+- Supp Table 1 = Table describing GWAS results and which SNPs are part of the PRS
 
 - Supp Table 2 = Missing data
 
 - Supp Table 3 = Full cohort stats
 
-- Supp Table 4 - 6 = All model results in table format
-
-    - Split into each outcome
+- Supp Table 4 = All model results in table format
 
 ```{r dataprep4, message = F, warning = F}
 # Datasets
@@ -76,11 +52,13 @@ all_pheno_prs <- all_pheno_prs %>%
          GOUT2 = factor(GOUT, levels = c(TRUE, FALSE), labels = c("Gout", "Control")),
          GROUP = factor(case_when(GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Gout",
                                   !GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Control",
-                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian Gout",
-                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian Control",
+                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian Gout",
+                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian Control",
+                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian Gout - NP",
+                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian Control - NP",
                                   GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Gout",
                                   !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Control"), 
-                        levels = c("European Gout", "European Control", "East Polynesian Gout", "East Polynesian Control", "West Polynesian Gout", "West Polynesian Control")),
+                        levels = c("European Gout", "European Control", "East Polynesian Gout", "East Polynesian Control", "East Polynesian Gout - NP", "East Polynesian Control - NP", "West Polynesian Gout", "West Polynesian Control")),
          GROUP2 = factor(case_when(GROUP == "European Gout" & SEX == "Male" ~ "European Gout - male",
                                   GROUP == "European Gout" & SEX == "Female" ~ "European Gout - female",
                                   GROUP == "European Control" & SEX == "Male" ~ "European Control - male",
@@ -89,11 +67,15 @@ all_pheno_prs <- all_pheno_prs %>%
                                   GROUP == "East Polynesian Gout" & SEX == "Female" ~ "East Polynesian Gout - female",
                                   GROUP == "East Polynesian Control" & SEX == "Male" ~ "East Polynesian Control - male",
                                   GROUP == "East Polynesian Control" & SEX == "Female" ~ "East Polynesian Control - female",
+                                  GROUP == "East Polynesian Gout - NP" & SEX == "Male" ~ "East Polynesian Gout - NP - male",
+                                  GROUP == "East Polynesian Gout - NP" & SEX == "Female" ~ "East Polynesian Gout - NP - female",
+                                  GROUP == "East Polynesian Control - NP" & SEX == "Male" ~ "East Polynesian Control - NP - male",
+                                  GROUP == "East Polynesian Control - NP" & SEX == "Female" ~ "East Polynesian Control - NP - female",
                                   GROUP == "West Polynesian Gout" & SEX == "Male" ~ "West Polynesian Gout - male",
                                   GROUP == "West Polynesian Gout" & SEX == "Female" ~ "West Polynesian Gout - female",
                                   GROUP == "West Polynesian Control" & SEX == "Male" ~ "West Polynesian Control - male",
                                   GROUP == "West Polynesian Control" & SEX == "Female" ~ "West Polynesian Control - female"), 
-                        levels = c("European Gout - male", "European Gout - female", "European Control - male", "European Control - female", "East Polynesian Gout - male", "East Polynesian Gout - female", "East Polynesian Control - male", "East Polynesian Control - female", "West Polynesian Gout - male", "West Polynesian Gout - female", "West Polynesian Control - male", "West Polynesian Control - female")),
+                        levels = c("European Gout - male", "European Gout - female", "European Control - male", "European Control - female", "East Polynesian Gout - male", "East Polynesian Gout - female", "East Polynesian Control - male", "East Polynesian Control - female", "East Polynesian Gout - NP - male", "East Polynesian Gout - NP - female", "East Polynesian Control - NP - male", "East Polynesian Control - NP - female", "West Polynesian Gout - male", "West Polynesian Gout - female", "West Polynesian Control - male", "West Polynesian Control - female")),
          GROUP3 = factor(case_when(GOUT & SEX == "Male" ~ "Male Gout",
                                    GOUT & SEX == "Female" ~ "Female Gout",
                                    !GOUT & SEX == "Male" ~ "Male Control",
@@ -110,16 +92,16 @@ all_pheno_prs <- all_pheno_prs %>%
                                     Pheno.Study == "Ardea: CLEAR2" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CLEAR2",
                                     Pheno.Study == "Ardea: CRYSTAL" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CRYSTAL",
                                     Pheno.Study == "Ardea: LIGHT" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - LIGHT",
-                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian - Gout",
-                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian - Control",
+                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian - Gout",
+                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian - Control",
+                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - Gout - NP",
+                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - Control - NP",
                                     GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Gout",
                                     !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Control"), 
-                          levels = c("UK Biobank - Gout", "UK Biobank - Control", "Aus/NZ - Gout", "Aus/NZ - Control", "GlobalGout - Gout", "GlobalGout - Control", "Ardea - LASSO", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - CRYSTAL", "Ardea - LIGHT", "East Polynesian - Gout", "East Polynesian - Control", "West Polynesian - Gout", "West Polynesian - Control")),
+                          levels = c("UK Biobank - Gout", "UK Biobank - Control", "Aus/NZ - Gout", "Aus/NZ - Control", "GlobalGout - Gout", "GlobalGout - Control", "Ardea - LASSO", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - CRYSTAL", "Ardea - LIGHT", "East Polynesian - Gout", "East Polynesian - Control", "East Polynesian - Gout - NP", "East Polynesian - Control - NP", "West Polynesian - Gout", "West Polynesian - Control")),
          NUMATK = round(NUMATK)) %>% 
-  filter(Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") | !(Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")) & is.na(PRS1),
-         !is.na(AGECOL),
-         !is.na(PRS2),
-         !(is.na(PRS1) & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+  filter(!is.na(AGECOL),
+         !is.na(PRS),
          (Pheno.Study == "UK Biobank" | !GOUT | GOUT & !(is.na(AGE1ATK) & is.na(NUMATK) & is.na(TOPHIGOUT))),
          !is.na(COHORT2))
 
@@ -182,13 +164,29 @@ data_list <- list("UK Biobank - Gout - Male" = all_pheno_prs_male %>% filter(GOU
                   "Ardea - LIGHT - Female" = all_pheno_prs_female %>% filter(Pheno.Study == "Ardea: LIGHT",
                                                                              Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
                   "East Polynesian - Gout - Male" = all_pheno_prs_male %>% filter(GOUT,
-                                                                                  Geno.SpecificAncestry %in% c("East Polynesian")),
+                                                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study != "Ngati Porou"),
                   "East Polynesian - Gout - Female" = all_pheno_prs_female %>% filter(GOUT,
-                                                                                      Geno.SpecificAncestry %in% c("East Polynesian")),
+                                                                                      Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study != "Ngati Porou"),
                   "East Polynesian - Control - Male" = all_pheno_prs_male %>% filter(!GOUT,
-                                                                                     Geno.SpecificAncestry %in% c("East Polynesian")),
+                                                                                     Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study != "Ngati Porou"),
                   "East Polynesian - Control - Female" = all_pheno_prs_female %>% filter(!GOUT,
-                                                                                         Geno.SpecificAncestry %in% c("East Polynesian")),
+                                                                                         Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study != "Ngati Porou"),
+                  "East Polynesian - Gout - NP - Male" = all_pheno_prs_male %>% filter(GOUT,
+                                                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study == "Ngati Porou"),
+                  "East Polynesian - Gout - NP - Female" = all_pheno_prs_female %>% filter(GOUT,
+                                                                                      Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study == "Ngati Porou"),
+                  "East Polynesian - Control - NP - Male" = all_pheno_prs_male %>% filter(!GOUT,
+                                                                                     Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study == "Ngati Porou"),
+                  "East Polynesian - Control - NP - Female" = all_pheno_prs_female %>% filter(!GOUT,
+                                                                                         Geno.SpecificAncestry %in% c("East Polynesian"),
+                                                                                  Pheno.Study == "Ngati Porou"),
                   "West Polynesian - Gout - Male" = all_pheno_prs_male %>% filter(GOUT,
                                                                                   Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
                   "West Polynesian - Gout - Female" = all_pheno_prs_female %>% filter(GOUT,
@@ -224,6 +222,10 @@ cohortstring <- c("UK Biobank - Gout - Male",
                   "East Polynesian - Gout - Female",
                   "East Polynesian - Control - Male",
                   "East Polynesian - Control - Female",
+                  "East Polynesian - Gout - NP - Male",
+                  "East Polynesian - Gout - NP - Female",
+                  "East Polynesian - Control - NP - Male",
+                  "East Polynesian - Control - NP - Female",
                   "West Polynesian - Gout - Male",
                   "West Polynesian - Gout - Female",
                   "West Polynesian - Control - Male",
@@ -255,20 +257,21 @@ clean_names <- c("UK&nbsp;Biobank<br/>Gout<br/>Male",
                  "East&nbsp;Polynesian<br/>Gout<br/>Female",
                  "East&nbsp;Polynesian<br/>Control<br/>Male",
                  "East&nbsp;Polynesian<br/>Control<br/>Female",
+                 "East&nbsp;Polynesian<br/>Gout<br/>Male<br/>NP",
+                 "East&nbsp;Polynesian<br/>Gout<br/>Female<br/>NP",
+                 "East&nbsp;Polynesian<br/>Control<br/>Male<br/>NP",
+                 "East&nbsp;Polynesian<br/>Control<br/>Female<br/>NP",
                  "West&nbsp;Polynesian<br/>Gout<br/>Male",
                  "West&nbsp;Polynesian<br/>Gout<br/>Female",
                  "West&nbsp;Polynesian<br/>Control<br/>Male",
                  "West&nbsp;Polynesian<br/>Control<br/>Female")
 
 load(here("Output/UKBB_Gene_OR.RData"))
-load(here("Output/Poly_Gene_OR.RData"))
 
 # Model results
 load(here("Output/GoutModels.RData"))
 load(here("Output/OnsetModels.RData"))
 load(here("Output/TophiModels.RData"))
-# load(here("Output/FlareModels1.RData"))
-# load(here("Output/FlareModels2.RData"))
 ```
 
 ```{r functions4}
@@ -319,34 +322,611 @@ missing <- function(x){
 }
 ```
 
-```{r, eval = F, include = F}
-tmp <- rbind(data_list[[27]], data_list[[28]], data_list[[29]], data_list[[30]])
+## Main figures and tables
 
-tmp <- rbind(data_list[[23]], data_list[[24]], data_list[[25]], data_list[[26]])
+The following forest plots are for the effect of the PRS on either age at onset or tophi, with tophi models additionally adjusted for duration. Plotting the effect of the individual ABCG2 variants on each severity trait. Require P < 0.05/2 for significance. Where appropriate, these were tested via meta-analysis to reflect the results from the full PRS models.
 
-SNPlist2 <- Poly_Gene_OR$RSID
+```{r AgeAtOnset}
+tmp <- OnsetModels %>% 
+  filter(Predictor == "PRS") %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         Beta = case_when(is.na(LCL) ~ NA_real_,
+                          TRUE ~ Beta),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
 
-get_maf <- function(cohort, snps){
-  test <- cohort %>% 
-    select(all_of(snps)) %>% 
-    mutate_all(factor, levels = 0:2) %>% 
-    na.omit()
+onset <- metagen(TE = Beta, 
+                 seTE = SE, 
+                 studlab = Cohort,
+                 byvar = Label,
+                 data = tmp)
+
+# tiff(file = here("Output/test.tiff"), units = "in", width = 10, height = 8, res = 300)
+
+forest(onset, 
+       xlim = c(-15, 5),
+       #at = c(1.0, 2.0, 3.0), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of PRS on Age at Onset", "N"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+# dev.off()
+
+tmp <- OnsetModels %>% 
+  filter(Predictor == "PRS_noABCG2") %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         Beta = case_when(is.na(LCL) ~ NA_real_,
+                          TRUE ~ Beta),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
+
+onset <- metagen(TE = Beta, 
+                 seTE = SE, 
+                 studlab = Cohort,
+                 byvar = Label,
+                 data = tmp)
+
+forest(onset, 
+       xlim = c(-15, 5),
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of PRS on Age at Onset (no ABCG2)", "N"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+# ABCG2 variants
+tmp <- UKBB_Gene_OR %>% 
+  mutate(Label = paste0(Locus_Name, " (", RSID, ")")) %>% 
+  filter(str_detect(Label, "ABCG2")) %>% 
+  select(RSID, Label)
+
+OnsetModels2 <- OnsetModels %>% 
+  filter(Predictor %in% tmp$RSID) %>% 
+  mutate(Predictor = as.character(Predictor)) %>% 
+  left_join(tmp, by = c("Predictor" = "RSID")) %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"))
+
+snps <- unique(OnsetModels2$Predictor)
+
+OnsetModels3 <- OnsetModels2 %>% 
+  mutate(Group = case_when(str_detect(Cohort, "East Polynesian") ~ "East Polynesian",
+                           str_detect(Cohort, "West Polynesian") ~ "West Polynesian",
+                           TRUE ~ "European"))
+
+for(i in snps){
+  tmp <- OnsetModels3 %>% 
+           filter(Sex == "Male", 
+                  Predictor == i)
   
-  tmp <- c()
-  for(i in 1:ncol(test)){
-    tmp[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
-  }
-  return(tmp)
+  assign(paste0(i, "_male"), metagen(TE = Beta, 
+                    seTE = SE, 
+                    studlab = Cohort,
+                    byvar = Group,
+                    data = tmp))
+  
+  tmp <- OnsetModels3 %>% 
+           filter(Sex == "Female", 
+                  Predictor == i)
+  
+  assign(paste0(i, "_female"), metagen(TE = Beta, 
+                    seTE = SE, 
+                    studlab = Cohort,
+                    byvar = Group,
+                    data = tmp))
+  
 }
 
-tmp2 <- get_maf(cohort = tmp, snps = SNPlist2)
+forest(get(paste0(snps[1], "_male")), 
+       xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Δ Age at Onset per ", snps[1], " allele (Male Only)"), "N"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
 
-names(tmp2) <- SNPlist2
+forest(get(paste0(snps[2], "_male")), 
+       xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Δ Age at Onset per ", snps[2], " allele (Male Only)"), "N"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
 
-tmp2
+forest(get(paste0(snps[1], "_female")), 
+       xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Δ Age at Onset per ", snps[1], " allele (Female Only)"), "N"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(get(paste0(snps[2], "_female")), 
+       xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Δ Age at Onset per ", snps[2], " allele (Female Only)"), "N"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
 ```
 
-The following table describes the cohort statistics for every variable that I have deemed to have sufficient non-missing data. If it is missing at more than 50% in a single cohort then that cohort will be set to "too much missing". If there are no cohorts with fewer than 30% missing (excluding UKBB) then the variable is removed from the plot. This will probably end up as a supplementary table but could be table 1 in the paper.
+```{r Tophi}
+tmp <- TophiModels %>% 
+  filter(Predictor == "PRS",
+         !str_detect(Covariates, "DURATION"),
+         `N case` > 20,
+         `N control` > 20) %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         `log-odds` = case_when(LCL == 0 ~ NA_real_,
+                        TRUE ~ `log-odds`),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
+
+tophi <- metagen(TE = `log-odds`, 
+                 seTE = SE, 
+                 studlab = Cohort,
+                 byvar = Label,
+                 data = tmp, 
+                 sm = "OR")
+
+tmp <- TophiModels %>% 
+  filter(Predictor == "PRS",
+         str_detect(Covariates, "DURATION"),
+         `N case` > 20,
+         `N control` > 20) %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         `log-odds` = case_when(LCL == 0 ~ NA_real_,
+                        TRUE ~ `log-odds`),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
+
+tophi_adj <- metagen(TE = `log-odds`, 
+                     seTE = SE, 
+                     studlab = Cohort,
+                     byvar = Label,
+                     data = tmp, 
+                     sm = "OR")
+
+# tiff(file = here("Output/test2.tiff"), units = "in", width = 10, height = 8, res = 300)
+
+forest(tophi, 
+       #xlim = c(0.25, 4),
+       #at = c(1.0, 2.0, 3.0), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of PRS on Tophi", "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+# dev.off()
+
+# tiff(file = here("Output/test3.tiff"), units = "in", width = 10, height = 8, res = 300)
+
+forest(tophi_adj, 
+       #xlim = c(0.25, 4),
+       #at = c(1.0, 2.0, 3.0), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of PRS on Tophi (Duration Adjusted)", "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+# dev.off()
+
+
+
+tmp <- TophiModels %>% 
+  filter(Predictor == "PRS_noABCG2",
+         !str_detect(Covariates, "DURATION"),
+         `N case` > 20,
+         `N control` > 20) %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         `log-odds` = case_when(LCL == 0 ~ NA_real_,
+                        TRUE ~ `log-odds`),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
+
+tophi <- metagen(TE = `log-odds`, 
+                 seTE = SE, 
+                 studlab = Cohort,
+                 byvar = Label,
+                 data = tmp, 
+                 sm = "OR")
+
+tmp <- TophiModels %>% 
+  filter(Predictor == "PRS_noABCG2",
+         str_detect(Covariates, "DURATION"),
+         `N case` > 20,
+         `N control` > 20) %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         `log-odds` = case_when(LCL == 0 ~ NA_real_,
+                        TRUE ~ `log-odds`),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
+
+tophi_adj <- metagen(TE = `log-odds`, 
+                     seTE = SE, 
+                     studlab = Cohort,
+                     byvar = Label,
+                     data = tmp, 
+                     sm = "OR")
+
+forest(tophi, 
+       #xlim = c(0.3, 3),
+       #at = c(1.0, 2.0, 3.0), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of PRS on Tophi (no ABCG2)", "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(tophi_adj, 
+       #xlim = c(0.3, 3),
+       #at = c(1.0, 2.0, 3.0), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of PRS on Tophi (no ABCG2 + Duration Adjusted)", "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+tmp <- UKBB_Gene_OR %>% 
+  mutate(Label = paste0(Locus_Name, " (", RSID, ")")) %>% 
+  filter(str_detect(Label, "ABCG2")) %>% 
+  select(RSID, Label)
+
+TophiModels2 <- TophiModels %>% 
+  filter(Predictor %in% tmp$RSID,
+         `N case` > 20,
+         `N control` > 20) %>% 
+  mutate(Predictor = as.character(Predictor)) %>% 
+  left_join(tmp, by = c("Predictor" = "RSID")) %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"))
+
+# Tophi models -----------------------------------------------------------
+snps <- unique(TophiModels2$Predictor)
+
+TophiModels3 <- TophiModels2 %>% 
+  mutate(Group = case_when(str_detect(Cohort, "East Polynesian") ~ "East Polynesian",
+                           str_detect(Cohort, "West Polynesian") ~ "West Polynesian",
+                           TRUE ~ "European"))
+
+for(i in snps){
+  tmp <- TophiModels3 %>% 
+           filter(Sex == "Male", 
+                  Predictor == i)
+  
+  assign(paste0(i, "_male"), metagen(TE = `log-odds`, 
+                    seTE = SE, 
+                    studlab = Cohort,
+                    byvar = Group,
+                    data = tmp,
+                    sm = "OR"))
+  
+  tmp <- TophiModels3 %>% 
+           filter(Sex == "Female", 
+                  Predictor == i)
+  
+  assign(paste0(i, "_female"), metagen(TE = `log-odds`, 
+                    seTE = SE, 
+                    studlab = Cohort,
+                    byvar = Group,
+                    data = tmp,
+                    sm = "OR"))
+  
+  tmp <- TophiModels3 %>% 
+           filter(Sex == "Male", 
+                  Predictor == i,
+                  str_detect(Covariates, "DURATION"))
+  
+  assign(paste0(i, "_male_adj"), metagen(TE = `log-odds`, 
+                    seTE = SE, 
+                    studlab = Cohort,
+                    byvar = Group,
+                    data = tmp,
+                    sm = "OR"))
+  
+  tmp <- TophiModels3 %>% 
+           filter(Sex == "Female", 
+                  Predictor == i,
+                  str_detect(Covariates, "DURATION"))
+  
+  assign(paste0(i, "_female_adj"), metagen(TE = `log-odds`, 
+                    seTE = SE, 
+                    studlab = Cohort,
+                    byvar = Group,
+                    data = tmp,
+                    sm = "OR"))
+}
+
+forest(get(paste0(snps[1], "_male")), 
+       #xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Effect on Tophi presence per ", snps[1], " allele (Male Only)"), "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(get(paste0(snps[2], "_male")), 
+       # xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Effect on Tophi presence per ", snps[2], " allele (Male Only)"), "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(get(paste0(snps[1], "_female")), 
+       # xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Effect on Tophi presence per ", snps[1], " allele (Female Only)"), "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(get(paste0(snps[2], "_female")), 
+       # xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Effect on Tophi presence per ", snps[2], " allele (Female Only)"), "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(get(paste0(snps[1], "_male_adj")), 
+       #xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Effect on Tophi presence per ", snps[1], " allele (Male Only + Duration Adjusted)"), "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(get(paste0(snps[2], "_male_adj")), 
+       # xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Effect on Tophi presence per ", snps[2], " allele (Male Only + Duration Adjusted)"), "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(get(paste0(snps[1], "_female_adj")), 
+       # xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Effect on Tophi presence per ", snps[1], " allele (Female Only + Duration Adjusted)"), "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+
+forest(get(paste0(snps[2], "_female_adj")), 
+       # xlim = c(-15, 5), 
+       print.tau2 = F,
+       print.byvar = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c(paste0("Effect on Tophi presence per ", snps[2], " allele (Female Only + Duration Adjusted)"), "N case", "N control"),
+       rightlabs = c("", "[95% CI]"),
+       addrows.below.overall = 2, 
+       comb.random = F,
+       overall = F)
+```
+
+<br/>
+
+The following table describes the cohort statistics for every variable that I have deemed to have sufficient non-missing data. If it is missing at more than 50% in a single cohort then that cohort will be set to "too much missing". If there are no cohorts with fewer than 30% missing (excluding UKBB) then the variable is removed from the plot. 
 
 ```{r DemographicsTable, message = F, warning = F}
 table1 <- tibble("Cohort" = cohortstring, 
@@ -358,8 +938,7 @@ table1 <- tibble("Cohort" = cohortstring,
                  "Disease Duration (years)" = unlist(lapply(data_list, function(x) report(x$DURATION))),
                  "Number of Flares in Last Year" = unlist(lapply(data_list, function(x) report_median(x$NUMATK))),
                  "Presence of Tophi" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
-                 "PRS - Imputed" = unlist(lapply(data_list, function(x) report(x$PRS1))),
-                 "PRS - Direct" = unlist(lapply(data_list, function(x) report(x$PRS2))),
+                 "PRS" = unlist(lapply(data_list, function(x) report(x$PRS))),
                  "BMI" = unlist(lapply(data_list, function(x) report(x$BMI))),
                  "Type 2 Diabetes" = unlist(lapply(data_list, function(x) sumreport(x$DIABETES))))
 
@@ -376,40 +955,676 @@ table1 %>%
   kable_styling("striped") %>% 
   scroll_box(width = "900px", height = "475px") %>% 
   footnote("Flares reported as median (inter-quartile range). All other numeric variables reported as mean ± sd. All binary variables reported as N (%).")
-
-# Trying to make datatable version of this
-
-datatable(data = table1,
-          colnames = clean_names, 
-          escape = F,
-          caption = "Flares reported as median (inter-quartile range). All other numeric variables reported as mean ± sd. All binary variables reported as N (%).") # still can't easily freeze rownames
 ```
 
 <br/>
 
-Now, these are two plots of the PRS distribution (for imputed and genotyped respectively). These can be supplementary figures.
+## Supplementary figures and tables
+
+Manhattan plot for the gout GWAS showing the locations of the SNPs that were used in the PRS.
+
+```{r Manhattan, message = F, warning = F}
+# Manhattan plot of UKBB gout GWAS
+# Preparing data
+load(here("Output/sumstat_final.RData"))
+
+GOUT_pValues <- sumstat_final %>% 
+  filter(P < 0.01) %>% 
+  arrange(CHR, BP)
+
+tmp <- GOUT_pValues %>% 
+  filter(RSID %in% UKBB_Gene_OR$RSID) %>% 
+  mutate("Gene" = UKBB_Gene_OR$Locus_Name)
+
+tmp2 <- GOUT_pValues %>% 
+  filter(!(SNP %in% tmp$SNP)) %>% 
+  mutate("Gene" = NA)
+
+GOUT_pValues <- full_join(tmp, tmp2) %>% 
+  arrange(CHR, BP)
+
+GOUT_pValues2 <- GOUT_pValues %>% 
+  
+  # Compute chromosome size
+  group_by(CHR) %>% 
+  summarise(chr_len = max(BP)) %>% 
+  
+  # Calculate cumulative position of each chromosome
+  mutate(tot = cumsum(chr_len) - chr_len) %>%
+  select(-chr_len) %>%
+  
+  # Add this info to the initial dataset
+  left_join(GOUT_pValues, ., by = "CHR") %>%
+  
+  # Add a cumulative position of each SNP
+  arrange(CHR, BP) %>%
+  mutate(BPcum = BP + tot) %>%
+  
+  # Add highlight and annotation information
+  mutate(is_highlight = ifelse(RSID %in% UKBB_Gene_OR$RSID, "yes", "no")) %>%
+  mutate(is_annotate = ifelse(RSID %in% UKBB_Gene_OR$RSID, "yes", "no")) 
+
+
+axisdf <- GOUT_pValues2 %>% 
+  group_by(CHR) %>% 
+  summarize(center = (max(BPcum) + min(BPcum)) / 2)
+
+ggplot(GOUT_pValues2, aes(x = BPcum, y = -log10(P))) +
+  
+  # Show all points
+  geom_point(aes(color = as.factor(CHR)), alpha = 0.8, size = 1.3) +
+  scale_color_manual(values = rep(c("#1e6b52", "#aa9767"), 22)) +
+  
+  geom_hline(yintercept = -log10(5e-8), colour = "red") +
+  
+  # custom X axis:
+  scale_x_continuous(label = axisdf$CHR, breaks = axisdf$center) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 250)) +     # remove space between plot area and x axis
+  
+  # Add highlighted points
+  geom_point(data = subset(GOUT_pValues2, is_highlight == "yes"), color = "orange", size = 2) +
+  
+  # Add label using ggrepel to avoid overlapping
+  geom_label_repel(aes(label = Gene), size = 3, box.padding = 0.5, force_pull = 0.5, nudge_y = 3, max.overlaps = Inf) +
+  
+  xlab("Chromosome") +
+  
+  ggtitle("UK Biobank Gout GWAS Results") +
+  
+  # Custom the theme:
+  theme_bw() +
+  theme( 
+    legend.position = "none",
+    panel.border = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()
+  )
+
+# ggsave(filename = here("Output/Plots/Manhattan.tiff"), dpi = 600)
+```
+
+<br/>
+
+Table of GWAS results for PRS.
+
+```{r GWASTable, eval = F, include = F}
+write_csv(UKBB_Gene_OR, file = here("Output/Tables/UKBB_Gene_OR.csv"))
+
+# Making locus boundaries
+load(here("Output/sumstat_final.RData"))
+sumstat_signif <- sumstat_final %>% 
+  filter(P <= 5e-8) %>% 
+  arrange(P)
+
+# Grouping into loci +- 500 kb of top SNPs
+gout_top <- sumstat_signif %>% 
+  slice(1)
+gout2 <- sumstat_signif %>% 
+  filter(!(CHR == gout_top$CHR[1] & BP %in% ((gout_top$BP[1] - 500000):(gout_top$BP[1] + 500000))))
+
+while(nrow(gout2) > 0) {
+  tmp <- gout2 %>% 
+    slice(1)
+  gout_top <- rbind(tmp, gout_top)
+  gout2 <- gout2 %>% 
+    filter(!(CHR == gout_top$CHR[1] & BP %in% ((gout_top$BP[1] - 500000):(gout_top$BP[1] + 500000))))
+} 
+
+gout_top <- gout_top %>% 
+  arrange(CHR, BP)
+
+
+# Finding regions of loci
+sumstat_signif <- sumstat_signif %>% 
+  arrange(CHR, BP)
+
+out <- NA
+for(i in 2:nrow(sumstat_signif)) {
+  if(sumstat_signif$CHR[i] == sumstat_signif$CHR[i - 1]){
+    out[i] <- sumstat_signif$BP[i] - sumstat_signif$BP[i - 1]
+  } else {
+    out[i] <- NA
+  }
+}
+
+tmp <- sumstat_signif %>% 
+  mutate(Diff = out,
+         Diff2 = case_when(Diff < 500000 ~ Diff))
+
+out <- sumstat_signif %>% slice(1)
+for(i in 2:nrow(sumstat_signif)) {
+  if(is.na(tmp$Diff2[i])){
+    out <- rbind(out, sumstat_signif %>% slice(i - 1), sumstat_signif %>% slice(i))
+  }
+}
+out <- rbind(out, sumstat_signif %>% slice(nrow(sumstat_signif)))
+
+# Extracting regions
+bgen_ranges <- out %>% select(CHR, BP)
+
+tmp1 <- bgen_ranges %>% slice(seq(1, nrow(bgen_ranges), by = 2)) %>% rename(BP1 = BP)
+
+tmp2 <- bgen_ranges %>% slice(seq(2, nrow(bgen_ranges), by = 2)) %>% rename(CHR.x = CHR, BP2 = BP)
+
+bgen_ranges <- tmp1 %>% 
+  cbind(tmp2) %>% 
+  mutate(BP1 = BP1 - 50000,
+         BP2 = BP2 + 50000) %>% 
+  select(-CHR.x)
+
+bgen_range1 <- bgen_ranges %>% 
+  filter(CHR < 10) %>% 
+  mutate(BGEN = paste0("0", CHR, ":", BP1, "-", BP2))
+
+bgen_range2 <- bgen_ranges %>% 
+  filter(CHR > 9) %>% 
+  mutate(BGEN = paste0(CHR, ":", BP1, "-", BP2))
+
+bgen_ranges <- rbind(bgen_range1, bgen_range2) %>% 
+  arrange(CHR, BP1)
+
+tmp <- bgen_ranges %>% 
+  select(BGEN)
+
+write_csv(tmp, file = here("Output/Tables/ranges.csv"))
+
+
+# Getting EAF for Polynesian samples
+WestPoly <- rbind(data_list[[31]], data_list[[32]], data_list[[33]], data_list[[34]])
+
+EastPoly <- rbind(data_list[[23]], data_list[[24]], data_list[[25]], data_list[[26]], data_list[[27]], data_list[[28]], data_list[[29]], data_list[[30]])
+
+SNPlist <- UKBB_Gene_OR$RSID
+
+get_maf <- function(cohort, snps){
+  test <- cohort %>% 
+    select(all_of(snps)) %>% 
+    mutate_all(factor, levels = 0:2) %>% 
+    na.omit()
+  
+  tmp <- c()
+  for(i in 1:ncol(test)){
+    tmp[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
+  }
+  return(tmp)
+}
+
+tmp1 <- get_maf(cohort = WestPoly, snps = SNPlist)
+
+tmp2 <- get_maf(cohort = EastPoly, snps = SNPlist)
+
+names(tmp1) <- SNPlist
+
+names(tmp2) <- SNPlist
+```
+
+<br/>
+
+Missing data table
+
+```{r MissingData3, message = F, warning = F}
+table1 <- tibble("Cohort" = cohortstring,
+                 "N" = unlist(lapply(data_list, function(x) nrow(x))),
+                 "Age at Collection" = unlist(lapply(data_list, function(x) missing(x$AGECOL))),
+                 "Serum Urate" = unlist(lapply(data_list, function(x) missing(x$URATE))),
+                 "ULT" = unlist(lapply(data_list, function(x) missing(x$ULT))),
+                 "Age at Onset" = unlist(lapply(data_list, function(x) missing(x$AGE1ATK))),
+                 "Disease Duration" = unlist(lapply(data_list, function(x) missing(x$DURATION))),
+                 "Flares" = unlist(lapply(data_list, function(x) missing(x$NUMATK))),
+                 "Tophi" = unlist(lapply(data_list, function(x) missing(x$TOPHIGOUT))),
+                 "PRS" = unlist(lapply(data_list, function(x) missing(x$PRS))),
+                 "Prophylaxis" = unlist(lapply(data_list, function(x) missing(x$PROPHY))),
+                 "BMI" = unlist(lapply(data_list, function(x) missing(x$BMI))),
+                 "Hypertension" = unlist(lapply(data_list, function(x) missing(x$HYPERTENSION))),
+                 "Type 2 Diabetes" = unlist(lapply(data_list, function(x) missing(x$DIABETES))),
+                 "Heart Disease" = unlist(lapply(data_list, function(x) missing(x$HEART))),
+                 "Kidney Disease" = unlist(lapply(data_list, function(x) missing(x$KIDNEY))),
+                 "Dyslipidemia" = unlist(lapply(data_list, function(x) missing(x$LIPIDS))),
+                 "Stroke" = unlist(lapply(data_list, function(x) missing(x$STROKE))),
+                 "Alcoholic Drinks / Week" = unlist(lapply(data_list, function(x) missing(x$TOTALALC))),
+                 "Sugar-Sweetened Drinks / Week" = unlist(lapply(data_list, function(x) missing(x$SUGDRINK))),
+                 "Current Smoker" = unlist(lapply(data_list, function(x) missing(x$CURSMOKE))),
+                 "Family History of Gout" = unlist(lapply(data_list, function(x) missing(x$FAMGOUT))),
+                 "No. Relatives w/ Gout" = unlist(lapply(data_list, function(x) missing(x$FAMGOUTNUM))))
+
+table1 <- transpose_df(table1) %>% 
+  column_to_rownames(var = "Cohort")
+
+# write_csv(table1, file = here("Output/Tables/missing.csv"))
+
+table1 <- table1 %>% 
+  mutate(across(.cols = 1:ncol(table1), ~ str_replace(string = .x, pattern = " ", replacement = "&nbsp;")))
+
+row.names(table1) <- str_replace(row.names(table1), " ", "&nbsp;")
+
+table1 %>% 
+  kable(col.names = clean_names,
+        align = "c",
+        escape = F) %>% 
+  kable_styling("striped") %>% 
+  scroll_box(width = "900px", height = "475px") %>% 
+  footnote("'All' = all missing, 'None' = none missing")
+```
+
+<br/>
+
+Full cohort stats table
+
+```{r CohortStats, message = F, warning = F}
+table1 <- tibble("Cohort" = cohortstring, 
+                 "N" = unlist(lapply(data_list, nrow)),
+                 "Age at Collection (years)" = unlist(lapply(data_list, function(x) report(x$AGECOL))),
+                 "Serum Urate (mg/dL)" = unlist(lapply(data_list, function(x) report(x$URATE))),
+                 "ULT" = unlist(lapply(data_list, function(x) sumreport(x$ULT))),
+                 "Age at Onset (years)" = unlist(lapply(data_list, function(x) report(x$AGE1ATK))),
+                 "Disease Duration (years)" = unlist(lapply(data_list, function(x) report(x$DURATION))),
+                 "Number of Flares in Last Year" = unlist(lapply(data_list, function(x) report_median(x$NUMATK))),
+                 "Presence of Tophi" = unlist(lapply(data_list, function(x) sumreport(x$TOPHIGOUT))),
+                 "PRS" = unlist(lapply(data_list, function(x) report(x$PRS))),
+                 "Prophylaxis" = unlist(lapply(data_list, function(x) sumreport(x$PROPHY))),
+                 "BMI" = unlist(lapply(data_list, function(x) report(x$BMI))),
+                 "Hypertension" = unlist(lapply(data_list, function(x) sumreport(x$HYPERTENSION))),
+                 "Type 2 Diabetes" = unlist(lapply(data_list, function(x) sumreport(x$DIABETES))),
+                 "Heart Disease" = unlist(lapply(data_list, function(x) sumreport(x$HEART))),
+                 "Kidney Disease" = unlist(lapply(data_list, function(x) sumreport(x$KIDNEY))),
+                 "Dyslipidemia" = unlist(lapply(data_list, function(x) sumreport(x$LIPIDS))),
+                 "Stroke" = unlist(lapply(data_list, function(x) sumreport(x$STROKE))),
+                 "Alcoholic Drinks / Week" = unlist(lapply(data_list, function(x) report(x$TOTALALC))),
+                 "Sugar-Sweetened Drinks / Week" = unlist(lapply(data_list, function(x) report(x$SUGDRINK))),
+                 "Current Smoker" = unlist(lapply(data_list, function(x) sumreport(x$CURSMOKE))),
+                 "Family History of Gout" = unlist(lapply(data_list, function(x) sumreport(x$FAMGOUT))),
+                 "No. Relatives w/ Gout" = unlist(lapply(data_list, function(x) report(x$FAMGOUTNUM))))
+
+table1 <- transpose_df(table1) %>% 
+  column_to_rownames(var = "Cohort")
+
+# write_csv(table1, file = here("Output/Tables/demographics.csv"))
+
+table1 <- table1 %>% 
+  mutate(across(.cols = 1:ncol(table1), ~ str_replace(string = .x, pattern = " ", replacement = "&nbsp;")))
+
+row.names(table1) <- str_replace(row.names(table1), " ", "&nbsp;")
+
+table1 %>% 
+  kable(col.names = clean_names,
+        align = "c",
+        escape = F) %>% 
+  kable_styling("striped") %>% 
+  scroll_box(width = "900px", height = "475px") %>% 
+  footnote("Flares reported as median (inter-quartile range). All other numeric variables reported as mean ± sd. All binary variables reported as N (%).")
+```
+
+<br/>
+
+Making table of model results.
+
+```{r makingtable, eval = F, include = F}
+tmp <- GoutModels %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         LCL = sprintf(LCL, fmt = "%#.2f"),
+         UCL = sprintf(UCL, fmt = "%#.2f"),
+         OR = sprintf(OR, fmt = "%#.2f"),
+         CI = paste0("[", LCL, ", ", UCL, "]"),
+         Adjusted = case_when(str_detect(Covariates, "AGECOL") ~ TRUE,
+                              TRUE ~ FALSE)) %>% 
+  select(Cohort, Sex, Adjusted, Predictor, OR, CI, Pval)
+
+write_csv(tmp, file = here("Output/Tables/GoutMod.csv"))
+
+
+# Onset models --------------------------------------------
+tmp <- OnsetModels %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         LCL = sprintf(LCL, fmt = "%#.2f"),
+         UCL = sprintf(UCL, fmt = "%#.2f"),
+         Beta = sprintf(Beta, fmt = "%#.2f"),
+         CI = paste0("[", LCL, ", ", UCL, "]")) %>% 
+  filter(str_detect(Cohort, "West Polynesian")) %>% 
+  select(Cohort, Sex, Predictor, Beta, CI, Pval)
+
+tmp1 <- tmp %>% 
+  filter(Sex == "Male") %>% 
+  rename("Male Beta" = Beta,
+         "Male CI" = CI,
+         "Male Pval" = Pval) %>% 
+  select(-Sex)
+
+tmp2 <- tmp %>% 
+  filter(Sex == "Female") %>% 
+  rename("Female Beta" = Beta,
+         "Female CI" = CI,
+         "Female Pval" = Pval) %>% 
+  select(-Sex)
+
+WestPoly <- left_join(tmp1, tmp2)
+  
+tmp <- OnsetModels %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female")) %>% 
+  select(Cohort, Sex, Predictor, Beta, SE)
+
+tmp2 <- tmp %>% 
+  filter(!str_detect(Cohort, "Polynesian"))
+
+snplist <- c("PRS", "PRS_noABCG2", snps)
+
+out <- tibble("Predictor" = "test",
+              "Male Beta" = 1,
+              "Male LCL" = 1,
+              "Male UCL" = 1,
+              "Male Pval" = 1,
+              "Female Beta" = 1,
+              "Female LCL" = 1,
+              "Female UCL" = 1,
+              "Female Pval" = 1)
+
+for(i in seq_along(snplist)){
+  tmp3 <- tmp2 %>% 
+    filter(Predictor == snplist[i])
+  
+  onset <- metagen(TE = Beta, 
+                   seTE = SE, 
+                   studlab = Cohort,
+                   byvar = Sex,
+                   data = tmp3)
+  
+  out <- rbind(out,
+               list(snplist[i],
+                    onset$TE.fixed.w[[1]],
+                    onset$lower.fixed.w[[1]],
+                    onset$upper.fixed.w[[1]],
+                    onset$pval.fixed.w[[1]],
+                    onset$TE.fixed.w[[2]],
+                    onset$lower.fixed.w[[2]],
+                    onset$upper.fixed.w[[2]],
+                    onset$pval.fixed.w[[2]]))
+}
+
+Euro <- out %>% 
+  slice(-1) %>% 
+  mutate(Cohort = "European",
+         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
+         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
+         `Male Beta` = sprintf(`Male Beta`, fmt = "%#.2f"),
+         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
+         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
+         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
+         `Female Beta` = sprintf(`Female Beta`, fmt = "%#.2f"),
+         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
+  select(Cohort, Predictor, `Male Beta`, `Male CI`, `Male Pval`, `Female Beta`, `Female CI`, `Female Pval`)
+
+tmp2 <- tmp %>% 
+  filter(str_detect(Cohort, "East Polynesian"))
+
+snplist <- c("PRS", "PRS_noABCG2", snps)
+
+out <- tibble("Predictor" = "test",
+              "Male Beta" = 1,
+              "Male LCL" = 1,
+              "Male UCL" = 1,
+              "Male Pval" = 1,
+              "Female Beta" = 1,
+              "Female LCL" = 1,
+              "Female UCL" = 1,
+              "Female Pval" = 1)
+
+for(i in seq_along(snplist)){
+  tmp3 <- tmp2 %>% 
+    filter(Predictor == snplist[i])
+  
+  onset <- metagen(TE = Beta, 
+                   seTE = SE, 
+                   studlab = Cohort,
+                   byvar = Sex,
+                   data = tmp3)
+  
+  out <- rbind(out,
+               list(snplist[i],
+                    onset$TE.fixed.w[[1]],
+                    onset$lower.fixed.w[[1]],
+                    onset$upper.fixed.w[[1]],
+                    onset$pval.fixed.w[[1]],
+                    onset$TE.fixed.w[[2]],
+                    onset$lower.fixed.w[[2]],
+                    onset$upper.fixed.w[[2]],
+                    onset$pval.fixed.w[[2]]))
+}
+
+EastPoly <- out %>% 
+  slice(-1) %>% 
+  mutate(Cohort = "East Polynesian",
+         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
+         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
+         `Male Beta` = sprintf(`Male Beta`, fmt = "%#.2f"),
+         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
+         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
+         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
+         `Female Beta` = sprintf(`Female Beta`, fmt = "%#.2f"),
+         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
+  select(Cohort, Predictor, `Male Beta`, `Male CI`, `Male Pval`, `Female Beta`, `Female CI`, `Female Pval`)
+
+final <- rbind(Euro, EastPoly, WestPoly)
+
+write_csv(final, file = here("Output/Tables/OnsetMod.csv"))
+
+
+
+# Tophi models --------------------
+tmp <- TophiModels %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         LCL = sprintf(LCL, fmt = "%#.2f"),
+         UCL = sprintf(UCL, fmt = "%#.2f"),
+         OR = sprintf(OR, fmt = "%#.2f"),
+         CI = paste0("[", LCL, ", ", UCL, "]"),
+         Adjusted = case_when(str_detect(Covariates, "DURATION") ~ TRUE,
+                              TRUE ~ FALSE),
+         OR = case_when(`N case` < 20 | `N control` < 20 ~ NA_character_,
+                        TRUE ~ OR),
+         CI = case_when(`N case` < 20 | `N control` < 20 ~ NA_character_,
+                        TRUE ~ CI),
+         Pval = case_when(`N case` < 20 | `N control` < 20 ~ NA_real_,
+                        TRUE ~ Pval)) %>% 
+  select(Cohort, Sex, Adjusted, Predictor, OR, CI, Pval) %>% 
+  filter(str_detect(Cohort, "West Polynesian"))
+
+
+tmp1 <- tmp %>% 
+  filter(Sex == "Male") %>% 
+  rename("Male OR" = OR,
+         "Male CI" = CI,
+         "Male Pval" = Pval) %>% 
+  select(Cohort, Adjusted, Predictor, `Male OR`:`Male Pval`)
+
+tmp2 <- tmp %>% 
+  filter(Sex == "Female") %>% 
+  rename("Female OR" = OR,
+         "Female CI" = CI,
+         "Female Pval" = Pval) %>% 
+  select(Cohort, Adjusted, Predictor, `Female OR`:`Female Pval`)
+
+WestPoly <- left_join(tmp1, tmp2)
+
+
+tmp <- TophiModels %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         Adjusted = case_when(str_detect(Covariates, "DURATION") ~ TRUE,
+                              TRUE ~ FALSE),
+         `log-odds` = case_when(`N case` < 20 | `N control` < 20 ~ NA_real_,
+                        TRUE ~ `log-odds`)) %>% 
+  filter(!str_detect(Cohort, "Polynesian"),
+         !is.na(`log-odds`)) %>% 
+  select(Cohort, Sex, Predictor, Adjusted, `log-odds`, SE)
+
+tmp2 <- tmp %>% 
+  filter(!Adjusted,
+         !str_detect(Cohort, "Polynesian"))
+
+snplist <- as.character(unique(TophiModels$Predictor))
+
+out <- tibble("Predictor" = "test",
+              "Male OR" = 1,
+              "Male LCL" = 1,
+              "Male UCL" = 1,
+              "Male Pval" = 1,
+              "Female OR" = 1,
+              "Female LCL" = 1,
+              "Female UCL" = 1,
+              "Female Pval" = 1)
+
+for(i in seq_along(snplist)){
+  tmp3 <- tmp2 %>% 
+    filter(Predictor == snplist[i])
+  
+  tophi <- metagen(TE = `log-odds`, 
+                   seTE = SE, 
+                   studlab = Cohort,
+                   byvar = Sex,
+                   data = tmp3,
+                   sm = "OR")
+  
+  out <- rbind(out,
+               list(snplist[i],
+                    exp(tophi$TE.fixed.w[[1]]),
+                    exp(tophi$lower.fixed.w[[1]]),
+                    exp(tophi$upper.fixed.w[[1]]),
+                    tophi$pval.fixed.w[[1]],
+                    exp(tophi$TE.fixed.w[[2]]),
+                    exp(tophi$lower.fixed.w[[2]]),
+                    exp(tophi$upper.fixed.w[[2]]),
+                    tophi$pval.fixed.w[[2]]))
+}
+
+out1 <- out %>% 
+  slice(-1) %>% 
+  mutate(Cohort = "European",
+         Adjusted = FALSE,
+         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
+         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
+         `Male OR` = sprintf(`Male OR`, fmt = "%#.2f"),
+         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
+         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
+         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
+         `Female OR` = sprintf(`Female OR`, fmt = "%#.2f"),
+         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
+  select(Cohort, Adjusted, Predictor, `Male OR`, `Male CI`, `Male Pval`, `Female OR`, `Female CI`, `Female Pval`)
+
+
+tmp2 <- tmp %>% 
+  filter(Adjusted,
+         !str_detect(Cohort, "Polynesian"))
+
+out <- tibble("Predictor" = "test",
+              "Male OR" = 1,
+              "Male LCL" = 1,
+              "Male UCL" = 1,
+              "Male Pval" = 1,
+              "Female OR" = 1,
+              "Female LCL" = 1,
+              "Female UCL" = 1,
+              "Female Pval" = 1)
+
+for(i in seq_along(snplist)){
+  tmp3 <- tmp2 %>% 
+    filter(Predictor == snplist[i])
+  
+  tophi <- metagen(TE = `log-odds`, 
+                   seTE = SE, 
+                   studlab = Cohort,
+                   byvar = Sex,
+                   data = tmp3,
+                   sm = "OR")
+  
+  out <- rbind(out,
+               list(snplist[i],
+                    exp(tophi$TE.fixed.w[[1]]),
+                    exp(tophi$lower.fixed.w[[1]]),
+                    exp(tophi$upper.fixed.w[[1]]),
+                    tophi$pval.fixed.w[[1]],
+                    exp(tophi$TE.fixed.w[[2]]),
+                    exp(tophi$lower.fixed.w[[2]]),
+                    exp(tophi$upper.fixed.w[[2]]),
+                    tophi$pval.fixed.w[[2]]))
+}
+
+out2 <- out %>% 
+  slice(-1) %>% 
+  mutate(Cohort = "European",
+         Adjusted = TRUE,
+         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
+         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
+         `Male OR` = sprintf(`Male OR`, fmt = "%#.2f"),
+         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
+         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
+         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
+         `Female OR` = sprintf(`Female OR`, fmt = "%#.2f"),
+         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
+  select(Cohort, Adjusted, Predictor, `Male OR`, `Male CI`, `Male Pval`, `Female OR`, `Female CI`, `Female Pval`)
+
+Euro <- rbind(out1, out2)
+
+
+
+tmp <- TophiModels %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         LCL = sprintf(LCL, fmt = "%#.2f"),
+         UCL = sprintf(UCL, fmt = "%#.2f"),
+         OR = sprintf(OR, fmt = "%#.2f"),
+         CI = paste0("[", LCL, ", ", UCL, "]"),
+         Adjusted = case_when(str_detect(Covariates, "DURATION") ~ TRUE,
+                              TRUE ~ FALSE),
+         OR = case_when(`N case` < 20 | `N control` < 20 ~ NA_character_,
+                        TRUE ~ OR),
+         CI = case_when(`N case` < 20 | `N control` < 20 ~ NA_character_,
+                        TRUE ~ CI),
+         Pval = case_when(`N case` < 20 | `N control` < 20 ~ NA_real_,
+                        TRUE ~ Pval)) %>% 
+  select(Cohort, Sex, Adjusted, Predictor, OR, CI, Pval) %>% 
+  filter(str_detect(Cohort, "East Polynesian"))
+
+
+tmp1 <- tmp %>% 
+  filter(Sex == "Male") %>% 
+  rename("Male OR" = OR,
+         "Male CI" = CI,
+         "Male Pval" = Pval) %>% 
+  select(Cohort, Adjusted, Predictor, `Male OR`:`Male Pval`)
+
+tmp2 <- tmp %>% 
+  filter(Sex == "Female") %>% 
+  rename("Female OR" = OR,
+         "Female CI" = CI,
+         "Female Pval" = Pval) %>% 
+  select(Cohort, Adjusted, Predictor, `Female OR`:`Female Pval`)
+
+EastPoly <- left_join(tmp1, tmp2)
+
+final <- rbind(Euro, EastPoly, WestPoly)
+
+write_csv(final, file = here("Output/Tables/TophiMod.csv"))
+```
+
+<br/>
+
+## Extra stuff
+
+Plot of the PRS distribution
 
 ```{r PRSdistribution, message = F, warning = F}
-# PRS - imputed
 all_pheno_prs %>% 
-  filter(!str_detect(COHORT2, "Polynesian")) %>% 
-  ggplot(aes(x = PRS1, y = COHORT2, color = SEX)) +
+  ggplot(aes(x = PRS, y = COHORT2, color = SEX)) +
     geom_boxplot(position = position_dodge2(reverse = T)) +
-    labs(x = "Gout PRS - Imputed") +
-    theme(axis.title.y = element_blank(),
-          panel.grid.major.y = element_blank(),
-          panel.grid.minor.y = element_blank(),
-          legend.title = element_blank()) + 
-    scale_y_discrete(limits = rev(levels(all_pheno_prs %>% filter(!str_detect(COHORT2, "Polynesian")) %>% mutate(COHORT2 = factor(COHORT2)) %>% pull(COHORT2)))) +
-    scale_color_discrete(type = c("#1e6b52", "#aa9767"))
-
-
-
-# PRS - direct
-all_pheno_prs %>% 
-  ggplot(aes(x = PRS2, y = COHORT2, color = SEX)) +
-    geom_boxplot(position = position_dodge2(reverse = T)) +
-    labs(x = "Gout PRS - Directly Genotyped") +
+    labs(x = "Gout PRS") +
     theme(axis.title.y = element_blank(),
           panel.grid.major.y = element_blank(),
           panel.grid.minor.y = element_blank(),
@@ -420,333 +1635,21 @@ all_pheno_prs %>%
 
 <br/>
 
-These next two plots are the manhattan plots for the gout GWAS showing the locations of the SNPs that were used in either the imputed PRS or the genotyped PRS.
-
-```{r Manhattan, message = F, warning = F}
-# Manhattan plot of UKBB gout GWAS
-# Preparing data
-if(file.exists(here("Output/Temp/ManhattanData.RData"))){
-  load(here("Output/Temp/ManhattanData.RData"))
-} else {
-  load(here("Output/Temp/biallelic_sumstat_final.RData"))
-
-  GOUT_pValues <- biallelic_sumstat_final %>% 
-    filter(P < 0.01) %>% 
-    arrange(CHR, BP)
-  
-  tmp <- GOUT_pValues %>% 
-    filter(RSID %in% UKBB_Gene_OR$RSID) %>% 
-    mutate("Gene" = UKBB_Gene_OR$Locus_Name)
-  
-  tmp2 <- GOUT_pValues %>% 
-    filter(!(SNP %in% tmp$SNP)) %>% 
-    mutate("Gene" = NA)
-  
-  GOUT_pValues <- full_join(tmp, tmp2) %>% 
-    arrange(CHR, BP)
-  
-  GOUT_pValues2 <- GOUT_pValues %>% 
-    
-    # Compute chromosome size
-    group_by(CHR) %>% 
-    summarise(chr_len = max(BP)) %>% 
-    
-    # Calculate cumulative position of each chromosome
-    mutate(tot = cumsum(chr_len) - chr_len) %>%
-    select(-chr_len) %>%
-    
-    # Add this info to the initial dataset
-    left_join(GOUT_pValues, ., by = "CHR") %>%
-    
-    # Add a cumulative position of each SNP
-    arrange(CHR, BP) %>%
-    mutate(BPcum = BP + tot) %>%
-    
-    # Add highlight and annotation information
-    mutate(is_highlight = ifelse(RSID %in% UKBB_Gene_OR$RSID, "yes", "no")) %>%
-    mutate(is_annotate = ifelse(RSID %in% UKBB_Gene_OR$RSID, "yes", "no")) 
-  
-  save(GOUT_pValues2, file = here("Output/Temp/ManhattanData.RData"))
-}
-
-
-
-
-axisdf <- GOUT_pValues2 %>% 
-  group_by(CHR) %>% 
-  summarize(center = (max(BPcum) + min(BPcum)) / 2)
-
-
-
-ggplot(GOUT_pValues2, aes(x = BPcum, y = -log10(P))) +
-  
-  # Show all points
-  geom_point(aes(color = as.factor(CHR)), alpha = 0.8, size = 1.3) +
-  scale_color_manual(values = rep(c("#1e6b52", "#aa9767"), 22)) +
-  
-  geom_hline(yintercept = -log10(5e-8), colour = "red") +
-  
-  # custom X axis:
-  scale_x_continuous(label = axisdf$CHR, breaks = axisdf$center) +
-  scale_y_continuous(expand = c(0, 0), limits = c(0, 250)) +     # remove space between plot area and x axis
-  
-  # Add highlighted points
-  geom_point(data = subset(GOUT_pValues2, is_highlight == "yes"), color = "orange", size = 2) +
-  
-  # Add label using ggrepel to avoid overlapping
-  geom_label_repel(aes(label = Gene), size = 3, box.padding = 0.5, force_pull = 0.5, nudge_y = 3, max.overlaps = Inf) +
-  
-  xlab("Chromosome") +
-  
-  ggtitle("UK Biobank Gout GWAS Results - Imputed SNPs") +
-  
-  # Custom the theme:
-  theme_bw() +
-  theme( 
-    legend.position = "none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-
-
-# Now same for directly genotyped SNPs only
-if(file.exists(here("Output/Temp/ManhattanData1.RData"))){
-  load(here("Output/Temp/ManhattanData1.RData"))
-} else {
-  load(here("Output/Temp/biallelic_sumstat_final.RData"))
-
-  direct_snps <- read_delim("/Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.bim", delim = "\t", col_names = F) %>% 
-  mutate(CHR_BP = paste0(X1, "_", X4))
-
-  GOUT_pValues <- biallelic_sumstat_final %>% 
-    mutate(CHR_BP = paste0(CHR, "_", BP)) %>% 
-    filter(P < 0.01,
-           CHR_BP %in% direct_snps$CHR_BP) %>% 
-    arrange(CHR, BP)
-  
-  tmp <- GOUT_pValues %>% 
-    filter(RSID %in% Poly_Gene_OR$RSID) %>% 
-    mutate("Gene" = Poly_Gene_OR$Locus_Name)
-  
-  tmp2 <- GOUT_pValues %>% 
-    filter(!(SNP %in% tmp$SNP)) %>% 
-    mutate("Gene" = NA)
-  
-  GOUT_pValues <- full_join(tmp, tmp2) %>% 
-    arrange(CHR, BP)
-  
-  GOUT_pValues2 <- GOUT_pValues %>% 
-    
-    # Compute chromosome size
-    group_by(CHR) %>% 
-    summarise(chr_len = max(BP)) %>% 
-    
-    # Calculate cumulative position of each chromosome
-    mutate(tot = cumsum(chr_len) - chr_len) %>%
-    select(-chr_len) %>%
-    
-    # Add this info to the initial dataset
-    left_join(GOUT_pValues, ., by = "CHR") %>%
-    
-    # Add a cumulative position of each SNP
-    arrange(CHR, BP) %>%
-    mutate(BPcum = BP + tot) %>%
-    
-    # Add highlight and annotation information
-    mutate(is_highlight = ifelse(RSID %in% Poly_Gene_OR$RSID, "yes", "no")) %>%
-    mutate(is_annotate = ifelse(RSID %in% Poly_Gene_OR$RSID, "yes", "no"))  
-  
-  save(GOUT_pValues2, file = here("Output/Temp/ManhattanData1.RData"))
-}
-
-axisdf <- GOUT_pValues2 %>% 
-  group_by(CHR) %>% 
-  summarize(center = (max(BPcum) + min(BPcum)) / 2)
-
-ggplot(GOUT_pValues2, aes(x = BPcum, y = -log10(P))) +
-  
-  # Show all points
-  geom_point(aes(color = as.factor(CHR)), alpha = 0.8, size = 1.3) +
-  scale_color_manual(values = rep(c("#1e6b52", "#aa9767"), 22)) +
-  
-  geom_hline(yintercept = -log10(5e-8), colour = "red") +
-  
-  # custom X axis:
-  scale_x_continuous(label = axisdf$CHR, breaks = axisdf$center) +
-  scale_y_continuous(expand = c(0, 0), limits = c(0, 250)) +     # remove space between plot area and x axis
-  
-  # Add highlighted points
-  geom_point(data = subset(GOUT_pValues2, is_highlight == "yes"), color = "orange", size = 2) +
-  
-  # Add label using ggrepel to avoid overlapping
-  geom_label_repel(aes(label = Gene), size = 3, box.padding = 0.5, force_pull = 0.5, nudge_y = 3, max.overlaps = Inf) +
-  
-  xlab("Chromosome") +
-  
-  ggtitle("UK Biobank Gout GWAS Results - Directly Genotyped SNPs") +
-  
-  # Custom the theme:
-  theme_bw() +
-  theme( 
-    legend.position = "none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-
-ggsave(filename = here("Output/Plots/Manhattan.tiff"), dpi = 600)
-
-rm(axisdf, GOUT_pValues2)
-```
-
-<br/>
-
 The below forest plots show the main effects of the two different PRS on gout in each respective model.
 
 ```{r GoutResults}
-# Imputed PRS ----------------------------------------------
 tmp <- GoutModels %>% 
-  filter(Predictor == "PRS1",
+  filter(Predictor == "PRS",
          !str_detect(Covariates, "AGECOL"),
          !str_detect(Cohort, "GlobalGout")) %>% 
-  separate(Cohort, into = c("Cohort", "Sex"), sep = " - ")
-
-gout <- metagen(TE = `log-odds`, 
-                seTE = SE, 
-                studlab = Cohort,
-                byvar = Sex,
-                data = tmp, 
-                sm = "OR")
-
-tmp <- GoutModels %>% 
-  filter(Predictor == "PRS1",
-         str_detect(Covariates, "AGECOL"),
-         !str_detect(Cohort, "GlobalGout")) %>% 
-  separate(Cohort, into = c("Cohort", "Sex"), sep = " - ")
-
-gout_adj <- metagen(TE = `log-odds`, 
-                    seTE = SE, 
-                    studlab = Cohort,
-                    byvar = Sex,
-                    data = tmp, 
-                    sm = "OR")
-
-forest(gout, 
-       xlim = c(1, 3),
-       at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Effect on Gout per unit Imputed PRS", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-forest(gout_adj, 
-       xlim = c(1, 3),
-       at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Effect on Gout per unit Imputed PRS", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-
-# Imputed PRS less ABCG2
-tmp <- GoutModels %>% 
-  filter(Predictor == "PRS1_noABCG2",
-         !str_detect(Covariates, "AGECOL"),
-         !str_detect(Cohort, "GlobalGout")) %>% 
-  separate(Cohort, into = c("Cohort", "Sex"), sep = " - ")
-
-gout <- metagen(TE = `log-odds`, 
-                seTE = SE, 
-                studlab = Cohort,
-                byvar = Sex,
-                data = tmp, 
-                sm = "OR")
-
-tmp <- GoutModels %>% 
-  filter(Predictor == "PRS1_noABCG2",
-         str_detect(Covariates, "AGECOL"),
-         !str_detect(Cohort, "GlobalGout")) %>% 
-  separate(Cohort, into = c("Cohort", "Sex"), sep = " - ")
-
-gout_adj <- metagen(TE = `log-odds`, 
-                    seTE = SE, 
-                    studlab = Cohort,
-                    byvar = Sex,
-                    data = tmp, 
-                    sm = "OR")
-
-forest(gout, 
-       xlim = c(1, 3),
-       at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Effect on Gout per unit Imputed PRS (no ABCG2)", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-forest(gout_adj, 
-       xlim = c(1, 3),
-       at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Effect on Gout per unit Imputed PRS (no ABCG2)", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-
-# Genotyped PRS -------------------------------------------------------------
-tmp <- GoutModels %>% 
-  filter(Predictor == "PRS2",
-         !str_detect(Covariates, "AGECOL"),
-         !str_detect(Cohort, "GlobalGout")) %>% 
-  separate(Cohort, into = c("Cohort", "Sex"), sep = " - ") %>% 
-  mutate(Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
                            !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
 
 gout <- metagen(TE = `log-odds`, 
                 seTE = SE, 
@@ -756,14 +1659,17 @@ gout <- metagen(TE = `log-odds`,
                 sm = "OR")
 
 tmp <- GoutModels %>% 
-  filter(Predictor == "PRS2",
+  filter(Predictor == "PRS",
          str_detect(Covariates, "AGECOL"),
          !str_detect(Cohort, "GlobalGout")) %>% 
-  separate(Cohort, into = c("Cohort", "Sex"), sep = " - ") %>% 
-  mutate(Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
                            !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
 
 gout_adj <- metagen(TE = `log-odds`, 
                     seTE = SE, 
@@ -773,8 +1679,8 @@ gout_adj <- metagen(TE = `log-odds`,
                     sm = "OR")
 
 forest(gout, 
-       xlim = c(1, 8),
-       at = c(1.0, 3.0, 6.0), 
+       xlim = c(0.5, 8),
+       at = c(0.5, 1.0, 2.0, 4.0, 8.0), 
        print.tau2 = F,
        print.byvar = F, 
        col.square.lines = "black", 
@@ -785,15 +1691,15 @@ forest(gout,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect on Gout per unit Genotyped PRS", "N case", "N control"),
+       leftlabs = c("Effect of PRS on Gout", "N case", "N control"),
        rightlabs = c("", "[95% CI]"),
        addrows.below.overall = 2, 
        comb.random = F,
        overall = F)
 
 forest(gout_adj, 
-       xlim = c(1, 8),
-       at = c(1.0, 3.0, 6.0), 
+       xlim = c(0.5, 8),
+       at = c(0.5, 1.0, 2.0, 4.0, 8.0), 
        print.tau2 = F,
        print.byvar = F, 
        col.square.lines = "black", 
@@ -804,23 +1710,26 @@ forest(gout_adj,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect on Gout per unit Genotyped PRS", "N case", "N control"),
+       leftlabs = c("Effect of PRS on Gout (age-adjusted)", "N case", "N control"),
        rightlabs = c("", "[95% CI]"),
        addrows.below.overall = 2, 
        comb.random = F,
        overall = F)
 
 
-# Genotyped PRS (no ABCG2)
+# PRS (no ABCG2)
 tmp <- GoutModels %>% 
-  filter(Predictor == "PRS2_noABCG2",
+  filter(Predictor == "PRS_noABCG2",
          !str_detect(Covariates, "AGECOL"),
          !str_detect(Cohort, "GlobalGout")) %>% 
-  separate(Cohort, into = c("Cohort", "Sex"), sep = " - ") %>% 
-  mutate(Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
                            !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
 
 gout <- metagen(TE = `log-odds`, 
                 seTE = SE, 
@@ -830,14 +1739,17 @@ gout <- metagen(TE = `log-odds`,
                 sm = "OR")
 
 tmp <- GoutModels %>% 
-  filter(Predictor == "PRS2_noABCG2",
+  filter(Predictor == "PRS_noABCG2",
          str_detect(Covariates, "AGECOL"),
          !str_detect(Cohort, "GlobalGout")) %>% 
-  separate(Cohort, into = c("Cohort", "Sex"), sep = " - ") %>% 
-  mutate(Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
                            !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
 
 gout_adj <- metagen(TE = `log-odds`, 
                     seTE = SE, 
@@ -847,8 +1759,8 @@ gout_adj <- metagen(TE = `log-odds`,
                     sm = "OR")
 
 forest(gout, 
-       xlim = c(1, 8),
-       at = c(1.0, 3.0, 6.0), 
+       xlim = c(0.5, 8),
+       at = c(0.5, 1.0, 2.0, 4.0, 8.0), 
        print.tau2 = F,
        print.byvar = F, 
        col.square.lines = "black", 
@@ -859,15 +1771,15 @@ forest(gout,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect on Gout per unit Genotyped PRS (no ABCG2)", "N case", "N control"),
+       leftlabs = c("Effect of PRS on Gout (no ABCG2)", "N case", "N control"),
        rightlabs = c("", "[95% CI]"),
        addrows.below.overall = 2, 
        comb.random = F,
        overall = F)
 
 forest(gout_adj, 
-       xlim = c(1, 8),
-       at = c(1.0, 3.0, 6.0), 
+       xlim = c(0.5, 8),
+       at = c(0.5, 1.0, 2.0, 4.0, 8.0), 
        print.tau2 = F,
        print.byvar = F, 
        col.square.lines = "black", 
@@ -878,7 +1790,7 @@ forest(gout_adj,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect on Gout per unit Genotyped PRS (no ABCG2)", "N case", "N control"),
+       leftlabs = c("Effect of PRS on Gout (no ABCG2 + age-adjusted)", "N case", "N control"),
        rightlabs = c("", "[95% CI]"),
        addrows.below.overall = 2, 
        comb.random = F,
@@ -887,1834 +1799,7 @@ forest(gout_adj,
 
 <br/>
 
-The following forest plots are for the effect of both PRS on either age at onset or tophi, with tophi models additionally adjusted for duration.
-
-```{r SeverityResults}
-# Age at Onset ------------------------------------------------------
-tmp <- OnsetModels %>% 
-  filter(Predictor == "PRS1",
-         N > 20) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         Beta = case_when(is.na(LCL) ~ NA_real_,
-                          TRUE ~ Beta))
-
-onset <- metagen(TE = Beta, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Sex,
-                 data = tmp)
-
-forest(onset, 
-       xlim = c(-15, 5),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Δ Age at Onset per unit Imputed PRS", "N"),
-       rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-tmp <- OnsetModels %>% 
-  filter(Predictor == "PRS1_noABCG2",
-         N > 20) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         Beta = case_when(is.na(LCL) ~ NA_real_,
-                          TRUE ~ Beta))
-
-onset <- metagen(TE = Beta, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Sex,
-                 data = tmp)
-
-forest(onset, 
-       xlim = c(-15, 5),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Δ Age at Onset per unit Imputed PRS (no ABCG2)", "N"),
-       rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-
-
-tmp <- OnsetModels %>% 
-  filter(Predictor == "PRS2") %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         Beta = case_when(is.na(LCL) ~ NA_real_,
-                          TRUE ~ Beta),
-         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-
-onset <- metagen(TE = Beta, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Label,
-                 data = tmp)
-
-tiff(file = here("Output/test.tiff"), units = "in", width = 10, height = 8, res = 300)
-
-forest(onset, 
-       xlim = c(-15, 5),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Δ Age at Onset per unit Genotyped PRS", "N"),
-       rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-dev.off()
-
-tmp <- OnsetModels %>% 
-  filter(Predictor == "PRS2_noABCG2") %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         Beta = case_when(is.na(LCL) ~ NA_real_,
-                          TRUE ~ Beta),
-         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-
-onset <- metagen(TE = Beta, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Label,
-                 data = tmp)
-
-forest(onset, 
-       xlim = c(-15, 5),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Δ Age at Onset per unit Genotyped PRS (no ABCG2)", "N"),
-       rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-
-# Tophi ---------------------------------------------------------
-tmp <- TophiModels %>% 
-  filter(Predictor == "PRS1",
-         !str_detect(Covariates, "DURATION")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`))
-
-tophi <- metagen(TE = `log-odds`, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Sex,
-                 data = tmp, 
-                 sm = "OR")
-
-tmp <- TophiModels %>% 
-  filter(Predictor == "PRS1",
-         str_detect(Covariates, "DURATION")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`))
-
-tophi_adj <- metagen(TE = `log-odds`, 
-                     seTE = SE, 
-                     studlab = Cohort,
-                     byvar = Sex,
-                     data = tmp, 
-                     sm = "OR")
-
-forest(tophi, 
-       xlim = c(0.3, 3),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Tophi per unit Imputed PRS", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-forest(tophi_adj, 
-       xlim = c(0.3, 3),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Tophi per unit Imputed PRS + Disease Duration", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-
-
-tmp <- TophiModels %>% 
-  filter(Predictor == "PRS1_noABCG2",
-         !str_detect(Covariates, "DURATION")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`))
-
-tophi <- metagen(TE = `log-odds`, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Sex,
-                 data = tmp, 
-                 sm = "OR")
-
-tmp <- TophiModels %>% 
-  filter(Predictor == "PRS1_noABCG2",
-         str_detect(Covariates, "DURATION")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`))
-
-tophi_adj <- metagen(TE = `log-odds`, 
-                     seTE = SE, 
-                     studlab = Cohort,
-                     byvar = Sex,
-                     data = tmp, 
-                     sm = "OR")
-
-forest(tophi, 
-       xlim = c(0.3, 3),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Tophi per unit Imputed PRS (no ABCG2)", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-forest(tophi_adj, 
-       xlim = c(0.3, 3),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Tophi per unit Imputed PRS (no ABCG2) + Disease Duration", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-
-
-tmp <- TophiModels %>% 
-  filter(Predictor == "PRS2",
-         !str_detect(Covariates, "DURATION")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`),
-         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-
-tophi <- metagen(TE = `log-odds`, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Label,
-                 data = tmp, 
-                 sm = "OR")
-
-tmp <- TophiModels %>% 
-  filter(Predictor == "PRS2",
-         str_detect(Covariates, "DURATION")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`),
-         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-
-tophi_adj <- metagen(TE = `log-odds`, 
-                     seTE = SE, 
-                     studlab = Cohort,
-                     byvar = Label,
-                     data = tmp, 
-                     sm = "OR")
-
-tiff(file = here("Output/test2.tiff"), units = "in", width = 10, height = 8, res = 300)
-
-forest(tophi, 
-       xlim = c(0.25, 4),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Tophi per unit Genotyped PRS", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-dev.off()
-
-tiff(file = here("Output/test3.tiff"), units = "in", width = 10, height = 8, res = 300)
-
-forest(tophi_adj, 
-       xlim = c(0.25, 4),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Tophi per unit Genotyped PRS + Disease Duration", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-dev.off()
-
-
-
-tmp <- TophiModels %>% 
-  filter(Predictor == "PRS2_noABCG2",
-         !str_detect(Covariates, "DURATION")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`),
-         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-
-tophi <- metagen(TE = `log-odds`, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Label,
-                 data = tmp, 
-                 sm = "OR")
-
-tmp <- TophiModels %>% 
-  filter(Predictor == "PRS2_noABCG2",
-         str_detect(Covariates, "DURATION")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`),
-         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-
-tophi_adj <- metagen(TE = `log-odds`, 
-                     seTE = SE, 
-                     studlab = Cohort,
-                     byvar = Label,
-                     data = tmp, 
-                     sm = "OR")
-
-forest(tophi, 
-       xlim = c(0.3, 3),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Tophi per unit Genotyped PRS (no ABCG2)", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-forest(tophi_adj, 
-       xlim = c(0.3, 3),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N case", "N control"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Tophi per unit Genotyped PRS (no ABCG2) + Disease Duration", "N case", "N control"),
-       rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-
-# Flares
-# tmp <- FlareModels1 %>% 
-#   filter(Predictor == "PRS1") %>% 
-#   mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-#                          str_detect(Cohort, "Female") ~ "Female"),
-#          Cohort = str_remove(Cohort, " - Male| - Female"),
-#          `log-odds` = case_when(LCL == 0 ~ NA_real_,
-#                         TRUE ~ `log-odds`))
-# 
-# flares <- metagen(TE = `log-odds`, 
-#                  seTE = SE, 
-#                  studlab = Cohort,
-#                  byvar = Sex,
-#                  data = tmp, 
-#                  sm = "OR")
-# 
-# forest(flares, 
-#        #xlim = c(0.3, 3),
-#        #at = c(1.0, 2.0, 3.0), 
-#        print.tau2 = F,
-#        print.byvar = F, 
-#        col.square.lines = "black", 
-#        col.diamond.lines = "black",
-#        col.diamond = "#1e6b52",
-#        col.square = "#aa9767",
-#        col.study = "gray60",
-#        col.by = "black",
-#        leftcols = c("studlab", "N"),
-#        rightcols = c("effect", "ci"),
-#        leftlabs = c("Flare category per unit Imputed PRS", "N"),
-#        rightlabs = c("", "[95% CI]"),
-#        addrows.below.overall = 2, 
-#        comb.random = F,
-#        overall = F)
-# 
-# 
-# 
-# tmp <- FlareModels1 %>% 
-#   filter(Predictor == "PRS2") %>% 
-#   mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-#                          str_detect(Cohort, "Female") ~ "Female"),
-#          Cohort = str_remove(Cohort, " - Male| - Female"),
-#          `log-odds` = case_when(LCL == 0 ~ NA_real_,
-#                         TRUE ~ `log-odds`),
-#          Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-#                            !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-#                            str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-#                            str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-# 
-# flares <- metagen(TE = `log-odds`, 
-#                  seTE = SE, 
-#                  studlab = Cohort,
-#                  byvar = Label,
-#                  data = tmp, 
-#                  sm = "OR")
-# 
-# forest(flares, 
-#        #xlim = c(0.3, 3),
-#        #at = c(1.0, 2.0, 3.0), 
-#        print.tau2 = F,
-#        print.byvar = F, 
-#        col.square.lines = "black", 
-#        col.diamond.lines = "black",
-#        col.diamond = "#1e6b52",
-#        col.square = "#aa9767",
-#        col.study = "gray60",
-#        col.by = "black",
-#        leftcols = c("studlab", "N"),
-#        rightcols = c("effect", "ci"),
-#        leftlabs = c("Flares per unit Genotyped PRS", "N"),
-#        rightlabs = c("", "[95% CI]"),
-#        addrows.below.overall = 2, 
-#        comb.random = F,
-#        overall = F)
-# 
-# 
-# 
-# # Flares2
-# tmp <- FlareModels2 %>% 
-#   filter(Predictor == "PRS1") %>% 
-#   mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-#                          str_detect(Cohort, "Female") ~ "Female"),
-#          Cohort = str_remove(Cohort, " - Male| - Female"),
-#          `log-odds` = case_when(LCL == 0 ~ NA_real_,
-#                         TRUE ~ `log-odds`))
-# 
-# flares <- metagen(TE = `log-odds`, 
-#                  seTE = SE, 
-#                  studlab = Cohort,
-#                  byvar = Sex,
-#                  data = tmp, 
-#                  sm = "OR")
-# 
-# forest(flares, 
-#        #xlim = c(0.3, 3),
-#        #at = c(1.0, 2.0, 3.0), 
-#        print.tau2 = F,
-#        print.byvar = F, 
-#        col.square.lines = "black", 
-#        col.diamond.lines = "black",
-#        col.diamond = "#1e6b52",
-#        col.square = "#aa9767",
-#        col.study = "gray60",
-#        col.by = "black",
-#        leftcols = c("studlab", "N"),
-#        rightcols = c("effect", "ci"),
-#        leftlabs = c("Flare category per unit Imputed PRS", "N"),
-#        rightlabs = c("", "[95% CI]"),
-#        addrows.below.overall = 2, 
-#        comb.random = F,
-#        overall = F)
-# 
-# 
-# 
-# tmp <- FlareModels2 %>% 
-#   filter(Predictor == "PRS2") %>% 
-#   mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-#                          str_detect(Cohort, "Female") ~ "Female"),
-#          Cohort = str_remove(Cohort, " - Male| - Female"),
-#          `log-odds` = case_when(LCL == 0 ~ NA_real_,
-#                         TRUE ~ `log-odds`),
-#          Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-#                            !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-#                            str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-#                            str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-# 
-# flares <- metagen(TE = `log-odds`, 
-#                  seTE = SE, 
-#                  studlab = Cohort,
-#                  byvar = Label,
-#                  data = tmp, 
-#                  sm = "OR")
-# 
-# forest(flares, 
-#        #xlim = c(0.3, 3),
-#        #at = c(1.0, 2.0, 3.0), 
-#        print.tau2 = F,
-#        print.byvar = F, 
-#        col.square.lines = "black", 
-#        col.diamond.lines = "black",
-#        col.diamond = "#1e6b52",
-#        col.square = "#aa9767",
-#        col.study = "gray60",
-#        col.by = "black",
-#        leftcols = c("studlab", "N"),
-#        rightcols = c("effect", "ci"),
-#        leftlabs = c("Flares per unit Genotyped PRS", "N"),
-#        rightlabs = c("", "[95% CI]"),
-#        addrows.below.overall = 2, 
-#        comb.random = F,
-#        overall = F)
-```
-
-<br/>
-
-These plots now aim to display the variants that were individually significant after multiple testing correction for each of the PRS models that were significant at the 0.05 level. Where appropriate, these were tested via meta-analysis to reflect the results from the full PRS models.
-
-```{r IndividualVariants}
-# The below list indicates which overall PRS models were significant, to inform which individual variants should be tested
-
-# Gout vs Imputed PRS (unadj and adj for AGECOL) = European Males and European Females
-# 
-# Gout vs Genotyped PRS (unadj and adj for AGECOL) = European Males, European Females, East Poly Males, West Poly Males, East Poly Females, and West Poly Females
-# 
-# Onset vs Imputed PRS (unadj) = European Males only
-# 
-# Onset vs Genotyped PRS (unadj) = European Males, East Polynesian Males, and West Polynesian Males
-# 
-# Tophi vs Imputed PRS (unadj) = European Males only
-# 
-# Tophi vs Imputed PRS (adj for DURATION) = European Males only (borderline)
-# 
-# Tophi vs Genotyped PRS (unadj) = European Males, East Polynesian Males, and West Polynesian Males
-# 
-# Tophi vs Genotyped PRS (adj for DURATION) = East Polynesian Males only
-# 
-# Flares (all categories) vs Imputed PRS (unadj) = All Non-Sig
-# 
-# Flares (all cat) vs Genotyped PRS (unadj) = Fixed Poly Male (but not individually)
-# 
-# Flares (> 2 categories) vs Imputed PRS (unadj) = All Non-Sig
-# 
-# Flares (> 2 cat) vs Genotyped PRS (unadj) = West Poly Male and Fixed Poly Male
-
-# Preparing data
-tmp <- UKBB_Gene_OR %>% 
-  select(CHR, BP, Locus_Name, RSID) %>% 
-  mutate(Label = paste0(Locus_Name, " (", RSID, ")"))
-
-tmp2 <- Poly_Gene_OR %>% 
-  select(CHR, BP, Locus_Name, RSID) %>% 
-  mutate(Label = paste0(Locus_Name, " (", RSID, ")"))
-
-tmp <- rbind(tmp, tmp2) %>% 
-  unique() %>% 
-  select(-Locus_Name) %>% 
-  arrange(CHR, BP)
-
-tmp <- rbind(list("CHR" = NA_real_, "BP" = NA_real_, "RSID" = "PRS1", "Label" = "Imputed PRS"), 
-             list("CHR" = NA_real_, "BP" = NA_real_, "RSID" = "PRS2", "Label" = "Genotyped PRS")) %>% 
-  rbind(tmp) %>% 
-  mutate(CHR = as.numeric(CHR),
-         BP = as.numeric(BP),
-         RSID = as.character(RSID),
-         Label = factor(Label, levels = c("Imputed PRS", "Genotyped PRS", tmp$Label))) %>% 
-  select(RSID, Label)
-
-GoutModels2 <- GoutModels %>% 
-  mutate(Predictor = as.character(Predictor)) %>% 
-  left_join(tmp, by = c("Predictor" = "RSID")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         Cohort = factor(Cohort, levels = c("West Polynesian", "East Polynesian", "GlobalGout", "Aus/NZ European", "UK Biobank")))
-
-OnsetModels2 <- OnsetModels %>% 
-  mutate(Predictor = as.character(Predictor)) %>% 
-  left_join(tmp, by = c("Predictor" = "RSID")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"))
-
-TophiModels2 <- TophiModels %>% 
-  mutate(Predictor = as.character(Predictor)) %>% 
-  left_join(tmp, by = c("Predictor" = "RSID")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"))
-
-# FlareModels3 <- FlareModels1 %>% 
-#   mutate(Predictor = as.character(Predictor)) %>% 
-#   left_join(tmp, by = c("Predictor" = "RSID")) %>% 
-#   mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-#                          str_detect(Cohort, "Female") ~ "Female"),
-#          Cohort = str_remove(Cohort, " - Male| - Female"))
-# 
-# FlareModels4 <- FlareModels2 %>% 
-#   mutate(Predictor = as.character(Predictor)) %>% 
-#   left_join(tmp, by = c("Predictor" = "RSID")) %>% 
-#   mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-#                          str_detect(Cohort, "Female") ~ "Female"),
-#          Cohort = str_remove(Cohort, " - Male| - Female"))
-
-
-
-# Imputed PRS Gout models ------------------------------------------------
-# Unadjusted
-tmp <- GoutModels %>%
-  filter(Predictor %in% UKBB_Gene_OR$RSID,
-         str_detect(Cohort, "Aus"),
-         str_detect(Cohort, "Male"),
-         !str_detect(Covariates, "AGECOL"),
-         !str_detect(Predictors, "rs10910845"),
-         Pval < 0.05 / nrow(UKBB_Gene_OR))
-
-GoutModels2 %>%
-  filter(Predictor %in% tmp$Predictor,
-         Sex == "Male",
-         !str_detect(Cohort, "Polynesian|GlobalGout"),
-         !str_detect(Covariates, "AGECOL"),
-         !str_detect(Predictors, "rs10910845")) %>% 
-  ggplot(aes(x = OR, y = Label, color = Cohort)) +
-  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.5)) +
-  labs(x = "Odds Ratio for Gout per Allele (95% CI)",
-       title = "Gout vs Imputed Variants (Males Only) - Unadjusted",
-       subtitle = "Showing Variants with Significance after Bonferroni Correction") +
-  geom_vline(xintercept = 1, color = "black") +
-  scale_x_continuous(trans = "log2") +
-  scale_y_discrete(limits = rev) +
-  scale_color_discrete(limits = rev) +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank())
-
-
-tmp <- GoutModels %>%
-  filter(Predictor %in% UKBB_Gene_OR$RSID,
-         str_detect(Cohort, "Aus"),
-         !str_detect(Cohort, "Male"),
-         !str_detect(Covariates, "AGECOL"),
-         !str_detect(Predictors, "rs10910845"),
-         Pval < 0.05 / nrow(UKBB_Gene_OR))
-
-GoutModels2 %>%
-  filter(Predictor %in% tmp$Predictor,
-         Sex == "Female",
-         !str_detect(Cohort, "Polynesian|GlobalGout"),
-         !str_detect(Covariates, "AGECOL"),
-         !str_detect(Predictors, "rs10910845")) %>% 
-  ggplot(aes(x = OR, y = Label, color = Cohort)) +
-  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.5)) +
-  labs(x = "Odds Ratio for Gout per Allele (95% CI)",
-       title = "Gout vs Imputed Variants (Females Only) - Unadjusted",
-       subtitle = "Showing Variants with Significance after Bonferroni Correction") +
-  geom_vline(xintercept = 1, color = "black") +
-  scale_x_continuous(trans = "log2") +
-  scale_y_discrete(limits = rev) +
-  scale_color_discrete(limits = rev) +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank())
-
-# Adjusted
-tmp <- GoutModels %>%
-  filter(Predictor %in% UKBB_Gene_OR$RSID,
-         str_detect(Cohort, "Aus"),
-         str_detect(Cohort, "Male"),
-         str_detect(Covariates, "AGECOL"),
-         !str_detect(Predictors, "rs10910845"),
-         Pval < 0.05 / nrow(UKBB_Gene_OR))
-
-GoutModels2 %>%
-  filter(Predictor %in% tmp$Predictor,
-         Sex == "Male",
-         !str_detect(Cohort, "Polynesian|GlobalGout"),
-         str_detect(Covariates, "AGECOL"),
-         !str_detect(Predictors, "rs10910845")) %>% 
-  ggplot(aes(x = OR, y = Label, color = Cohort)) +
-  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.5)) +
-  labs(x = "Odds Ratio for Gout per Allele (95% CI)",
-       title = "Gout vs Imputed Variants (Males Only) - Adjusted for Age at Collection",
-       subtitle = "Showing Variants with Significance after Bonferroni Correction") +
-  geom_vline(xintercept = 1, color = "black") +
-  scale_x_continuous(trans = "log2") +
-  scale_y_discrete(limits = rev) +
-  scale_color_discrete(limits = rev) +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank())
-
-
-tmp <- GoutModels %>%
-  filter(Predictor %in% UKBB_Gene_OR$RSID,
-         str_detect(Cohort, "Aus"),
-         !str_detect(Cohort, "Male"),
-         str_detect(Covariates, "AGECOL"),
-         !str_detect(Predictors, "rs10910845"),
-         Pval < 0.05 / nrow(UKBB_Gene_OR)) # empty
-
-
-
-# Genotyped PRS gout models ---------------------------------------------
-# Unadjusted
-tmp <- GoutModels %>%
-  filter(Predictor %in% Poly_Gene_OR$RSID,
-         !str_detect(Cohort, "UK|Global"),
-         str_detect(Cohort, "Male"),
-         !str_detect(Covariates, "AGECOL"),
-         str_detect(Predictors, "rs10910845"),
-         Pval < 0.05 / nrow(Poly_Gene_OR))
-
-GoutModels2 %>%
-  filter(Predictor %in% tmp$Predictor,
-         !str_detect(Cohort, "Global"),
-         Sex == "Male",
-         !str_detect(Covariates, "AGECOL"),
-         str_detect(Predictors, "rs10910845")) %>% 
-  ggplot(aes(x = OR, y = Label, color = Cohort)) +
-  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.5)) +
-  labs(x = "Odds Ratio for Gout per Allele (95% CI)",
-       title = "Gout vs Genotyped Variants (Males Only) - Unadjusted",
-       subtitle = "Showing Variants with Significance after Bonferroni Correction") +
-  geom_vline(xintercept = 1, color = "black") +
-  scale_x_continuous(trans = "log2") +
-  scale_y_discrete(limits = rev) +
-  scale_color_discrete(limits = rev) +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank())
-
-
-tmp <- GoutModels %>%
-  filter(Predictor %in% Poly_Gene_OR$RSID,
-         !str_detect(Cohort, "UK|Global"),
-         !str_detect(Cohort, "Male"),
-         !str_detect(Covariates, "AGECOL"),
-         str_detect(Predictors, "rs10910845"),
-         Pval < 0.05 / nrow(Poly_Gene_OR))
-
-GoutModels2 %>%
-  filter(Predictor %in% tmp$Predictor,
-         !str_detect(Cohort, "Global"),
-         Sex == "Female",
-         !str_detect(Covariates, "AGECOL"),
-         str_detect(Predictors, "rs10910845")) %>% 
-  ggplot(aes(x = OR, y = Label, color = Cohort)) +
-  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.5)) +
-  labs(x = "Odds Ratio for Gout per Allele (95% CI)",
-       title = "Gout vs Genotyped Variants (Females Only) - Unadjusted",
-       subtitle = "Showing Variants with Significance after Bonferroni Correction") +
-  geom_vline(xintercept = 1, color = "black") +
-  scale_x_continuous(trans = "log2") +
-  scale_y_discrete(limits = rev) +
-  scale_color_discrete(limits = rev) +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank())
-
-# Adjusted
-tmp <- GoutModels %>%
-  filter(Predictor %in% Poly_Gene_OR$RSID,
-         !str_detect(Cohort, "UK|Global"),
-         str_detect(Cohort, "Male"),
-         str_detect(Covariates, "AGECOL"),
-         str_detect(Predictors, "rs10910845"),
-         Pval < 0.05 / nrow(Poly_Gene_OR))
-
-GoutModels2 %>%
-  filter(Predictor %in% tmp$Predictor,
-         !str_detect(Cohort, "Global"),
-         Sex == "Male",
-         str_detect(Covariates, "AGECOL"),
-         str_detect(Predictors, "rs10910845")) %>% 
-  ggplot(aes(x = OR, y = Label, color = Cohort)) +
-  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.5)) +
-  labs(x = "Odds Ratio for Gout per Allele (95% CI)",
-       title = "Gout vs Genotyped Variants (Males Only) - Adjusted for Age at Collection",
-       subtitle = "Showing Variants with Significance after Bonferroni Correction") +
-  geom_vline(xintercept = 1, color = "black") +
-  scale_x_continuous(trans = "log2") +
-  scale_y_discrete(limits = rev) +
-  scale_color_discrete(limits = rev) +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank())
-
-
-tmp <- GoutModels %>%
-  filter(Predictor %in% Poly_Gene_OR$RSID,
-         !str_detect(Cohort, "UK|Global"),
-         !str_detect(Cohort, "Male"),
-         str_detect(Covariates, "AGECOL"),
-         str_detect(Predictors, "rs10910845"),
-         Pval < 0.05 / nrow(Poly_Gene_OR))
-
-GoutModels2 %>%
-  filter(Predictor %in% tmp$Predictor,
-         !str_detect(Cohort, "Global"),
-         Sex == "Female",
-         str_detect(Covariates, "AGECOL"),
-         str_detect(Predictors, "rs10910845")) %>%
-  ggplot(aes(x = OR, y = Label, color = Cohort)) +
-  geom_pointrange(aes(xmin = LCL, xmax = UCL), position = position_dodge(width = 0.5)) +
-  labs(x = "Odds Ratio for Gout per Allele (95% CI)",
-       title = "Gout vs Genotyped Variants (Females Only) - Adjusted for Age at Collection",
-       subtitle = "Showing Variants with Significance after Bonferroni Correction") +
-  geom_vline(xintercept = 1, color = "black") +
-  scale_x_continuous(trans = "log2") +
-  scale_y_discrete(limits = rev) +
-  scale_color_discrete(limits = rev) +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank())
-
-
-
-# Onset models ------------------------------------------------------------
-# Imputed PRS SNPs in European Males
-snps <- UKBB_Gene_OR$RSID
-
-out <- data.frame("SNP" = "NA", "Beta" = NA_real_, "LCL" = NA_real_, "UCL" = NA_real_, "P" = NA_real_) %>% 
-  slice(-1)
-for(i in seq_along(snps)){
-  tmp <- OnsetModels2 %>% 
-    filter(Sex == "Male",
-           !str_detect(Cohort, "Polynesian"),
-           !str_detect(Predictors, "rs10910845"),
-           Predictor == snps[i])
-  
-  onset <- metagen(TE = Beta, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   data = tmp)
-  
-  out <- rbind(out, list("SNP" = snps[i], "Beta" = onset$TE.fixed, "LCL" = onset$lower.fixed, "UCL" = onset$upper.fixed, "P" = onset$pval.fixed))
-}
-
-tmp <- OnsetModels2 %>% 
-  select(Predictor, Label)
-
-out %>% 
-  filter(P < 0.05 / length(snps)) %>% 
-  left_join(tmp, by = c("SNP" = "Predictor")) %>% 
-  ggplot(aes(x = Beta, y = Label)) +
-  geom_pointrange(aes(xmin = LCL, xmax = UCL), color = "darkgreen") +
-  labs(x = "Change in Age at Onset (years) per Allele (95% CI)",
-       title = "Onset vs Imputed Variants (Males Only)",
-       subtitle = "Showing Variants with Significance after Bonferroni Correction") +
-  geom_vline(xintercept = 0, color = "black") +
-  scale_y_discrete(limits = rev) +
-  theme(axis.title.y = element_blank(),
-        legend.title = element_blank(),
-        plot.title.position = "plot")
-
-
-# Genotyped SNPs in all three male cohorts
-snps <- Poly_Gene_OR$RSID
-
-out <- data.frame("SNP" = "NA", "Beta" = NA_real_, "LCL" = NA_real_, "UCL" = NA_real_, "P" = NA_real_) %>% 
-  slice(-1)
-for(i in seq_along(snps)){
-  tmp <- OnsetModels2 %>% 
-    filter(Sex == "Male",
-           !str_detect(Cohort, "Polynesian"),
-           str_detect(Predictors, "rs10910845"),
-           Predictor == snps[i])
-  
-  onset <- metagen(TE = Beta, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   data = tmp)
-  
-  out <- rbind(out, list("SNP" = snps[i], "Beta" = onset$TE.fixed, "LCL" = onset$lower.fixed, "UCL" = onset$upper.fixed, "P" = onset$pval.fixed))
-}
-
-test <- out %>% 
-  filter(P < 0.05 / length(snps)) %>% 
-  pull(SNP)
-
-test2 <- OnsetModels2 %>% 
-  filter(Sex == "Male",
-         str_detect(Cohort, "Polynesian"),
-         str_detect(Predictors, "rs10910845"),
-         Predictor %in% snps,
-         Pval < 0.05 / length(snps)) %>% 
-  pull(Predictor)
-
-snplist <- c(test, test2) %>%
-  unique()
-
-OnsetModels3 <- OnsetModels2 %>% 
-  mutate(Group = case_when(str_detect(Cohort, "Polynesian") ~ "Polynesian",
-                           TRUE ~ "European"))
-
-for(i in snplist){
-  tmp <- OnsetModels3 %>% 
-           filter(Sex == "Male",
-                  str_detect(Predictors, "rs10910845"), 
-                  Predictor == i)
-  
-  assign(i, metagen(TE = Beta, 
-                             seTE = SE, 
-                             studlab = Cohort,
-                             byvar = Group,
-                             data = tmp))
-  
-  forest(get(i), 
-         xlim = c(-15, 5),
-         #at = c(1.0, 2.0, 3.0), 
-         print.tau2 = F,
-         print.byvar = F, 
-         col.square.lines = "black", 
-         col.diamond.lines = "black",
-         col.diamond = "#1e6b52",
-         col.square = "#aa9767",
-         col.study = "gray60",
-         col.by = "black",
-         leftcols = c("studlab", "N"),
-         rightcols = c("effect", "ci"),
-         leftlabs = c(paste0("Δ Age at Onset per ", i, " allele"), "N"),
-         rightlabs = c("Beta (years)", "[95% CI]"),
-         addrows.below.overall = 2, 
-         comb.random = F,
-         overall = F)
-}
-
-
-
-# Tophi models -----------------------------------------------------------
-# Tophi vs Imputed PRS (unadj) = European Males only
-snps <- UKBB_Gene_OR$RSID
-
-out <- data.frame("SNP" = "NA", "OR" = NA_real_, "LCL" = NA_real_, "UCL" = NA_real_, "P" = NA_real_) %>% 
-  slice(-1)
-for(i in seq_along(snps)){
-  tmp <- TophiModels2 %>% 
-    filter(Sex == "Male",
-           !str_detect(Cohort, "Polynesian"),
-           !str_detect(Covariates, "DURATION"),
-           !str_detect(Predictors, "rs10910845"),
-           LCL != 0,
-           Predictor == snps[i])
-  
-  tophi <- metagen(TE = `log-odds`, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   data = tmp,
-                   sm = "OR")
-  
-  out <- rbind(out, list("SNP" = snps[i], "OR" = exp(tophi$TE.fixed), "LCL" = exp(tophi$lower.fixed), "UCL" = exp(tophi$upper.fixed), "P" = tophi$pval.fixed))
-}
-
-out %>% 
-  filter(P < 0.05 / length(snps)) %>% 
-  nrow()
-
-# Tophi vs Imputed PRS (adj for DURATION) = European Males only (borderline)
-out <- data.frame("SNP" = "NA", "OR" = NA_real_, "LCL" = NA_real_, "UCL" = NA_real_, "P" = NA_real_) %>% 
-  slice(-1)
-for(i in seq_along(snps)){
-  tmp <- TophiModels2 %>% 
-    filter(Sex == "Male",
-           !str_detect(Cohort, "Polynesian"),
-           str_detect(Covariates, "DURATION"),
-           !str_detect(Predictors, "rs10910845"),
-           LCL != 0,
-           Predictor == snps[i])
-  
-  tophi <- metagen(TE = `log-odds`, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   data = tmp,
-                   sm = "OR")
-  
-  out <- rbind(out, list("SNP" = snps[i], "OR" = exp(tophi$TE.fixed), "LCL" = exp(tophi$lower.fixed), "UCL" = exp(tophi$upper.fixed), "P" = tophi$pval.fixed))
-}
-
-out %>% 
-  filter(P < 0.05 / length(snps)) %>% 
-  nrow() 
-
-
-# Tophi vs Genotyped PRS (unadj) = European Males, East Polynesian Males, and West Polynesian Males
-snps <- Poly_Gene_OR$RSID
-
-out <- data.frame("SNP" = "NA", "OR" = NA_real_, "LCL" = NA_real_, "UCL" = NA_real_, "P" = NA_real_) %>% 
-  slice(-1)
-for(i in seq_along(snps)){
-  tmp <- TophiModels2 %>% 
-    filter(Sex == "Male",
-           #!str_detect(Cohort, "Polynesian"),
-           !str_detect(Covariates, "DURATION"),
-           str_detect(Predictors, "rs10910845"),
-           LCL != 0,
-           Predictor == snps[i])
-  
-  tophi <- metagen(TE = `log-odds`, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   data = tmp,
-                   sm = "OR")
-  
-  out <- rbind(out, list("SNP" = snps[i], "OR" = exp(tophi$TE.fixed), "LCL" = exp(tophi$lower.fixed), "UCL" = exp(tophi$upper.fixed), "P" = tophi$pval.fixed))
-}
-
-out %>% 
-  filter(P < 0.05 / length(snps)) %>% 
-  nrow()
-
-# Tophi vs Genotyped PRS (adj for DURATION) = East Polynesian Males only
-tmp <- TophiModels2 %>% 
-  filter(Sex == "Male",
-         str_detect(Cohort, "East Polynesian"),
-         str_detect(Covariates, "DURATION"),
-         str_detect(Predictors, "rs10910845"),
-         LCL != 0,
-         Predictor %in% snps,
-         Pval < 0.05 / length(snps))
- 
-# Flares (all cat) vs Genotyped PRS (unadj) = Fixed Poly Male (but not individually)
-# snps <- Poly_Gene_OR$RSID
-# 
-# out <- data.frame("SNP" = "NA", "OR" = NA_real_, "LCL" = NA_real_, "UCL" = NA_real_, "P" = NA_real_) %>% 
-#   slice(-1)
-# for(i in seq_along(snps)){
-#   tmp <- FlareModels3 %>% 
-#     filter(Sex == "Male",
-#            str_detect(Cohort, "Polynesian"),
-#            LCL != 0,
-#            Predictor == snps[i])
-#   
-#   tophi <- metagen(TE = `log-odds`, 
-#                    seTE = SE, 
-#                    studlab = Cohort,
-#                    data = tmp,
-#                    sm = "OR")
-#   
-#   out <- rbind(out, list("SNP" = snps[i], "OR" = exp(tophi$TE.fixed), "LCL" = exp(tophi$lower.fixed), "UCL" = exp(tophi$upper.fixed), "P" = tophi$pval.fixed))
-# }
-# 
-# out %>% 
-#   filter(P < 0.05 / length(snps)) %>% 
-#   nrow()
-# 
-# 
-# # Flares (> 2 cat) vs Genotyped PRS (unadj) = West Poly Male and Fixed Poly Male
-# snps <- Poly_Gene_OR$RSID
-# 
-# out <- data.frame("SNP" = "NA", "OR" = NA_real_, "LCL" = NA_real_, "UCL" = NA_real_, "P" = NA_real_) %>% 
-#   slice(-1)
-# for(i in seq_along(snps)){
-#   tmp <- FlareModels4 %>% 
-#     filter(Sex == "Male",
-#            str_detect(Cohort, "Polynesian"),
-#            LCL != 0,
-#            Predictor == snps[i])
-#   
-#   tophi <- metagen(TE = `log-odds`, 
-#                    seTE = SE, 
-#                    studlab = Cohort,
-#                    data = tmp,
-#                    sm = "OR")
-#   
-#   out <- rbind(out, list("SNP" = snps[i], "OR" = exp(tophi$TE.fixed), "LCL" = exp(tophi$lower.fixed), "UCL" = exp(tophi$upper.fixed), "P" = tophi$pval.fixed))
-# }
-# 
-# out %>% 
-#   filter(P < 0.05 / length(snps)) %>% 
-#   nrow()
-```
-
-```{r ABCG2Plot}
-tmp <- OnsetModels %>% 
-  filter(Predictor == "PRS2_noABCG2") %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         Beta = case_when(is.na(LCL) ~ NA_real_,
-                          TRUE ~ Beta),
-         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-
-onset <- metagen(TE = Beta, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Label,
-                 data = tmp)
-
-tiff(file = here("Output/test4.tiff"), units = "in", width = 10, height = 8, res = 300)
-
-forest(onset, 
-       xlim = c(-15, 5),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Δ Age at Onset per unit Genotyped PRS (no ABCG2)", "N"),
-       rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-dev.off()
-
-tmp <- OnsetModels %>% 
-  filter(Predictor == "rs2231142",
-         str_detect(Predictors, "rs10910845")) %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         Beta = case_when(is.na(LCL) ~ NA_real_,
-                          TRUE ~ Beta),
-         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
-                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
-                           str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "Polynesian Male",
-                           str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "Polynesian Female"))
-
-onset <- metagen(TE = Beta, 
-                 seTE = SE, 
-                 studlab = Cohort,
-                 byvar = Label,
-                 data = tmp)
-
-tiff(file = here("Output/test5.tiff"), units = "in", width = 10, height = 8, res = 300)
-
-forest(onset, 
-       xlim = c(-10, 5),
-       #at = c(1.0, 2.0, 3.0), 
-       print.tau2 = F,
-       print.byvar = F, 
-       col.square.lines = "black", 
-       col.diamond.lines = "black",
-       col.diamond = "#1e6b52",
-       col.square = "#aa9767",
-       col.study = "gray60",
-       col.by = "black",
-       leftcols = c("studlab", "N"),
-       rightcols = c("effect", "ci"),
-       leftlabs = c("Δ Age at Onset per rs2231142 (ABCG2) allele", "N"),
-       rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
-       overall = F)
-
-dev.off()
-```
-
-```{r makingtables, eval = F, include = F}
-tmp <- GoutModels %>% 
-  mutate(PRS = case_when(str_detect(Predictors, "PRS1") | str_detect(Predictors, "738408") ~ "Imputed",
-                         str_detect(Predictors, "PRS2") | str_detect(Predictors, "738409") ~ "Genotyped"),
-         LCL = sprintf(LCL, fmt = "%#.2f"),
-         UCL = sprintf(UCL, fmt = "%#.2f"),
-         OR = sprintf(OR, fmt = "%#.2f"),
-         CI = paste0("[", LCL, ", ", UCL, "]"),
-         Adjusted = case_when(str_detect(Covariates, "AGECOL") ~ TRUE,
-                              TRUE ~ FALSE)) %>% 
-  separate(Cohort, sep = " - ", into = c("Cohort", "Sex")) %>% 
-  select(Cohort, Sex, Adjusted, Predictor, PRS, OR, CI, Pval)
-
-write_csv(tmp, file = here("Output/Tables/GoutMod.csv"))
-
-
-# Onset models --------------------------------------------
-tmp <- OnsetModels %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         PRS = case_when(str_detect(Predictors, "PRS1") | str_detect(Predictors, "738408") ~ "Imputed",
-                         str_detect(Predictors, "PRS2") | str_detect(Predictors, "738409") ~ "Genotyped"),
-         LCL = sprintf(LCL, fmt = "%#.2f"),
-         UCL = sprintf(UCL, fmt = "%#.2f"),
-         Beta = sprintf(Beta, fmt = "%#.2f"),
-         CI = paste0("[", LCL, ", ", UCL, "]")) %>% 
-  select(Cohort, Sex, Predictor, PRS, Beta, CI, Pval)
-
-tmp1 <- tmp %>% 
-  filter(str_detect(Cohort, "Polynesian"))
-
-write_csv(tmp1, file = here("Output/Tables/OnsetMod1.csv"))
-
-tmp <- OnsetModels %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         PRS = case_when(str_detect(Predictors, "PRS1") | str_detect(Predictors, "738408") ~ "Imputed",
-                         str_detect(Predictors, "PRS2") | str_detect(Predictors, "738409") ~ "Genotyped")) %>% 
-  select(Cohort, Sex, PRS, Predictor, Beta, SE)
-
-tmp2 <- tmp %>% 
-  filter(PRS == "Genotyped",
-         !str_detect(Cohort, "Polynesian"))
-
-snplist <- c("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
-
-out <- tibble("Predictor" = "test",
-              "Male Beta" = 1,
-              "Male LCL" = 1,
-              "Male UCL" = 1,
-              "Male Pval" = 1,
-              "Female Beta" = 1,
-              "Female LCL" = 1,
-              "Female UCL" = 1,
-              "Female Pval" = 1)
-
-for(i in seq_along(snplist)){
-  tmp3 <- tmp2 %>% 
-    filter(Predictor == snplist[i])
-  
-  onset <- metagen(TE = Beta, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   byvar = Sex,
-                   data = tmp3)
-  
-  out <- rbind(out,
-               list(snplist[i],
-                    onset$TE.fixed.w[[1]],
-                    onset$lower.fixed.w[[1]],
-                    onset$upper.fixed.w[[1]],
-                    onset$pval.fixed.w[[1]],
-                    onset$TE.fixed.w[[2]],
-                    onset$lower.fixed.w[[2]],
-                    onset$upper.fixed.w[[2]],
-                    onset$pval.fixed.w[[2]]))
-}
-
-out1 <- out %>% 
-  slice(-1) %>% 
-  mutate(PRS = "Genotyped",
-         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
-         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
-         `Male Beta` = sprintf(`Male Beta`, fmt = "%#.2f"),
-         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
-         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
-         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
-         `Female Beta` = sprintf(`Female Beta`, fmt = "%#.2f"),
-         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
-  select(PRS, Predictor, `Male Beta`, `Male CI`, `Male Pval`, `Female Beta`, `Female CI`, `Female Pval`)
-
-
-tmp2 <- tmp %>% 
-  filter(PRS == "Imputed",
-         !str_detect(Cohort, "Polynesian"))
-
-snplist <- c("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID)
-
-out <- tibble("Predictor" = "test",
-              "Male Beta" = 1,
-              "Male LCL" = 1,
-              "Male UCL" = 1,
-              "Male Pval" = 1,
-              "Female Beta" = 1,
-              "Female LCL" = 1,
-              "Female UCL" = 1,
-              "Female Pval" = 1)
-
-for(i in seq_along(snplist)){
-  tmp3 <- tmp2 %>% 
-    filter(Predictor == snplist[i])
-  
-  onset <- metagen(TE = Beta, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   byvar = Sex,
-                   data = tmp3)
-  
-  out <- rbind(out,
-               list(snplist[i],
-                    onset$TE.fixed.w[[1]],
-                    onset$lower.fixed.w[[1]],
-                    onset$upper.fixed.w[[1]],
-                    onset$pval.fixed.w[[1]],
-                    onset$TE.fixed.w[[2]],
-                    onset$lower.fixed.w[[2]],
-                    onset$upper.fixed.w[[2]],
-                    onset$pval.fixed.w[[2]]))
-}
-
-out2 <- out %>% 
-  slice(-1) %>% 
-  mutate(PRS = "Imputed",
-         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
-         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
-         `Male Beta` = sprintf(`Male Beta`, fmt = "%#.2f"),
-         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
-         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
-         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
-         `Female Beta` = sprintf(`Female Beta`, fmt = "%#.2f"),
-         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
-  select(PRS, Predictor, `Male Beta`, `Male CI`, `Male Pval`, `Female Beta`, `Female CI`, `Female Pval`)
-
-final <- rbind(out1, out2)
-
-write_csv(final, file = here("Output/Tables/OnsetMod2.csv"))
-
-
-
-# Tophi models --------------------
-tmp <- TophiModels %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         PRS = case_when(str_detect(Predictors, "PRS1") | str_detect(Predictors, "738408") ~ "Imputed",
-                         str_detect(Predictors, "PRS2") | str_detect(Predictors, "738409") ~ "Genotyped"),
-         LCL = sprintf(LCL, fmt = "%#.2f"),
-         UCL = sprintf(UCL, fmt = "%#.2f"),
-         OR = sprintf(OR, fmt = "%#.2f"),
-         CI = paste0("[", LCL, ", ", UCL, "]"),
-         Adjusted = case_when(str_detect(Covariates, "DURATION") ~ TRUE,
-                              TRUE ~ FALSE)) %>% 
-  select(Cohort, Sex, Adjusted, Predictor, PRS, OR, CI, Pval)
-
-tmp1 <- tmp %>% 
-  filter(str_detect(Cohort, "Polynesian"))
-
-write_csv(tmp1, file = here("Output/Tables/TophiMod1.csv"))
-
-
-tmp <- TophiModels %>% 
-  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
-                         str_detect(Cohort, "Female") ~ "Female"),
-         Cohort = str_remove(Cohort, " - Male| - Female"),
-         PRS = case_when(str_detect(Predictors, "PRS1") | str_detect(Predictors, "738408") ~ "Imputed",
-                         str_detect(Predictors, "PRS2") | str_detect(Predictors, "738409") ~ "Genotyped"),
-         Adjusted = case_when(str_detect(Covariates, "DURATION") ~ TRUE,
-                              TRUE ~ FALSE),
-         `log-odds` = case_when(LCL == 0 ~ NA_real_,
-                        TRUE ~ `log-odds`)) %>% 
-  filter(!str_detect(Cohort, "Polynesian"),
-         !is.na(`log-odds`)) %>% 
-  select(Cohort, Sex, PRS, Predictor, Adjusted, `log-odds`, SE)
-
-tmp2 <- tmp %>% 
-  filter(PRS == "Genotyped",
-         !Adjusted,
-         !str_detect(Cohort, "Polynesian"))
-
-snplist <- c("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
-
-out <- tibble("Predictor" = "test",
-              "Male OR" = 1,
-              "Male LCL" = 1,
-              "Male UCL" = 1,
-              "Male Pval" = 1,
-              "Female OR" = 1,
-              "Female LCL" = 1,
-              "Female UCL" = 1,
-              "Female Pval" = 1)
-
-for(i in seq_along(snplist)){
-  tmp3 <- tmp2 %>% 
-    filter(Predictor == snplist[i])
-  
-  tophi <- metagen(TE = `log-odds`, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   byvar = Sex,
-                   data = tmp3,
-                   sm = "OR")
-  
-  out <- rbind(out,
-               list(snplist[i],
-                    exp(tophi$TE.fixed.w[[1]]),
-                    exp(tophi$lower.fixed.w[[1]]),
-                    exp(tophi$upper.fixed.w[[1]]),
-                    tophi$pval.fixed.w[[1]],
-                    exp(tophi$TE.fixed.w[[2]]),
-                    exp(tophi$lower.fixed.w[[2]]),
-                    exp(tophi$upper.fixed.w[[2]]),
-                    tophi$pval.fixed.w[[2]]))
-}
-
-out1 <- out %>% 
-  slice(-1) %>% 
-  mutate(PRS = "Genotyped",
-         Adjusted = FALSE,
-         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
-         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
-         `Male OR` = sprintf(`Male OR`, fmt = "%#.2f"),
-         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
-         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
-         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
-         `Female OR` = sprintf(`Female OR`, fmt = "%#.2f"),
-         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
-  select(PRS, Adjusted, Predictor, `Male OR`, `Male CI`, `Male Pval`, `Female OR`, `Female CI`, `Female Pval`)
-
-
-tmp2 <- tmp %>% 
-  filter(PRS == "Genotyped",
-         Adjusted,
-         !str_detect(Cohort, "Polynesian"))
-
-snplist <- c("PRS2", "PRS2_noABCG2", Poly_Gene_OR$RSID)
-
-out <- tibble("Predictor" = "test",
-              "Male OR" = 1,
-              "Male LCL" = 1,
-              "Male UCL" = 1,
-              "Male Pval" = 1,
-              "Female OR" = 1,
-              "Female LCL" = 1,
-              "Female UCL" = 1,
-              "Female Pval" = 1)
-
-for(i in seq_along(snplist)){
-  tmp3 <- tmp2 %>% 
-    filter(Predictor == snplist[i])
-  
-  tophi <- metagen(TE = `log-odds`, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   byvar = Sex,
-                   data = tmp3,
-                   sm = "OR")
-  
-  out <- rbind(out,
-               list(snplist[i],
-                    exp(tophi$TE.fixed.w[[1]]),
-                    exp(tophi$lower.fixed.w[[1]]),
-                    exp(tophi$upper.fixed.w[[1]]),
-                    tophi$pval.fixed.w[[1]],
-                    exp(tophi$TE.fixed.w[[2]]),
-                    exp(tophi$lower.fixed.w[[2]]),
-                    exp(tophi$upper.fixed.w[[2]]),
-                    tophi$pval.fixed.w[[2]]))
-}
-
-out2 <- out %>% 
-  slice(-1) %>% 
-  mutate(PRS = "Genotyped",
-         Adjusted = TRUE,
-         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
-         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
-         `Male OR` = sprintf(`Male OR`, fmt = "%#.2f"),
-         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
-         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
-         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
-         `Female OR` = sprintf(`Female OR`, fmt = "%#.2f"),
-         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
-  select(PRS, Adjusted, Predictor, `Male OR`, `Male CI`, `Male Pval`, `Female OR`, `Female CI`, `Female Pval`)
-
-
-tmp2 <- tmp %>% 
-  filter(PRS == "Imputed",
-         !Adjusted,
-         !str_detect(Cohort, "Polynesian"))
-
-snplist <- c("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID)
-
-out <- tibble("Predictor" = "test",
-              "Male OR" = 1,
-              "Male LCL" = 1,
-              "Male UCL" = 1,
-              "Male Pval" = 1,
-              "Female OR" = 1,
-              "Female LCL" = 1,
-              "Female UCL" = 1,
-              "Female Pval" = 1)
-
-for(i in seq_along(snplist)){
-  tmp3 <- tmp2 %>% 
-    filter(Predictor == snplist[i])
-  
-  tophi <- metagen(TE = `log-odds`, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   byvar = Sex,
-                   data = tmp3,
-                   sm = "OR")
-  
-  out <- rbind(out,
-               list(snplist[i],
-                    exp(tophi$TE.fixed.w[[1]]),
-                    exp(tophi$lower.fixed.w[[1]]),
-                    exp(tophi$upper.fixed.w[[1]]),
-                    tophi$pval.fixed.w[[1]],
-                    exp(tophi$TE.fixed.w[[2]]),
-                    exp(tophi$lower.fixed.w[[2]]),
-                    exp(tophi$upper.fixed.w[[2]]),
-                    tophi$pval.fixed.w[[2]]))
-}
-
-out3 <- out %>% 
-  slice(-1) %>% 
-  mutate(PRS = "Imputed",
-         Adjusted = FALSE,
-         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
-         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
-         `Male OR` = sprintf(`Male OR`, fmt = "%#.2f"),
-         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
-         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
-         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
-         `Female OR` = sprintf(`Female OR`, fmt = "%#.2f"),
-         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
-  select(PRS, Adjusted, Predictor, `Male OR`, `Male CI`, `Male Pval`, `Female OR`, `Female CI`, `Female Pval`)
-
-
-tmp2 <- tmp %>% 
-  filter(PRS == "Imputed",
-         Adjusted,
-         !str_detect(Cohort, "Polynesian"))
-
-snplist <- c("PRS1", "PRS1_noABCG2", UKBB_Gene_OR$RSID)
-
-out <- tibble("Predictor" = "test",
-              "Male OR" = 1,
-              "Male LCL" = 1,
-              "Male UCL" = 1,
-              "Male Pval" = 1,
-              "Female OR" = 1,
-              "Female LCL" = 1,
-              "Female UCL" = 1,
-              "Female Pval" = 1)
-
-for(i in seq_along(snplist)){
-  tmp3 <- tmp2 %>% 
-    filter(Predictor == snplist[i])
-  
-  tophi <- metagen(TE = `log-odds`, 
-                   seTE = SE, 
-                   studlab = Cohort,
-                   byvar = Sex,
-                   data = tmp3,
-                   sm = "OR")
-  
-  out <- rbind(out,
-               list(snplist[i],
-                    exp(tophi$TE.fixed.w[[1]]),
-                    exp(tophi$lower.fixed.w[[1]]),
-                    exp(tophi$upper.fixed.w[[1]]),
-                    tophi$pval.fixed.w[[1]],
-                    exp(tophi$TE.fixed.w[[2]]),
-                    exp(tophi$lower.fixed.w[[2]]),
-                    exp(tophi$upper.fixed.w[[2]]),
-                    tophi$pval.fixed.w[[2]]))
-}
-
-out4 <- out %>% 
-  slice(-1) %>% 
-  mutate(PRS = "Imputed",
-         Adjusted = TRUE,
-         `Male LCL` = sprintf(`Male LCL`, fmt = "%#.2f"),
-         `Male UCL` = sprintf(`Male UCL`, fmt = "%#.2f"),
-         `Male OR` = sprintf(`Male OR`, fmt = "%#.2f"),
-         `Male CI` = paste0("[", `Male LCL`, ", ", `Male UCL`, "]"),
-         `Female LCL` = sprintf(`Female LCL`, fmt = "%#.2f"),
-         `Female UCL` = sprintf(`Female UCL`, fmt = "%#.2f"),
-         `Female OR` = sprintf(`Female OR`, fmt = "%#.2f"),
-         `Female CI` = paste0("[", `Female LCL`, ", ", `Female UCL`, "]")) %>% 
-  select(PRS, Adjusted, Predictor, `Male OR`, `Male CI`, `Male Pval`, `Female OR`, `Female CI`, `Female Pval`)
-
-final <- rbind(out1, out2, out3, out4)
-
-write_csv(final, file = here("Output/Tables/TophiMod2.csv"))
-```
-
-```{r FlaresvsPRS}
-all_pheno_prs2 <- all_pheno_prs %>% 
-  filter(!is.na(AGECOL),
-         !is.na(PRS2),
-         !(is.na(PRS1) & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-         (Pheno.Study == "UK Biobank" | !GOUT | GOUT & !(is.na(AGE1ATK) & is.na(NUMATK) & is.na(TOPHIGOUT))))
-
-all_pheno_prs2_male <- all_pheno_prs2 %>% 
-  filter(SEX == "Male")
-
-all_pheno_prs2_female <- all_pheno_prs2 %>% 
-  filter(SEX == "Female")
-
-data_list2 <- list(all_pheno_prs2_male %>% filter(GOUT,
-                                                Pheno.Study == "UK Biobank"),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Pheno.Study == "UK Biobank"),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Pheno.Study == "UK Biobank"),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Pheno.Study == "UK Biobank"),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                  Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                  Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Pheno.Study == "EuroGout",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Pheno.Study == "EuroGout",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Pheno.Study == "EuroGout",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Pheno.Study == "EuroGout",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: 401",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: 401",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: CLEAR1",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: CLEAR1",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: CLEAR2",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: CLEAR2",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: CRYSTAL",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: CRYSTAL",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: LIGHT",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: LIGHT",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian")),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian")),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian")),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian")),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")))
-
-all_cohorts <- all_pheno_prs2 %>% 
-  mutate(SEX = factor(SEX, levels = c("Male", "Female")),
-         GOUT2 = factor(GOUT, levels = c(TRUE, FALSE), labels = c("Gout", "Control")),
-         GROUP = factor(case_when(GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Gout",
-                                  !GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Control",
-                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian Gout",
-                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian Control",
-                                  GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Gout",
-                                  !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Control"), 
-                        levels = c("European Gout", "European Control", "East Polynesian Gout", "East Polynesian Control", "West Polynesian Gout", "West Polynesian Control")),
-         GROUP2 = factor(case_when(GROUP == "European Gout" & SEX == "Male" ~ "European Gout - male",
-                                  GROUP == "European Gout" & SEX == "Female" ~ "European Gout - female",
-                                  GROUP == "European Control" & SEX == "Male" ~ "European Control - male",
-                                  GROUP == "European Control" & SEX == "Female" ~ "European Control - female",
-                                  GROUP == "East Polynesian Gout" & SEX == "Male" ~ "East Polynesian Gout - male",
-                                  GROUP == "East Polynesian Gout" & SEX == "Female" ~ "East Polynesian Gout - female",
-                                  GROUP == "East Polynesian Control" & SEX == "Male" ~ "East Polynesian Control - male",
-                                  GROUP == "East Polynesian Control" & SEX == "Female" ~ "East Polynesian Control - female",
-                                  GROUP == "West Polynesian Gout" & SEX == "Male" ~ "West Polynesian Gout - male",
-                                  GROUP == "West Polynesian Gout" & SEX == "Female" ~ "West Polynesian Gout - female",
-                                  GROUP == "West Polynesian Control" & SEX == "Male" ~ "West Polynesian Control - male",
-                                  GROUP == "West Polynesian Control" & SEX == "Female" ~ "West Polynesian Control - female"), 
-                        levels = c("European Gout - male", "European Gout - female", "European Control - male", "European Control - female", "East Polynesian Gout - male", "East Polynesian Gout - female", "East Polynesian Control - male", "East Polynesian Control - female", "West Polynesian Gout - male", "West Polynesian Gout - female", "West Polynesian Control - male", "West Polynesian Control - female")),
-         GROUP3 = factor(case_when(GOUT & SEX == "Male" ~ "Male Gout",
-                                   GOUT & SEX == "Female" ~ "Female Gout",
-                                   !GOUT & SEX == "Male" ~ "Male Control",
-                                   !GOUT & SEX == "Female" ~ "Female Control"), 
-                         levels = c("Male Gout", "Female Gout", "Male Control", "Female Control")),
-         COHORT2 = factor(case_when(GOUT & Pheno.Study == "UK Biobank" ~ "UK Biobank - Gout",
-                                    !GOUT & Pheno.Study == "UK Biobank" ~ "UK Biobank - Control",
-                                    GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") & Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease") ~ "Aus/NZ - Gout",
-                                    !GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") & Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease") ~ "Aus/NZ - Control",
-                                    GOUT & Pheno.Study == "EuroGout" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "GlobalGout - Gout",
-                                    !GOUT & Pheno.Study == "EuroGout" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "GlobalGout - Control",
-                                    Pheno.Study == "Ardea: 401" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - LASSO",
-                                    Pheno.Study == "Ardea: CLEAR1" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CLEAR1",
-                                    Pheno.Study == "Ardea: CLEAR2" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CLEAR2",
-                                    Pheno.Study == "Ardea: CRYSTAL" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CRYSTAL",
-                                    Pheno.Study == "Ardea: LIGHT" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - LIGHT",
-                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian - Gout",
-                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") ~ "East Polynesian - Control",
-                                    GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Gout",
-                                    !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Control"), 
-                          levels = c("UK Biobank - Gout", "UK Biobank - Control", "Aus/NZ - Gout", "Aus/NZ - Control", "GlobalGout - Gout", "GlobalGout - Control", "Ardea - LASSO", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - CRYSTAL", "Ardea - LIGHT", "East Polynesian - Gout", "East Polynesian - Control", "West Polynesian - Gout", "West Polynesian - Control"))) %>% 
-  filter(!is.na(COHORT2))
-
-all_cohorts %>% 
-  filter(GOUT, !is.na(FLARE_CAT),
-         !str_detect(COHORT2, "Ardea")) %>% 
-  ggplot(aes(x = FLARE_CAT, y = PRS2, color = COHORT2)) +
-    stat_summary(geom = "point", fun = mean) +
-    stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
-    facet_wrap(~ SEX) +
-    labs(x = "Number of Flares in Last Year (categorical)", y = "Gout PRS - Directly Genotyped") +
-    theme(legend.title = element_blank())
-
-all_cohorts %>% 
-  filter(GOUT, !is.na(FLARE_CAT),
-         NUMATK >= 2) %>% 
-  ggplot(aes(x = FLARE_CAT, y = PRS2, color = COHORT2)) +
-    stat_summary(geom = "point", fun = mean) +
-    stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
-    facet_wrap(~ SEX) +
-    labs(x = "Number of Flares in Last Year (categorical)", y = "Gout PRS - Directly Genotyped") +
-    theme(legend.title = element_blank())
-
-all_cohorts %>% 
-  filter(GOUT, !is.na(NUMATK),
-         NUMATK >= 2, NUMATK <= 52) %>% 
-  ggplot(aes(y = NUMATK, x = PRS2, color = COHORT2)) +
-   geom_point() +
-    #stat_summary(geom = "point", fun = mean) +
-    #stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    #stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
-    facet_wrap(~ SEX) +
-    labs(y = "Number of Flares in Last Year (categorical)", x = "Gout PRS - Directly Genotyped") +
-    theme(legend.title = element_blank())
-
-ggsave(file = here("Output/Plots/FlaresvPRS.tiff"), dpi = 600)
-```
+Playing around with prediction models.
 
 ```{r Prediction, eval = F, include = F}
 # Testing model that produces greatest prediction accuracy for age at onset (including interaction stuff with ABCG2 SNPs)
@@ -2728,11 +1813,11 @@ summary(testmod)
 
 tmp %>% 
   mutate(Label = factor(case_when(COHORT2 == "East Polynesian - Gout" ~ "East Polynesian",
-                           COHORT2 == "West Polynesian - Gout" ~ "West Polynesian",
-                           COHORT2 %in% c("Aus/NZ - Gout", "GlobalGout - Gout") ~ "European 1",
-                           TRUE ~ "European 2"), levels = c("European 1", "European 2", "East Polynesian", "West Polynesian"))) %>% 
+                                  COHORT2 == "West Polynesian - Gout" ~ "West Polynesian",
+                                  COHORT2 %in% c("Aus/NZ - Gout", "GlobalGout - Gout") ~ "European 1",
+                                  TRUE ~ "European 2"), 
+                        levels = c("European 1", "European 2", "East Polynesian", "West Polynesian"))) %>% 
   ggplot(mapping = aes(x = factor(rs2231142), y = AGE1ATK, fill = Label)) +
-  #geom_violin(draw_quantiles = c(0.5)) +
   geom_bar(stat = "summary", fun = "mean", position = position_dodge(), color = "black") +
   labs(x = "rs2231142 risk allele copies", y = "Age at Onset (years)") +
   theme(legend.title = element_blank()) +
@@ -2751,85 +1836,58 @@ summary(testmod)
 tmp <- all_pheno_prs %>% 
   filter(!is.na(AGE1ATK),
          !str_detect(COHORT2, "Polynesian"),
-         !is.na(URATE),
          !is.na(BMI))
 
 testmod1 <- lm(AGE1ATK ~ SEX, data = tmp)
 
-summary(testmod1) # 7.83% explained by sex
+summary(testmod1) # 7.55% explained by sex
 
-testmod1 <- lm(AGE1ATK ~ SEX + PRS2, data = tmp)
+testmod1 <- lm(AGE1ATK ~ SEX + PRS, data = tmp)
 
-summary(testmod1) # further 2.53% explained by PRS (total 10.36%)
-
-testmod1 <- lm(AGE1ATK ~ SEX + PRS1, data = tmp)
-
-summary(testmod1) # essentially no improvement using imputed PRS vs genotyped
+summary(testmod1) # further 2.47% explained by PRS (total 10.02%)
 
 testmod1 <- lm(AGE1ATK ~ SEX + rs2231142, data = tmp)
 
-summary(testmod1) # versus only 1.82% explained by rs2231142 alone (total 9.65%)
+summary(testmod1) # versus only 1.97% explained by rs2231142 alone (total 9.52%)
 
 testmod1 <- lm(AGE1ATK ~ SEX + rs2231142 + rs10011796, data = tmp)
 
-summary(testmod1) # versus 1.99% explained by rs2231142 and rs10011796 (total 9.82%)
+summary(testmod1) # versus 2.06% explained by rs2231142 and rs10011796 (total 9.61%)
 
-testmod1 <- lm(AGE1ATK ~ SEX * PRS2, data = tmp)
+testmod1 <- lm(AGE1ATK ~ SEX * PRS, data = tmp)
 
-summary(testmod1) # only 0.04% explained by interaction (total 10.40%)
+summary(testmod1) # only 0.09% explained by interaction (total 10.11%)
 
-testmod1 <- lm(AGE1ATK ~ SEX + PRS2 + BMI, data = tmp)
+testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
 
-summary(testmod1) # further 3.14% explained by BMI (total 13.50%)
+summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
+
+rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 8.4%, PRS = 2.7%, BMI = 3.3%
 
 # Same in East Polynesians
 
 tmp <- all_pheno_prs %>% 
   filter(!is.na(AGE1ATK),
          str_detect(COHORT2, "East Polynesian"),
-         !is.na(URATE),
          !is.na(BMI))
 
-testmod1 <- lm(AGE1ATK ~ SEX, data = tmp)
+testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
 
-summary(testmod1) # 8.26% explained by sex
+summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
 
-testmod1 <- lm(AGE1ATK ~ SEX + PRS2, data = tmp)
-
-summary(testmod1) # further 2.91% explained by PRS (total 11.17%)
-
-testmod1 <- lm(AGE1ATK ~ SEX * PRS2, data = tmp)
-
-summary(testmod1) # no difference with interaction vs additive model (but R-squared might be funky with this model)
-
-testmod1 <- lm(AGE1ATK ~ SEX + PRS2 + BMI, data = tmp)
-
-summary(testmod1) # further 1.17% explained by BMI (total 12.34%)
+rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 10.4%, PRS = 4.0%, BMI = 1.2%
 
 # Same in West Polynesians
 
 tmp <- all_pheno_prs %>% 
   filter(!is.na(AGE1ATK),
          str_detect(COHORT2, "West Polynesian"),
-         !is.na(URATE),
          !is.na(BMI))
 
-testmod1 <- lm(AGE1ATK ~ SEX, data = tmp)
+testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
 
-summary(testmod1) # 4.45% explained by sex
+summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
 
-testmod1 <- lm(AGE1ATK ~ SEX + PRS2, data = tmp)
-
-summary(testmod1) # further 3.54% explained by PRS (total 7.99%)
-
-testmod1 <- lm(AGE1ATK ~ SEX + PRS2 + BMI, data = tmp)
-
-summary(testmod1) # further 2.75% explained by BMI (total 10.74%)
-
-
-```
-
-```{r DurationvsTophiMod, eval = F, include = F}
-
+rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 5.8%, PRS = 3.4%, BMI = 2.7%
 ```
 

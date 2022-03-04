@@ -1,6 +1,6 @@
 ## Preparing Phenotype files and making PRS
 
-The purpose of this document is to generate cleaned up phenotype files for each cohort, with the imputed and genotyped polygenic risk scores (PRS's) included for each. It contains the code for going from the raw phenotype and genotype data (in combination with the SNP lists generated in PRS_GWAS.Rmd) to the finalized data frames for analysis.
+The purpose of this section is to generate cleaned up phenotype files for each cohort, with the polygenic risk score (PRS) included for each. It contains the code for going from the raw phenotype and genotype data (in combination with the SNP lists generated in PRS_GWAS.Rmd) to the finalized data frames for analysis.
 
 The phenotypes of interest are the following (note some may be poorly phenotyped):
 
@@ -39,84 +39,53 @@ Exclusion criteria:
 1. Genetic sex to self-report gender mismatch
 
 ```{r dataprep, eval = FALSE}
-# Loading PRS SNPs for European and Polynesian analyses
+# Loading PRS SNPs
 load(here("Output/UKBB_Gene_OR.RData"))
-load(here("Output/Poly_Gene_OR.RData"))
 
 
 # Extracting SNPs from the CoreExome VCFs using plink ----------------------------------
-if(!file.exists(here("Output/Temp/UKBB_SNPs_Plink.txt"))){
-  for_plink <- UKBB_Gene_OR %>%
-    select(CHR, BP, RSID) %>%
-    mutate(BP2 = BP) %>%
-    select(CHR, BP, BP2, RSID)
-  write_delim(for_plink, file = here("Output/Temp/UKBB_SNPs_Plink.txt"), col_names = F)
-  rm(for_plink)
-}
-
-if(!file.exists(here("Output/Temp/Poly_SNPs_Plink.txt"))){
-  for_plink <- Poly_Gene_OR %>%
-    select(CHR, BP, RSID) %>%
-    mutate(BP2 = BP) %>%
-    select(CHR, BP, BP2, RSID)
-  write_delim(for_plink, file = here("Output/Temp/Poly_SNPs_Plink.txt"), col_names = F)
-  rm(for_plink)
-}
-
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --vcf /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Imputed_Genotypes/QC1-10_Impute_EUR_only/CZ-MB1.2-QC1.10_EUR_imputed_chr{}.vcf.gz --extract range ', here("Output/Temp/UKBB_SNPs_Plink.txt"), ' --make-bed --out ', here("Output/Temp/UKBB_SNPs_"), 'chr{}" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
-
-#system(paste0('source ~/.bashrc; parallel "plink1.9b6.10 --bfile ', here("Output/Temp/UKBB_SNPs_"), 'chr{} --set-missing-var-ids @:# --make-bed --out ', here("Output/Temp/UKBB_SNPs_"), 'chr{}_2" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
-
-#write_delim(as_tibble(paste0(here("Output/Temp/"), "UKBB_SNPs_chr", unique(UKBB_Gene_OR$CHR), "_2")), file = here("Output/Temp/mergefile_prs1.txt"), delim = "\n", col_names = F)
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --merge-list ', here("Output/Temp/"), 'mergefile_prs1.txt --make-bed --out ', here("Output/Temp/"), 'merged_PRS_UKBB'))
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_PRS_UKBB --recode --out ', here("Output/Temp/"), 'merged_PRS_UKBB'))
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --extract range ', here("Output/Temp/Poly_SNPs_Plink.txt"), ' --make-bed --out ', here("Output/Temp/Poly_SNPs")))
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'Poly_SNPs --recode --out ', here("Output/Temp/"), 'Poly_SNPs'))
+# for_plink <- UKBB_Gene_OR %>%
+#   select(CHR, BP, RSID) %>%
+#   mutate(BP2 = BP) %>%
+#   select(CHR, BP, BP2, RSID)
+# write_delim(for_plink, file = here("Output/Temp/UKBB_SNPs_Plink.txt"), col_names = F)
+# rm(for_plink)
+# 
+# system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --extract range ', here("Output/Temp/UKBB_SNPs_Plink.txt"), ' --make-bed --out ', here("Output/Temp/SNPs")))
+# 
+# system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'SNPs --recode --out ', here("Output/Temp/"), 'SNPs'))
 
 
 
 # Extracting SNPs from the UK Biobank  and converting to merged plink file -------------------------------
-if(!file.exists(here("Output/Temp/PRS_SNPs_BGEN.txt"))){
-  tmp <- UKBB_Gene_OR %>%
-    select(CHR, BP)
+# tmp <- UKBB_Gene_OR %>%
+#   select(CHR, BP)
+# 
+# bgen_range1 <- tmp %>%
+#   filter(CHR < 10) %>%
+#   mutate(BGEN = paste0("0", CHR, ":", BP, "-", BP))
+# 
+# bgen_range2 <- tmp %>%
+#   filter(CHR > 9) %>%
+#   mutate(BGEN = paste0(CHR, ":", BP, "-", BP))
+# 
+# bgen_range <- rbind(bgen_range1, bgen_range2) %>%
+#   arrange(CHR, BP) %>%
+#   select(BGEN)
+# 
+# write_delim(bgen_range, file = here("Output/Temp/PRS_SNPs_BGEN.txt"), delim = "\n", col_names = F)
+# 
+# rm(tmp, bgen_range1, bgen_range2, bgen_range)
 
-  tmp2 <- Poly_Gene_OR %>%
-    select(CHR, BP)
-
-  tmp3 <- rbind(tmp, tmp2) %>%
-    arrange(CHR, BP) %>%
-    unique()
-
-  bgen_range1 <- tmp3 %>%
-    filter(CHR < 10) %>%
-    mutate(BGEN = paste0("0", CHR, ":", BP, "-", BP))
-
-  bgen_range2 <- tmp3 %>%
-    filter(CHR > 9) %>%
-    mutate(BGEN = paste0(CHR, ":", BP, "-", BP))
-
-  bgen_range <- rbind(bgen_range1, bgen_range2) %>%
-    arrange(CHR, BP) %>%
-    select(BGEN)
-
-  write_delim(bgen_range, file = here("Output/Temp/PRS_SNPs_BGEN.txt"), delim = "\n", col_names = F)
-
-  rm(tmp, tmp2, tmp3, bgen_range1, bgen_range2, bgen_range)
-}
-
-#system(paste0('source ~/.bashrc; parallel "bgenix -g /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/ukb_imp_chr{}_v3.bgen -vcf -incl-range ', here("Output/Temp", "PRS_SNPs_BGEN.txt"), ' | bcftools reheader -h /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/bgen_to_vcf/rename_contigs.txt | bgzip -c > ', here("Output/Temp", "chr"), '{}_forPRS.vcf.gz" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
-
-#system(paste0('source ~/.bashrc; parallel "plink1.9b4.9 --vcf ', here("Output/Temp/"), 'chr{}_forPRS.vcf.gz --make-bed --out ', here("Output/Temp/"), 'chr{}_PRS" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
-
-#write_delim(as_tibble(paste0(here("Output/Temp/"), "chr", unique(UKBB_Gene_OR$CHR), "_PRS")), file = here("Output/Temp/mergefile_prs.txt"), delim = "\n", col_names = F)
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --merge-list ', here("Output/Temp/"), 'mergefile_prs.txt --make-bed --out ', here("Output/Temp/"), 'merged_PRS'))
-
-#system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_PRS --recode --out ', here("Output/Temp/"), 'merged_PRS'))
+# system(paste0('source ~/.bashrc; parallel "bgenix -g /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/ukb_imp_chr{}_v3.bgen -vcf -incl-range ', here("Output/Temp", "PRS_SNPs_BGEN.txt"), ' | bcftools reheader -h /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/rename_contigs.txt | bgzip -c > ', here("Output/Temp", "chr"), '{}_forPRS.vcf.gz" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
+# 
+# system(paste0('source ~/.bashrc; parallel "plink1.9b4.9 --vcf ', here("Output/Temp/"), 'chr{}_forPRS.vcf.gz --make-bed --out ', here("Output/Temp/"), 'chr{}_PRS" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
+# 
+# write_delim(as_tibble(paste0(here("Output/Temp/"), "chr", unique(UKBB_Gene_OR$CHR), "_PRS")), file = here("Output/Temp/mergefile_prs.txt"), delim = "\n", col_names = F)
+# 
+# system(paste0('source ~/.bashrc; plink1.9b6.10 --merge-list ', here("Output/Temp/"), 'mergefile_prs.txt --make-bed --out ', here("Output/Temp/"), 'merged_PRS'))
+# 
+# system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_PRS --recode --out ', here("Output/Temp/"), 'merged_PRS'))
 
 
 
@@ -129,18 +98,16 @@ if(file.exists(here("Output/Phenotypes.RData"))){
     mutate(across(where(is_character), factor))
   
   # European cohorts = All Ardea (split into each study), EuroGout (includes EireGout), Gout in Aotearoa (combine with AGRIA + DM + RD + NP + LPA => ANZ cohort)
-  All_Euro_ID <- read_delim(here("Output/Temp/merged_PRS_UKBB.fam"), delim = " ", col_names = F)
+  All_CoreEx_ID <- read_delim(here("Data/Genotypes/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam"), delim = " ", col_names = F)
   
   CoreExPheno_Euro <- CoreExPheno %>% 
     filter(Geno.BroadAncestry == "European",
-           Geno.SampleID %in% All_Euro_ID$X2,
+           Geno.SampleID %in% All_CoreEx_ID$X2,
            General.Use != "No",
            !(Pheno.Study %in% c("Auckland Controls", "Australian Controls", "ESR", "Rheumatoid Arthritis")))
-  # 1,146 NU, 455 HU controls (1,601 total) + 4,694 gout = either GP or ACR or self-report
+  # 1,304 NU, 483 HU controls (1,787 total) + 5,161 gout = either GP or ACR or self-report
   
   # Polynesian cohorts = AGRIA, All Ardea, DM, EuroGout, Aotearoa (both new + old), LPA, Ngati Porou, RD => all split into East and West
-  All_CoreEx_ID <- read_delim(here("Data/Genotypes/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam"), delim = " ", col_names = F)
-  
   CoreExPheno_Poly <- CoreExPheno %>% 
     filter(Geno.BroadAncestry == "Oceanian",
            Geno.SampleID %in% All_CoreEx_ID$X2,
@@ -156,40 +123,7 @@ if(file.exists(here("Output/Phenotypes.RData"))){
            across(where(is.factor), factor)) %>% 
     select(Pheno.SampleID:Pheno.UrateTherapy, GenStudio.ChipType, GenStudio.CallRate:Notes)
   
-  rm(CoreExPheno, CoreExPheno_Euro, CoreExPheno_Poly, All_CoreEx_ID, All_Euro_ID)
-  
-  
-  # The second CoreEx phenotype file (doesn't add much except TOPHIGOUT and T2DIABETES, but doesn't have cleaned up IDs and so should probably not be used)
-  # CoreExPheno2 <- read_delim(here("Data/Phenotypes/CoreExPheno150618.txt"), delim = "\t") %>%
-  #   mutate(across(where(is_character), as_factor)) %>% 
-  #   filter(SUBJECT %in% CoreExPheno_Final$Pheno.SampleID | ALTID %in% CoreExPheno_Final$Pheno.SampleID | SUBJECT %in% CoreExPheno_Final$Geno.SampleID | ALTID %in% CoreExPheno_Final$Geno.SampleID) %>% 
-  #   mutate(GENECHIPSTATUS = factor(GENECHIPSTATUS, labels = c("Not Genotyped", "Genotyped (CoreEx)", "Genotyped (Public)")),
-  #          SEX = factor(SEX, labels = c("Male", "Female")),
-  #          ETHCLASS = factor(ETHCLASS, labels = c("East Polynesian", "West Polynesian", "European", "Asian", "African", "Other", "White Hispanic", "Mixed East/West Polynesian", "Unknown")),
-  #          GPGOUTAFFSTAT = factor(GPGOUTAFFSTAT, labels = c("Unclear", "Control", "Gout (GP diagnosed)", "Gout (drug trial)", "Gout (EuroGout - assumed gout)", "Control (HU)")),
-  #          ACRGOUTAFFSTAT = factor(ACRGOUTAFFSTAT, labels = c("Control", "Gout")),
-  #          TOPHIGOUT = factor(TOPHIGOUT, labels = c("Control", "Non-tophaceous gout", "Tophaceous gout")),
-  #          DUPLICATEFLAG = factor(DUPLICATEFLAG, labels = c("Excluded", "Included")),
-  #          T2DIABETES = factor(T2DIABETES, labels = c("No", "Yes", "Borderline")),
-  #          QCBATCH = factor(QCBATCH, levels = 1:13, labels = c("1", "2", "3", "4", "5", "6", "7", "8", "A", "M", "9", "10", "11")),
-  #          REPORTEDSEX = factor(REPORTEDSEX, labels = c("Unknown", "Male", "Female")),
-  #          GENETICSEX = factor(GENETICSEX, labels = c("Male", "Female", "Undetermined")),
-  #          SEXDISCREP = factor(SEXDISCREP, labels = c("No discrepancy", "Discrepancy", "Undetermined")),
-  #          FINAL_AFFSTAT = factor(FINAL_AFFSTAT, labels = c("Control", "Gout")),
-  #          PCAMATCHING = factor(PCAMATCHING, labels = c("No", "Yes", "Ok match"))) %>% 
-  #   select(-STUDYCOHORT, -DNABOXED, -(DNABOX:GWASWELL), -(BEADCHIP:CHIPPOSITION), -PCAETHNOTES)
-  # 
-  # remove <- c()
-  # for(i in 1:ncol(CoreExPheno2)){
-  #   if(sum(is.na(CoreExPheno2[[i]])) == nrow(CoreExPheno2)) {
-  #     remove <- c(remove, i)
-  #   }
-  # }
-  # 
-  # CoreExPheno2 <- CoreExPheno2 %>% 
-  #   select(-all_of(remove))
-  # 
-  # rm(remove, i)
+  rm(CoreExPheno, CoreExPheno_Euro, CoreExPheno_Poly, All_CoreEx_ID)
   
   
   # Throughout, duration will be derived from onset - age + 1 (because I am deriving it from ages in years, there is up to 1 additional year duration that needs to be accounted for)
@@ -690,19 +624,25 @@ if(file.exists(here("Output/Phenotypes.RData"))){
   rm(aotearoa_pheno, agria_pheno, dm_pheno, nph_pheno, rd_pheno, eurogout_pheno, ironwood_pheno, lasso_pheno, tmp, lpa_pheno, CoreExPheno_Final)
   
   # UK Biobank
-  load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/self_report_med.RData")
+  # Location of the phenotype data
+  ukbb_dir <- path("/Volumes/archive/merrimanlab/raid_backup/UKbiobank/")
+  
+  
+  ## Loading data
+  # Latest UKBB phenotype file (refresh_ukbb_data)
+  load(path(ukbb_dir,'decrypted_files/ukb27189_27190_27191_27192_27193_27194_27195_27640_30070_31460_combined_withdrawn_ids_removed_10-07-2019.RData'))
+  
+ test <- refresh_ukbb_data %>% 
+    select(eid, body_mass_ind_bmi_f21001_0_0, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0)
+  
+  load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/self_report_med.RData")
   tmp <- self_report_med %>% 
     mutate(IID = eid,
            ULT = allopurinol | sulphinpyrazone | probenecid) %>% 
     select(IID, ULT)
   
-  load("/Volumes/archive/merrimanlab/raid_backup/UKbiobank/decrypted_files/ukb27189_27190_27191_27192_27193_27194_27195_27640_30070_31460_combined_withdrawn_ids_removed_10-07-2019.RData")
-  
-  test <- refresh_ukbb_data %>% 
-    select(eid, body_mass_ind_bmi_f21001_0_0, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0)
-  
-  load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/final_data_prs.RData")
-  ukbb_pheno <- final_data_prs %>% 
+  load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/final_data.RData")
+  ukbb_pheno <- final_data %>% 
     mutate(eid = as.numeric(eid)) %>% 
     left_join(test, by = "eid") %>% 
     rename(IID = eid,
@@ -761,14 +701,15 @@ if(file.exists(here("Output/Phenotypes.RData"))){
 }
 ```
 
-The imputed PRS was calculated for all European samples. Using the results of the UKBB GWAS, 28 PRS metrics were generated, this includes the complete PRS and the 27 variants individually.
+The PRS was then calculated for all European and Polynesian samples. Using the results of the UKBB GWAS (only using genotyped variants), 21 PRS metrics were generated, this includes the complete PRS, the 19 variants individually, and the PRS without either ABCG2 variant.
 
-```{r Imputed_PRS, eval = FALSE}
+```{r PRS, eval = FALSE}
 # Load in plink genotype files + rename column names + filter to only include IDs of cohort of interest
-map <- read_delim(here("Output/Temp/merged_PRS_UKBB.map"), 
+map <- read_delim(here("Output/Temp/SNPs.map"), 
                   delim = "\t", 
                   col_names = FALSE)
-x <- read_delim(here("Output/Temp/merged_PRS_UKBB.ped"), 
+
+x <- read_delim(here("Output/Temp/SNPs.ped"), 
                 delim = " ", 
                 col_names = FALSE, 
                 col_types = cols(.default = col_character()))
@@ -777,29 +718,26 @@ colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
 colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
 colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
 
-x <- x %>% 
-  filter(IID %in% all_pheno$Geno.SampleID)
+x <- x %>% filter(IID %in% (all_pheno %>% pull(Geno.SampleID)))
 
 # Convert character genotypes into numeric genotypes based on risk allele = 1
 num_cols <- ncol(x)
-
-for(i in 1:nrow(UKBB_Gene_OR)) {
-  x[[2 * i + 5]] <- x[[2 * i + 5]] %>%
-    str_replace("0", "NA") %>%
-    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>%
-    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>%
+for (i in 1:nrow(UKBB_Gene_OR)) {
+  x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
+    str_replace("0", "NA") %>% 
+    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
-  x[[2 * i + 6]] <- x[[2 * i + 6]] %>%
-    str_replace("0", "NA") %>%
-    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>%
-    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>%
+  x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
+    str_replace("0", "NA") %>% 
+    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
-  x <- x %>%
-    mutate("TEMP" = x[[2 * i + 5]] + x[[2 * i + 6]])
-  colnames(x) <- c(colnames(x[1:(num_cols - 1 + i)]), UKBB_Gene_OR[[i, "RSID"]])
+  x <- x %>% 
+    mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
+  colnames(x) <- c(colnames(x[1:((num_cols - 1) + i)]), UKBB_Gene_OR[[i, "RSID"]])
 }
-
-x <- x %>%
+x <- x %>% 
   select(2, (num_cols + 1):ncol(x))
 
 # Save this dataframe for individual SNP analysis
@@ -810,20 +748,19 @@ for(i in 1:nrow(UKBB_Gene_OR)) {
   x[i + 1] <- x[[i + 1]] * log(UKBB_Gene_OR[[i, "OR"]])
 }
 
-x$PRS <- rowSums(x[2:ncol(x)])
+x$PRS <- rowSums(x[2:(ncol(x))])
 
 x <- x %>% 
-  mutate(PRS_noABCG2 = PRS - rs2231142) %>%
+  mutate(PRS_noABCG2 = PRS - rs2231142 - rs10011796) %>%
   select(IID, PRS, PRS_noABCG2) %>% 
   left_join(x1)
 
-all_pheno_prs <- all_pheno %>% 
-    left_join(x, by = c("Geno.SampleID" = "IID"))
+all_pheno_prs <- all_pheno %>%
+  full_join(x, by = c("Geno.SampleID" = "IID"))
 
 
 
 # UK Biobank
-# Load in plink genotype files + rename column names + filter to only include IDs of cohort of interest
 map <- read_delim(here("Output/Temp/merged_PRS.map"), 
                   delim = "\t", 
                   col_names = FALSE) %>% 
@@ -840,31 +777,33 @@ colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
 
 tmp <- c("FID", "IID", "PID", "MID", "SEX", "AFF", str_c(UKBB_Gene_OR$RSID, "_1"), str_c(UKBB_Gene_OR$RSID, "_2"))
 
+ids <- ukbb_pheno$IID
+
 x <- x %>% 
   select(which(colnames(x) %in% tmp)) %>% 
   mutate(IID = as.numeric(IID)) %>% 
-  filter(IID %in% ukbb_pheno$IID)
+  filter(IID %in% ids)
 
 # Convert character genotypes into numeric genotypes based on risk allele = 1
 num_cols <- ncol(x)
 
 for(i in 1:nrow(UKBB_Gene_OR)) {
-  x[[2 * i + 5]] <- x[[2 * i + 5]] %>%
-    str_replace("0", "NA") %>%
-    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>%
-    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>%
+  x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
+      str_replace("0", "NA") %>% 
+    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
-  x[[2 * i + 6]] <- x[[2 * i + 6]] %>%
-    str_replace("0", "NA") %>%
-    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>%
-    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>%
+  x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
+      str_replace("0", "NA") %>% 
+    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
-  x <- x %>%
-    mutate("TEMP" = x[[2 * i + 5]] + x[[2 * i + 6]])
+  x <- x %>% 
+    mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
   colnames(x) <- c(colnames(x[1:(num_cols - 1 + i)]), UKBB_Gene_OR[[i, "RSID"]])
 }
 
-x <- x %>%
+x <- x %>% 
   select(2, (num_cols + 1):ncol(x))
 
 # Save this dataframe for individual SNP analysis
@@ -878,172 +817,23 @@ for(i in 1:nrow(UKBB_Gene_OR)) {
 x$PRS <- rowSums(x[2:ncol(x)])
 
 x <- x %>% 
-  mutate(PRS_noABCG2 = PRS - rs2231142) %>%
+  mutate(PRS_noABCG2 = PRS - rs2231142 - rs10011796) %>%
   select(IID, PRS, PRS_noABCG2) %>% 
   left_join(x1)
 
-ukbb_pheno_prs <- ukbb_pheno %>% 
-  left_join(x, by = c("IID")) %>% 
+x <- x %>% 
   mutate(IID = factor(IID))
+
+all_pheno_prs2 <- ukbb_pheno %>% 
+  mutate(IID = factor(IID)) %>%
+  full_join(x, by = "IID")
 
 all_pheno_prs <- all_pheno_prs %>% 
-  mutate(GOUT = GOUT == "Gout") %>% 
-  full_join(ukbb_pheno_prs)
-
-rm(all_pheno, ukbb_pheno, ukbb_pheno_prs, map, x, x1, i, num_cols, tmp)
-```
-
-The directly genotyped PRS was then calculated for all European and Polynesian samples. Using the results of the UKBB GWAS (only using genotyped variants), 19 PRS metrics were generated, this includes the complete PRS and the 18 variants individually.
-
-```{r Direct_PRS, eval = FALSE}
-# Load in plink genotype files + rename column names + filter to only include IDs of cohort of interest
-map <- read_delim(here("Output/Temp/Poly_SNPs.map"), 
-                  delim = "\t", 
-                  col_names = FALSE)
-
-x <- read_delim(here("Output/Temp/Poly_SNPs.ped"), 
-                delim = " ", 
-                col_names = FALSE, 
-                col_types = cols(.default = col_character()))
-
-colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
-colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
-colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
-
-x <- x %>% filter(IID %in% (all_pheno_prs %>% filter(Pheno.Study != "UK Biobank") %>% pull(Geno.SampleID)))
-
-# Convert character genotypes into numeric genotypes based on risk allele = 1
-num_cols <- ncol(x)
-for (i in 1:nrow(Poly_Gene_OR)) {
-  x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
-    str_replace("0", "NA") %>% 
-    str_replace(Poly_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(Poly_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
-    as.numeric()
-  x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
-    str_replace("0", "NA") %>% 
-    str_replace(Poly_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(Poly_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
-    as.numeric()
-  x <- x %>% 
-    mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
-  colnames(x) <- c(colnames(x[1:((num_cols - 1) + i)]), Poly_Gene_OR[[i, "RSID"]])
-}
-x <- x %>% 
-  select(2, (num_cols + 1):ncol(x))
-
-# Save this dataframe for individual SNP analysis
-x1 <- x
-
-# Now to calculate the PRS
-for(i in 1:nrow(Poly_Gene_OR)) {
-  x[i + 1] <- x[[i + 1]] * log(Poly_Gene_OR[[i, "OR"]])
-}
-
-x$PRS2 <- rowSums(x[2:(ncol(x))])
-
-x <- x %>% 
-  mutate(PRS2_noABCG2 = PRS2 - rs2231142) %>%
-  select(IID, PRS2, PRS2_noABCG2) %>% 
-  left_join(x1)
-
-all_pheno_prs_direct1 <- all_pheno_prs %>% 
-  filter(Pheno.Study != "UK Biobank") %>% 
-  rename(PRS1 = PRS,
-         PRS1_noABCG2 = PRS_noABCG2) %>%
-  full_join(x, by = c("Geno.SampleID" = "IID")) %>% 
-  filter(!is.na(PRS1)) %>% 
-  select(-ends_with(".y")) %>% 
-  rename_with(~ str_remove(.x, ".x"), ends_with(".x"))
-
-all_pheno_prs_direct2 <- all_pheno_prs %>% 
-  filter(Pheno.Study != "UK Biobank") %>% 
-  rename(PRS1 = PRS,
-         PRS1_noABCG2 = PRS_noABCG2) %>%
-  full_join(x, by = c("Geno.SampleID" = "IID")) %>% 
-  filter(is.na(PRS1)) %>% 
-  select(-ends_with(".x")) %>% 
-  rename_with(~ str_remove(.x, ".y"), ends_with(".y"))
-
-
-
-# UK Biobank
-map <- read_delim(here("Output/Temp/merged_PRS.map"), 
-                  delim = "\t", 
-                  col_names = FALSE) %>% 
-  separate(X2, into = c("X2", NA), sep = ",")
-
-x <- read_delim(here("Output/Temp/merged_PRS.ped"), 
-                delim = " ", 
-                col_names = FALSE, 
-                col_types = cols(.default = col_character()))
-
-colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
-colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
-colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
-
-tmp <- c("FID", "IID", "PID", "MID", "SEX", "AFF", str_c(Poly_Gene_OR$RSID, "_1"), str_c(Poly_Gene_OR$RSID, "_2"))
-
-ids <- all_pheno_prs %>% filter(Pheno.Study == "UK Biobank") %>% pull(IID)
-
-x <- x %>% 
-  select(which(colnames(x) %in% tmp)) %>% 
-  mutate(IID = as.numeric(IID)) %>% 
-  filter(IID %in% ids)
-
-# Convert character genotypes into numeric genotypes based on risk allele = 1
-num_cols <- ncol(x)
-
-for(i in 1:nrow(Poly_Gene_OR)) {
-  x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
-      str_replace("0", "NA") %>% 
-    str_replace(Poly_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(Poly_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
-    as.numeric()
-  x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
-      str_replace("0", "NA") %>% 
-    str_replace(Poly_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(Poly_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
-    as.numeric()
-  x <- x %>% 
-    mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
-  colnames(x) <- c(colnames(x[1:(num_cols - 1 + i)]), Poly_Gene_OR[[i, "RSID"]])
-}
-
-x <- x %>% 
-  select(2, (num_cols + 1):ncol(x))
-
-# Save this dataframe for individual SNP analysis
-x1 <- x
-
-# Now to calculate the PRS
-for(i in 1:nrow(Poly_Gene_OR)) {
-  x[i + 1] <- x[[i + 1]] * log(Poly_Gene_OR[[i, "OR"]])
-}
-
-x$PRS2 <- rowSums(x[2:ncol(x)])
-
-x <- x %>% 
-  mutate(PRS2_noABCG2 = PRS2 - rs2231142) %>%
-  select(IID, PRS2, PRS2_noABCG2) %>% 
-  left_join(x1)
-
-x <- x %>% 
-  mutate(IID = factor(IID))
-
-all_pheno_prs_direct3 <- all_pheno_prs %>% 
-  filter(Pheno.Study == "UK Biobank") %>% 
-  rename(PRS1 = PRS,
-         PRS1_noABCG2 = PRS_noABCG2) %>%
-  full_join(x, by = "IID") %>% 
-  select(-ends_with(".y")) %>% 
-  rename_with(~ str_remove(.x, ".x"), ends_with(".x"))
-
-all_pheno_prs <- all_pheno_prs_direct1 %>% 
-  full_join(all_pheno_prs_direct2) %>% 
-  full_join(all_pheno_prs_direct3)
+  mutate(GOUT = as.logical(case_when(GOUT == "Gout" ~ TRUE,
+                                     GOUT == "Control" ~ FALSE))) %>% 
+  full_join(all_pheno_prs2)
 
 save(all_pheno_prs, file = here("Output/all_pheno_prs.RData"))
 
-rm(all_pheno_prs_direct1, all_pheno_prs_direct2, map, x, x1, i, ids, num_cols, tmp)
+rm(all_pheno_prs2, map, x, x1, i, ids, num_cols, tmp, all_pheno, ukbb_pheno)
 ```
