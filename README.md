@@ -11,9 +11,9 @@ Script/ contains all code related to the project, with the following sub-directo
 
 Output/ contains all output for the project, split into the following sub-directories:
 
-1. Data/ contains any and all relevant output data
+1. Data/ contains any and all relevant output data (not tracked on GitHub)
 2. HTMLs/ contains all of the output HTML files relating to the Rmarkdowns in Script/Rmds/
-3. Plots/ contains all output plots
+3. Plots/ contains all output plots (not tracked on GitHub)
 4. Temp/ contains all temporary files for analysis (not tracked on GitHub)
 
 Data/ contains all raw input data for the project (not tracked on GitHub)
