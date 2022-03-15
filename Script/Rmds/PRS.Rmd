@@ -31,6 +31,8 @@ library(pastecs)
 library(qqman)
 library(ggrepel)
 library(fs)
+library(grid)
+library(tiff)
 library(tidyverse)
 
 knitr::opts_chunk$set(fig.width = 8.5)

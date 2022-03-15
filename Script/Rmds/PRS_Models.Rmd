@@ -694,10 +694,8 @@ tophi_data_list <- list("Aus/NZ European - Male" = data_list[["Aus/NZ European -
                         "Ardea - CLEAR2 - Female" = data_list[["Ardea - CLEAR2 - Female"]] %>% filter(!is.na(TOPHIGOUT)),
                         "Ardea - LIGHT - Male" = data_list[["Ardea - LIGHT - Male"]] %>% filter(!is.na(TOPHIGOUT)),
                         "Ardea - LIGHT - Female" = data_list[["Ardea - LIGHT - Female"]] %>% filter(!is.na(TOPHIGOUT)),
-                        "East Polynesian - Male" = data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)),
-                        "East Polynesian - Female" = data_list[["East Polynesian - Gout - Female"]] %>% filter(!is.na(TOPHIGOUT)),
-                        "East Polynesian - NP - Male" = data_list[["East Polynesian - Gout - NP - Male"]] %>% filter(!is.na(TOPHIGOUT)),
-                        "East Polynesian - NP - Female" = data_list[["East Polynesian - Gout - NP - Female"]] %>% filter(!is.na(TOPHIGOUT)),
+                        "East Polynesian - Male" = rbind(data_list[["East Polynesian - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)), data_list[["East Polynesian - Gout - NP - Male"]] %>% filter(!is.na(TOPHIGOUT))),
+                        "East Polynesian - Female" = rbind(data_list[["East Polynesian - Gout - Female"]] %>% filter(!is.na(TOPHIGOUT)), data_list[["East Polynesian - Gout - NP - Female"]] %>% filter(!is.na(TOPHIGOUT))),
                         "West Polynesian - Male" = data_list[["West Polynesian - Gout - Male"]] %>% filter(!is.na(TOPHIGOUT)),
                         "West Polynesian - Female" = data_list[["West Polynesian - Gout - Female"]] %>% filter(!is.na(TOPHIGOUT)))
 
