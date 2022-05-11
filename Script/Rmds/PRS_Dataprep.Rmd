@@ -701,6 +701,105 @@ if(file.exists(here("Output/Phenotypes.RData"))){
 }
 ```
 
+```{r Relatedness, eval = FALSE}
+# Use the KING algorithm to find all pairwise relationships that are above 0.177 in the CoreExome data (just based on the 9157 IDs that are in all_pheno)
+# Need to prioritize the keeping of gout cases over controls
+# Given that we don't care about the FID column for this, we will recreate the filtered genotyped CoreExome files so that the FID and IID are matching, and all are unique
+# length(unique(all_pheno$Geno.SampleID)) # all unique
+unique_ids <- all_pheno %>% select(Geno.SampleID)
+fam <- read_delim(here("Data/Genotypes/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam"), delim = " ", col_names = F)
+
+fam_filtered <- fam %>% 
+  filter(X2 %in% unique_ids$Geno.SampleID) %>% 
+  select(X1, X2)
+# write_delim(fam_filtered, delim = "\t", file = here("Output/Temp/unique_ids.txt"), col_names = F)
+
+# system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Data/Genotypes/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted"), ' --keep ', here("Output/Temp/unique_ids.txt"), ' --chr 1-22 --make-bed --out ', here("Data/Genotypes/Clean_CoreEx_Geno")))
+
+all_pheno2 <- all_pheno %>% 
+  select(Geno.SampleID, SEX) %>% 
+  mutate(SEX = as.numeric(factor(SEX, levels = c("Male", "Female"))))
+
+fam2 <- read_delim(here("Data/Genotypes/Clean_CoreEx_Geno.fam"), delim = " ", col_names = F)
+
+fam_clean <- fam2 %>% 
+  left_join(all_pheno2, by = c("X1" = "Geno.SampleID")) %>% 
+  mutate(X1 = X2,
+         X3 = 0,
+         X4 = 0,
+         X5 = SEX) %>% 
+  select(-SEX)
+# write_delim(fam_clean, delim = " ", file = here("Data/Genotypes/Clean_CoreEx_Geno.fam"), col_names = F)
+
+# system(paste0(here("king"), ' -b ', here("Data/Genotypes/Clean_CoreEx_Geno.bed"), ' --kinship')) # need to run this within the PRS directory rather than via this command
+
+# relationships <- read_delim(here("king.kin0"), delim = "\t")
+
+test <- relationships %>% 
+  filter(Kinship > 0.177) # total of 517 pairwise relationships that are at least first degree relatives
+
+test2 <- c(test$ID1, test$ID2) %>% 
+  unique() # 854 individuals in the 517 pairs
+
+all_pheno_related <- all_pheno %>%
+  filter(Geno.SampleID %in% test2) %>% 
+  select(Geno.SampleID, GOUT)
+
+related_pairs <- test %>% 
+  select(ID1, ID2)
+
+related_pairs2 <- related_pairs %>% 
+  left_join(all_pheno_related, by = c("ID1" = "Geno.SampleID")) %>% 
+  left_join(all_pheno_related, by = c("ID2" = "Geno.SampleID")) %>% 
+  mutate(Pair = case_when(GOUT.x == "Gout" & GOUT.y == "Gout" ~ "GG",
+                          GOUT.x == "Gout" & GOUT.y == "Control" ~ "GC",
+                          GOUT.x == "Control" & GOUT.y == "Gout" ~ "CG",
+                          GOUT.x == "Control" & GOUT.y == "Control" ~ "CC"))
+
+test3 <- c(test$ID1, test$ID2)
+test3_dup <- c(test$ID1, test$ID2) %>% duplicated()
+test3_dup2 <- test3[test3_dup]
+test3_dup3 <- test3[test3 %in% test3_dup2]
+test3_dup4 <- test3[!(test3 %in% test3_dup2)]
+
+related_pairs_unique <- related_pairs2 %>% 
+  filter(ID1 %in% test3_dup4,
+         ID2 %in% test3_dup4) %>% 
+  mutate(keep1 = Pair %in% c('GG', 'GC', 'CC'),
+         keep2 = !keep1)
+
+remove1 <- c(related_pairs_unique %>% filter(keep2) %>% pull(ID1),
+             related_pairs_unique %>% filter(keep1) %>% pull(ID2))
+
+related_pairs_multi <- related_pairs2 %>% 
+  filter(!(ID1 %in% related_pairs_unique$ID1))
+
+related_pairs_multi_gc <- related_pairs_multi %>% 
+  filter(Pair %in% c("GC", "CG")) %>% 
+  mutate(remove_id = case_when(Pair == "GC" ~ ID2,
+                               Pair == "CG" ~ ID1))
+
+remove2 <- related_pairs_multi_gc$remove_id %>% unique()
+
+related_pairs_multi_cc <- related_pairs_multi %>% 
+  filter(Pair == "CC",
+         !(ID1 %in% remove2 | ID2 %in% remove2))
+
+remove3 <- related_pairs_multi_cc$ID1 %>% unique()
+
+related_pairs_multi_gg <- related_pairs_multi %>% 
+  filter(Pair == "GG")
+
+remove4 <- related_pairs_multi_gg$ID1 %>% unique()
+
+remove_list <- c(remove1, remove2, remove3, remove4)
+
+all_pheno_dedup <- all_pheno %>% 
+  filter(!(Geno.SampleID %in% remove_list))
+
+save(all_pheno_dedup, ukbb_pheno, file = here("Output/Phenotypes_dedup.RData"))
+```
+
 The PRS was then calculated for all European and Polynesian samples. Using the results of the UKBB GWAS (only using genotyped variants), 21 PRS metrics were generated, this includes the complete PRS, the 19 variants individually, and the PRS without either ABCG2 variant.
 
 ```{r PRS, eval = FALSE}
@@ -718,7 +817,7 @@ colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
 colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
 colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
 
-x <- x %>% filter(IID %in% (all_pheno %>% pull(Geno.SampleID)))
+x <- x %>% filter(IID %in% (all_pheno_dedup %>% pull(Geno.SampleID)))
 
 # Convert character genotypes into numeric genotypes based on risk allele = 1
 num_cols <- ncol(x)
@@ -755,7 +854,7 @@ x <- x %>%
   select(IID, PRS, PRS_noABCG2) %>% 
   left_join(x1)
 
-all_pheno_prs <- all_pheno %>%
+all_pheno_prs <- all_pheno_dedup %>%
   full_join(x, by = c("Geno.SampleID" = "IID"))
 
 

@@ -345,15 +345,16 @@ tmp <- OnsetModels %>%
 onset <- metagen(TE = Beta, 
                  seTE = SE, 
                  studlab = Cohort,
-                 byvar = Label,
+                 subgroup = Label,
                  data = tmp)
 
 tiff(file = here("Output/Plots/OnsetvsPRS.tiff"), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(onset, 
        xlim = c(-15, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F,
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -364,8 +365,7 @@ forest(onset,
        rightcols = c("effect", "ci"),
        leftlabs = c("Effect of PRS on Age at Onset", "N"),
        rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -389,15 +389,16 @@ tmp <- OnsetModels %>%
 onset <- metagen(TE = Beta, 
                  seTE = SE, 
                  studlab = Cohort,
-                 byvar = Label,
+                 subgroup = Label,
                  data = tmp)
 
 tiff(file = here("Output/Plots/OnsetvsPRS2.tiff"), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(onset, 
        xlim = c(-15, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -408,8 +409,7 @@ forest(onset,
        rightcols = c("effect", "ci"),
        leftlabs = c("Effect of PRS on Age at Onset (no ABCG2)", "N"),
        rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -440,16 +440,17 @@ for(i in snps){
   assign(paste0(i), metagen(TE = Beta, 
                             seTE = SE, 
                             studlab = Cohort,
-                            byvar = Label,
+                            subgroup = Label,
                             data = tmp2))
 }
 
 tiff(file = here(paste0("Output/Plots/Onsetvs", snps[1], ".tiff")), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(get(snps[1]), 
-       xlim = c(-15, 5), 
+       xlim = c(-15, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -460,8 +461,7 @@ forest(get(snps[1]),
        rightcols = c("effect", "ci"),
        leftlabs = c(paste0("Δ Age at Onset per ", snps[1], " allele"), "N"),
        rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -469,9 +469,10 @@ dev.off()
 tiff(file = here(paste0("Output/Plots/Onsetvs", snps[2], ".tiff")), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(get(paste0(snps[2])), 
-       xlim = c(-15, 5), 
+       xlim = c(-15, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -482,8 +483,7 @@ forest(get(paste0(snps[2])),
        rightcols = c("effect", "ci"),
        leftlabs = c(paste0("Δ Age at Onset per ", snps[2], " allele"), "N"),
        rightlabs = c("Beta (years)", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -511,16 +511,17 @@ tmp <- TophiModels %>%
 tophi <- metagen(TE = `log-odds`, 
                  seTE = SE, 
                  studlab = Cohort,
-                 byvar = Label,
+                 subgroup = Label,
                  data = tmp, 
                  sm = "OR")
 
 tiff(file = here("Output/Plots/TophivsPRS.tiff"), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(tophi, 
-       xlim = c(0.2, 5), 
+       xlim = c(0.2, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -529,10 +530,9 @@ forest(tophi,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect of PRS on Tophi", "N case", "N control"),
+       leftlabs = c("Effect of PRS on Tophaceous Gout", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -558,16 +558,17 @@ tmp <- TophiModels %>%
 tophi_adj <- metagen(TE = `log-odds`, 
                      seTE = SE, 
                      studlab = Cohort,
-                     byvar = Label,
+                     subgroup = Label,
                      data = tmp, 
                      sm = "OR")
 
 tiff(file = here("Output/Plots/TophivsPRS_adj.tiff"), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(tophi_adj, 
-       xlim = c(0.2, 5), 
+       xlim = c(0.2, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -576,10 +577,9 @@ forest(tophi_adj,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect of PRS on Tophi (Duration Adjusted)", "N case", "N control"),
+       leftlabs = c("Effect of PRS on Tophaceous Gout (Duration Adjusted)", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -605,16 +605,17 @@ tmp <- TophiModels %>%
 tophi <- metagen(TE = `log-odds`, 
                  seTE = SE, 
                  studlab = Cohort,
-                 byvar = Label,
+                 subgroup = Label,
                  data = tmp, 
                  sm = "OR")
 
 tiff(file = here("Output/Plots/TophivsPRS2.tiff"), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(tophi, 
-       xlim = c(0.2, 5), 
+       xlim = c(0.2, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -623,10 +624,9 @@ forest(tophi,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect of PRS on Tophi (no ABCG2)", "N case", "N control"),
+       leftlabs = c("Effect of PRS on Tophaceous Gout (no ABCG2)", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -652,16 +652,17 @@ tmp <- TophiModels %>%
 tophi_adj <- metagen(TE = `log-odds`, 
                      seTE = SE, 
                      studlab = Cohort,
-                     byvar = Label,
+                     subgroup = Label,
                      data = tmp, 
                      sm = "OR")
 
 tiff(file = here("Output/Plots/TophivsPRS2_adj.tiff"), units = "in", width = 10, height = 9.5, res = 300)
 
 forest(tophi_adj, 
-       xlim = c(0.2, 5), 
+       xlim = c(0.2, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -670,10 +671,9 @@ forest(tophi_adj,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect of PRS on Tophi (no ABCG2 + Duration Adjusted)", "N case", "N control"),
+       leftlabs = c("Effect of PRS on Tophaceous Gout (no ABCG2 + Duration Adjusted)", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -701,16 +701,17 @@ tmp <- TophiModels %>%
 tophi <- metagen(TE = `log-odds`, 
                  seTE = SE, 
                  studlab = Cohort,
-                 byvar = Label,
+                 subgroup = Label,
                  data = tmp, 
                  sm = "OR")
 
 tiff(file = here("Output/Plots/Tophivsrs2231142.tiff"), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(tophi, 
-       xlim = c(0.2, 5), 
+       xlim = c(0.2, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -719,10 +720,9 @@ forest(tophi,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect of rs2231142 on Tophi", "N case", "N control"),
+       leftlabs = c("Effect of rs2231142 on Tophaceous Gout", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -748,16 +748,17 @@ tmp <- TophiModels %>%
 tophi_adj <- metagen(TE = `log-odds`, 
                      seTE = SE, 
                      studlab = Cohort,
-                     byvar = Label,
+                     subgroup = Label,
                      data = tmp, 
                      sm = "OR")
 
 tiff(file = here("Output/Plots/Tophivsrs2231142_adj.tiff"), units = "in", width = 10, height = 9.5, res = 300)
 
 forest(tophi_adj, 
-       xlim = c(0.2, 5), 
+       xlim = c(0.2, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -766,10 +767,9 @@ forest(tophi_adj,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect of rs2231142 on Tophi (Duration Adjusted)", "N case", "N control"),
+       leftlabs = c("Effect of rs2231142 on Tophaceous Gout (Duration Adjusted)", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -795,16 +795,17 @@ tmp <- TophiModels %>%
 tophi <- metagen(TE = `log-odds`, 
                  seTE = SE, 
                  studlab = Cohort,
-                 byvar = Label,
+                 subgroup = Label,
                  data = tmp, 
                  sm = "OR")
 
 tiff(file = here("Output/Plots/Tophivsrs10011796.tiff"), units = "in", width = 9, height = 9.5, res = 300)
 
 forest(tophi, 
-       xlim = c(0.2, 5), 
+       xlim = c(0.2, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -813,10 +814,9 @@ forest(tophi,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect of rs10011796 on Tophi", "N case", "N control"),
+       leftlabs = c("Effect of rs10011796 on Tophaceous Gout", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -842,16 +842,17 @@ tmp <- TophiModels %>%
 tophi_adj <- metagen(TE = `log-odds`, 
                      seTE = SE, 
                      studlab = Cohort,
-                     byvar = Label,
+                     subgroup = Label,
                      data = tmp, 
                      sm = "OR")
 
 tiff(file = here("Output/Plots/Tophivsrs10011796_adj.tiff"), units = "in", width = 10, height = 9.5, res = 300)
 
 forest(tophi_adj, 
-       xlim = c(0.2, 5), 
+       xlim = c(0.2, 5),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -860,10 +861,9 @@ forest(tophi_adj,
        col.by = "black",
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
-       leftlabs = c("Effect of rs10011796 on Tophi (Duration Adjusted)", "N case", "N control"),
+       leftlabs = c("Effect of rs10011796 on Tophaceous Gout (Duration Adjusted)", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 dev.off()
@@ -1135,7 +1135,7 @@ table1 <- tibble("Cohort" = cohortstring,
 table1 <- transpose_df(table1) %>% 
   column_to_rownames(var = "Cohort")
 
-# write_csv(table1, file = here("Output/Tables/missing.csv"))
+write_csv(table1, file = here("Output/Tables/missing.csv"))
 
 table1 <- table1 %>% 
   mutate(across(.cols = 1:ncol(table1), ~ str_replace(string = .x, pattern = " ", replacement = "&nbsp;")))
@@ -1183,7 +1183,7 @@ table1 <- tibble("Cohort" = cohortstring,
 table1 <- transpose_df(table1) %>% 
   column_to_rownames(var = "Cohort")
 
-# write_csv(table1, file = here("Output/Tables/demographics.csv"))
+write_csv(table1, file = here("Output/Tables/demographics.csv"))
 
 table1 <- table1 %>% 
   mutate(across(.cols = 1:ncol(table1), ~ str_replace(string = .x, pattern = " ", replacement = "&nbsp;")))
@@ -1738,7 +1738,7 @@ tmp <- GoutModels %>%
 gout <- metagen(TE = `log-odds`, 
                 seTE = SE, 
                 studlab = Cohort,
-                byvar = Label,
+                subgroup = Label,
                 data = tmp, 
                 sm = "OR")
 
@@ -1758,15 +1758,16 @@ tmp <- GoutModels %>%
 gout_adj <- metagen(TE = `log-odds`, 
                     seTE = SE, 
                     studlab = Cohort,
-                    byvar = Label,
+                    subgroup = Label,
                     data = tmp, 
                     sm = "OR")
 
 forest(gout, 
        xlim = c(0.5, 8),
-       at = c(0.5, 1.0, 2.0, 4.0, 8.0), 
+       at = c(0.5, 1.0, 2.0, 4.0, 8.0),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -1777,15 +1778,15 @@ forest(gout,
        rightcols = c("effect", "ci"),
        leftlabs = c("Effect of PRS on Gout", "N case", "N control"),
        rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 forest(gout_adj, 
        xlim = c(0.5, 8),
-       at = c(0.5, 1.0, 2.0, 4.0, 8.0), 
+       at = c(0.5, 1.0, 2.0, 4.0, 8.0),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -1796,8 +1797,7 @@ forest(gout_adj,
        rightcols = c("effect", "ci"),
        leftlabs = c("Effect of PRS on Gout (age-adjusted)", "N case", "N control"),
        rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 
@@ -1818,7 +1818,7 @@ tmp <- GoutModels %>%
 gout <- metagen(TE = `log-odds`, 
                 seTE = SE, 
                 studlab = Cohort,
-                byvar = Label,
+                subgroup = Label,
                 data = tmp, 
                 sm = "OR")
 
@@ -1838,15 +1838,16 @@ tmp <- GoutModels %>%
 gout_adj <- metagen(TE = `log-odds`, 
                     seTE = SE, 
                     studlab = Cohort,
-                    byvar = Label,
+                    subgroup = Label,
                     data = tmp, 
                     sm = "OR")
 
 forest(gout, 
        xlim = c(0.5, 8),
-       at = c(0.5, 1.0, 2.0, 4.0, 8.0), 
+       at = c(0.5, 1.0, 2.0, 4.0, 8.0),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -1857,15 +1858,15 @@ forest(gout,
        rightcols = c("effect", "ci"),
        leftlabs = c("Effect of PRS on Gout (no ABCG2)", "N case", "N control"),
        rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 
 forest(gout_adj, 
        xlim = c(0.5, 8),
-       at = c(0.5, 1.0, 2.0, 4.0, 8.0), 
+       at = c(0.5, 1.0, 2.0, 4.0, 8.0),
+       random = F,
        print.tau2 = F,
-       print.byvar = F, 
+       print.I2 = F, 
        col.square.lines = "black", 
        col.diamond.lines = "black",
        col.diamond = "#1e6b52",
@@ -1876,8 +1877,7 @@ forest(gout_adj,
        rightcols = c("effect", "ci"),
        leftlabs = c("Effect of PRS on Gout (no ABCG2 + age-adjusted)", "N case", "N control"),
        rightlabs = c("", "[95% CI]"),
-       addrows.below.overall = 2, 
-       comb.random = F,
+       addrows.below.overall = 2,
        overall = F)
 ```
 
