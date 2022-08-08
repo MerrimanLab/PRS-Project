@@ -267,6 +267,7 @@ clean_names <- c("UK&nbsp;Biobank<br/>Gout<br/>Male",
                  "West&nbsp;Polynesian<br/>Control<br/>Female")
 
 load(here("Output/UKBB_Gene_OR.RData"))
+load(here("Output/Tin_Gene_OR.RData"))
 
 # Model results
 load(here("Output/GoutModels.RData"))
@@ -408,6 +409,51 @@ forest(onset,
        leftcols = c("studlab", "N"),
        rightcols = c("effect", "ci"),
        leftlabs = c("Effect of PRS on Age at Onset (no ABCG2)", "N"),
+       rightlabs = c("Beta (years)", "[95% CI]"),
+       addrows.below.overall = 2,
+       overall = F)
+
+dev.off()
+
+
+
+# Onset vs Tin Urate PRS
+tmp <- OnsetModels %>% 
+  filter(Predictor == "Urate_PRS") %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         Beta = case_when(is.na(LCL) ~ NA_real_,
+                          TRUE ~ Beta),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
+
+onset <- metagen(TE = Beta, 
+                 seTE = SE, 
+                 studlab = Cohort,
+                 subgroup = Label,
+                 data = tmp)
+
+tiff(file = here("Output/Plots/OnsetvsPRS3.tiff"), units = "in", width = 9, height = 9.5, res = 300)
+
+forest(onset, 
+       xlim = c(-15, 5),
+       random = F,
+       print.tau2 = F,
+       print.I2 = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of Tin Urate PRS on Age at Onset", "N"),
        rightlabs = c("Beta (years)", "[95% CI]"),
        addrows.below.overall = 2,
        overall = F)
@@ -672,6 +718,102 @@ forest(tophi_adj,
        leftcols = c("studlab", "N case", "N control"),
        rightcols = c("effect", "ci"),
        leftlabs = c("Effect of PRS on Tophaceous Gout (no ABCG2 + Duration Adjusted)", "N case", "N control"),
+       rightlabs = c("OR", "[95% CI]"),
+       addrows.below.overall = 2,
+       overall = F)
+
+dev.off()
+
+
+
+# Tophi vs Urate PRS (Unadjusted)
+tmp <- TophiModels %>% 
+  filter(Predictor == "Urate_PRS",
+         !str_detect(Covariates, "DURATION"),
+         `N case` > 20,
+         `N control` > 20) %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         `log-odds` = case_when(LCL == 0 ~ NA_real_,
+                        TRUE ~ `log-odds`),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
+
+tophi <- metagen(TE = `log-odds`, 
+                 seTE = SE, 
+                 studlab = Cohort,
+                 subgroup = Label,
+                 data = tmp, 
+                 sm = "OR")
+
+tiff(file = here("Output/Plots/TophivsPRS3.tiff"), units = "in", width = 9, height = 9.5, res = 300)
+
+forest(tophi, 
+       xlim = c(0.2, 5),
+       random = F,
+       print.tau2 = F,
+       print.I2 = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of Tin Urate PRS on Tophaceous Gout", "N case", "N control"),
+       rightlabs = c("OR", "[95% CI]"),
+       addrows.below.overall = 2,
+       overall = F)
+
+dev.off()
+
+# Tophi vs Urate_PRS (adjusted)
+tmp <- TophiModels %>% 
+  filter(Predictor == "Urate_PRS",
+         str_detect(Covariates, "DURATION"),
+         `N case` > 20,
+         `N control` > 20) %>% 
+  mutate(Sex = case_when(str_detect(Cohort, "Male") ~ "Male",
+                         str_detect(Cohort, "Female") ~ "Female"),
+         Cohort = str_remove(Cohort, " - Male| - Female"),
+         `log-odds` = case_when(LCL == 0 ~ NA_real_,
+                        TRUE ~ `log-odds`),
+         Label = case_when(!str_detect(Cohort, "Polynesian") & Sex == "Male" ~ "European Male",
+                           !str_detect(Cohort, "Polynesian") & Sex == "Female" ~ "European Female",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Male" ~ "East Polynesian Male",
+                           str_detect(Cohort, "East Polynesian") & Sex == "Female" ~ "East Polynesian Female",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Male" ~ "West Polynesian Male",
+                           str_detect(Cohort, "West Polynesian") & Sex == "Female" ~ "West Polynesian Female"))
+
+tophi_adj <- metagen(TE = `log-odds`, 
+                     seTE = SE, 
+                     studlab = Cohort,
+                     subgroup = Label,
+                     data = tmp, 
+                     sm = "OR")
+
+tiff(file = here("Output/Plots/TophivsPRS3_adj.tiff"), units = "in", width = 10, height = 9.5, res = 300)
+
+forest(tophi_adj, 
+       xlim = c(0.2, 5),
+       random = F,
+       print.tau2 = F,
+       print.I2 = F, 
+       col.square.lines = "black", 
+       col.diamond.lines = "black",
+       col.diamond = "#1e6b52",
+       col.square = "#aa9767",
+       col.study = "gray60",
+       col.by = "black",
+       leftcols = c("studlab", "N case", "N control"),
+       rightcols = c("effect", "ci"),
+       leftlabs = c("Effect of Tin Urate PRS on Tophaceous Gout (Duration Adjusted)", "N case", "N control"),
        rightlabs = c("OR", "[95% CI]"),
        addrows.below.overall = 2,
        overall = F)
@@ -1702,6 +1844,549 @@ write_csv(final, file = here("Output/Tables/TophiMod.csv"))
 
 ## Extra stuff
 
+Urate PRS vs gout PRS.
+
+```{r UratevGoutPRS, eval = F, include = F}
+# First test how many variants are in common between the two PRS's
+sum(Tin_Gene_OR$RSID %in% UKBB_Gene_OR$RSID) # 11 of the 19 are identical lead variants
+different <- UKBB_Gene_OR %>% filter(!(RSID %in% Tin_Gene_OR$RSID)) %>% select(CHR:BP, BP1:Locus_Name) # 4 are the secondary hits at the same loci
+different <- different %>% filter(!(Locus_Name %in% c("ABCG2", "SLC2A9", "SLC22A11")))
+
+tin_different <- Tin_Gene_OR %>% filter(CHR %in% different$CHR, between(BP, min(different$BP1), max(different$BP2))) %>% slice(1, 2, 6, 7) # all four are present, with different lead variants
+
+different_comparison <- different %>% select(Locus_Name, CHR, BP, RSID) %>% cbind(tin_different %>% rename(BP_Tin = BP, RSID_Tin = RSID) %>% select(BP_Tin, RSID_Tin)) %>% mutate(LD = c(1.0, 0.37, 0.55, 0.74))
+
+
+
+# Next produce a series of models that compare the standardized effect sizes of the gout PRS, urate PRS, unweighted gout PRS, and urate weighted gout PRS on each of the outcomes in each of the populations (only for models that were significant)
+# For a fair comparison, I will need to remove the four conditionally independent variants from the gout PRS, and use the original effect sizes
+# Comparing effect sizes will require standardized PRS's which can be produced in pooled cohorts for age at onset, but will need careful interpretation for tophaceous disease
+# Will also be good to work out partial R-squared values for age at onset
+# Will also produce standardized effect sizes using the lm.beta package
+# Start with standardizing the PRS in the pooled cohorts (keep ancestral groups separate)
+
+tmp <- all_pheno_prs %>%
+  filter(Pheno.Study != "UK Biobank",
+         !str_detect(COHORT2, "Polynesian"),
+         GOUT,
+         SEX == "Male") %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ PRS_std, data = tmp) # -2.59 [-3.06, -2.13] years per SD
+mod2 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp) # -2.08 [-2.56, -1.60] years per SD
+mod3 <- lm(AGE1ATK ~ PRS2_std, data = tmp) # -2.48 [-2.94, -2.01] years per SD
+mod4 <- lm(AGE1ATK ~ Urate_PRS2_std, data = tmp) # -2.23 [-2.69, -1.76] years per SD
+mod5 <- lm(AGE1ATK ~ Unweighted_PRS_std, data = tmp) # -1.69 [-2.16, -1.21] years per SD
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 2)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 2)
+round(c(summary(mod3)$coefficients[[2, 1]], confint.default(mod3)[2,]), 2)
+round(c(summary(mod4)$coefficients[[2, 1]], confint.default(mod4)[2,]), 2)
+round(c(summary(mod5)$coefficients[[2, 1]], confint.default(mod5)[2,]), 2)
+round(rsq.partial(mod1, adj = T)$partial.rsq, 3) # 0.032
+round(rsq.partial(mod2, adj = T)$partial.rsq, 3) # 0.021
+round(rsq.partial(mod3, adj = T)$partial.rsq, 3) # 0.030
+round(rsq.partial(mod4, adj = T)$partial.rsq, 3) # 0.024
+round(rsq.partial(mod5, adj = T)$partial.rsq, 3) # 0.014
+lm.beta(lm(AGE1ATK ~ PRS, data = tmp)) # -0.181
+lm.beta(lm(AGE1ATK ~ Urate_PRS, data = tmp)) # -0.145
+lm.beta(lm(AGE1ATK ~ PRS2, data = tmp)) # -0.173
+lm.beta(lm(AGE1ATK ~ Urate_PRS2, data = tmp)) # -0.155
+lm.beta(lm(AGE1ATK ~ Unweighted_PRS, data = tmp)) # -0.118
+
+mod1 <- lm(URATE ~ PRS_std, data = tmp) # 0.105 [0.039, 0.172] mg/dL per SD
+mod2 <- lm(URATE ~ Urate_PRS_std, data = tmp) # 0.081 [0.012, 0.149] mg/dL per SD # this suggests gout PRS is better than urate PRS for urate prediction
+mod3 <- lm(URATE ~ PRS2_std, data = tmp) # 0.100 [0.033, 0.167] mg/dL per SD
+mod4 <- lm(URATE ~ Urate_PRS2_std, data = tmp) # 0.083 [0.016, 0.149] mg/dL per SD
+mod5 <- lm(URATE ~ Unweighted_PRS_std, data = tmp) # 0.070 [0.004, 0.137] mg/dL per SD
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+round(c(summary(mod3)$coefficients[[2, 1]], confint.default(mod3)[2,]), 3)
+round(c(summary(mod4)$coefficients[[2, 1]], confint.default(mod4)[2,]), 3)
+round(c(summary(mod5)$coefficients[[2, 1]], confint.default(mod5)[2,]), 3)
+round(rsq.partial(mod1, adj = T)$partial.rsq, 4) # 0.0024
+round(rsq.partial(mod2, adj = T)$partial.rsq, 4) # 0.0013
+round(rsq.partial(mod3, adj = T)$partial.rsq, 4) # 0.0022
+round(rsq.partial(mod4, adj = T)$partial.rsq, 4) # 0.0014
+round(rsq.partial(mod5, adj = T)$partial.rsq, 4) # 0.0009
+lm.beta(lm(URATE ~ PRS, data = tmp)) # 0.052
+lm.beta(lm(URATE ~ Urate_PRS, data = tmp)) # 0.040
+lm.beta(lm(URATE ~ PRS2, data = tmp)) # 0.050
+lm.beta(lm(URATE ~ Urate_PRS2, data = tmp)) # 0.041
+lm.beta(lm(URATE ~ Unweighted_PRS, data = tmp)) # 0.035
+
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp) # 1.05 [0.98, 1.13] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp) # 1.09 [1.01, 1.18] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp) # 1.07 [0.99, 1.05] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp) # 1.07 [0.99, 1.05] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp) # 1.05 [0.97, 1.13] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+
+tmp2 <- tmp %>% 
+  filter(COHORT2 == "Aus/NZ - Gout")
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp2) # 1.12 [0.97, 1.29] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp2) # 1.14 [0.99, 1.33] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp2) # 1.11 [0.96, 1.27] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp2) # 1.13 [0.98, 1.30] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp2) # 1.09 [0.94, 1.25] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+
+tmp2 <- tmp %>% 
+  filter(COHORT2 == "GlobalGout - Gout")
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp2) # 0.98 [0.83, 1.16] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp2) # 1.04 [0.88, 1.24] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp2) # 1.03 [0.87, 1.22] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp2) # 1.03 [0.87, 1.21] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp2) # 0.99 [0.84, 1.17] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+
+tmp2 <- tmp %>% 
+  filter(COHORT2 == "Ardea - LASSO")
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp2) # 1.03 [0.86, 1.23] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp2) # 1.05 [0.87, 1.26] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp2) # 1.03 [0.86, 1.23] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp2) # 1.04 [0.87, 1.25] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp2) # 1.03 [0.86, 1.24] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+
+tmp2 <- tmp %>% 
+  filter(COHORT2 == "Ardea - CLEAR1")
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp2) # 1.25 [0.88, 1.78] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp2) # 1.37 [0.93, 2.01] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp2) # 1.35 [0.95, 1.92] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp2) # 1.27 [0.88, 1.84] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp2) # 1.19 [0.81, 1.74] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+
+tmp2 <- tmp %>% 
+  filter(COHORT2 == "Ardea - CLEAR2")
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp2) # 1.17 [0.84, 1.62] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp2) # 1.06 [0.76, 1.48] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp2) # 1.12 [0.82, 1.55] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp2) # 1.06 [0.77, 1.46] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp2) # 1.08 [0.79, 1.49] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+
+tmp2 <- tmp %>% 
+  filter(COHORT2 == "Ardea - LIGHT")
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp2) # 1.45 [0.89, 2.37] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp2) # 1.40 [0.87, 2.25] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp2) # 1.41 [0.88, 2.25] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp2) # 1.31 [0.82, 2.08] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp2) # 1.37 [0.88, 2.13] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+  
+
+tmp <- all_pheno_prs %>%
+  filter(str_detect(COHORT2, "East Polynesian"),
+         GOUT,
+         SEX == "Male") %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ PRS_std, data = tmp) # -3.11 [-4.34, -1.88] years per SD
+mod2 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp) # -2.48 [-3.74, -1.22] years per SD
+mod3 <- lm(AGE1ATK ~ PRS2_std, data = tmp) # -2.73 [-3.96, -1.50] years per SD
+mod4 <- lm(AGE1ATK ~ Urate_PRS2_std, data = tmp) # -2.54 [-3.78, -1.31] years per SD
+mod5 <- lm(AGE1ATK ~ Unweighted_PRS_std, data = tmp) # -2.26 [-3.50, -1.03] years per SD
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 2)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 2)
+round(c(summary(mod3)$coefficients[[2, 1]], confint.default(mod3)[2,]), 2)
+round(c(summary(mod4)$coefficients[[2, 1]], confint.default(mod4)[2,]), 2)
+round(c(summary(mod5)$coefficients[[2, 1]], confint.default(mod5)[2,]), 2)
+round(rsq.partial(mod1, adj = T)$partial.rsq, 3) # 0.045
+round(rsq.partial(mod2, adj = T)$partial.rsq, 3) # 0.028
+round(rsq.partial(mod3, adj = T)$partial.rsq, 3) # 0.035
+round(rsq.partial(mod4, adj = T)$partial.rsq, 3) # 0.030
+round(rsq.partial(mod5, adj = T)$partial.rsq, 3) # 0.023
+lm.beta(lm(AGE1ATK ~ PRS, data = tmp)) # -0.216
+lm.beta(lm(AGE1ATK ~ Urate_PRS, data = tmp)) # -0.174
+lm.beta(lm(AGE1ATK ~ PRS2, data = tmp)) # -0.191
+lm.beta(lm(AGE1ATK ~ Urate_PRS2, data = tmp)) # -0.177
+lm.beta(lm(AGE1ATK ~ Unweighted_PRS, data = tmp)) # -0.158
+
+mod1 <- lm(URATE ~ PRS_std, data = tmp) # 0.242 [0.058, 0.426] mg/dL per SD
+mod2 <- lm(URATE ~ Urate_PRS_std, data = tmp) # 0.217 [0.030, 0.405] mg/dL per SD # this suggests gout PRS is better than urate PRS for urate prediction
+mod3 <- lm(URATE ~ PRS2_std, data = tmp) # 0.295 [0.111, 0.479] mg/dL per SD
+mod4 <- lm(URATE ~ Urate_PRS2_std, data = tmp) # 0.307 [0.124, 0.491] mg/dL per SD
+mod5 <- lm(URATE ~ Unweighted_PRS_std, data = tmp) # 0.186 [0.002, 0.370] mg/dL per SD
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+round(c(summary(mod3)$coefficients[[2, 1]], confint.default(mod3)[2,]), 3)
+round(c(summary(mod4)$coefficients[[2, 1]], confint.default(mod4)[2,]), 3)
+round(c(summary(mod5)$coefficients[[2, 1]], confint.default(mod5)[2,]), 3)
+round(rsq.partial(mod1, adj = T)$partial.rsq, 4) # 0.0106
+round(rsq.partial(mod2, adj = T)$partial.rsq, 4) # 0.0082
+round(rsq.partial(mod3, adj = T)$partial.rsq, 4) # 0.0166
+round(rsq.partial(mod4, adj = T)$partial.rsq, 4) # 0.0181
+round(rsq.partial(mod5, adj = T)$partial.rsq, 4) # 0.0055
+lm.beta(lm(URATE ~ PRS, data = tmp)) # 0.112
+lm.beta(lm(URATE ~ Urate_PRS, data = tmp)) # 0.101
+lm.beta(lm(URATE ~ PRS2, data = tmp)) # 0.136
+lm.beta(lm(URATE ~ Urate_PRS2, data = tmp)) # 0.141
+lm.beta(lm(URATE ~ Unweighted_PRS, data = tmp)) # 0.086
+
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp) # OR: 1.52 [1.23, 1.87] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp) # 1.22 [0.99, 1.51] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp) # 1.42 [1.15, 1.75] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp) # 1.34 [1.09, 1.65] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp) # 1.41 [1.15, 1.72] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+
+
+tmp <- all_pheno_prs %>%
+  filter(str_detect(COHORT2, "West Polynesian"),
+         GOUT,
+         SEX == "Male") %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ PRS_std, data = tmp) # -2.01 [-3.15, -0.87] years per SD
+mod2 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp) # -1.67 [-2.84, -0.51] years per SD
+mod3 <- lm(AGE1ATK ~ PRS2_std, data = tmp) # -1.93 [-3.06, -0.80] years per SD
+mod4 <- lm(AGE1ATK ~ Urate_PRS2_std, data = tmp) # -1.51 [-2.65, -0.38] years per SD
+mod5 <- lm(AGE1ATK ~ Unweighted_PRS_std, data = tmp) # -1.48 [-2.62, -0.35] years per SD
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 2)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 2)
+round(c(summary(mod3)$coefficients[[2, 1]], confint.default(mod3)[2,]), 2)
+round(c(summary(mod4)$coefficients[[2, 1]], confint.default(mod4)[2,]), 2)
+round(c(summary(mod5)$coefficients[[2, 1]], confint.default(mod5)[2,]), 2)
+round(rsq.partial(mod1, adj = T)$partial.rsq, 3) # 0.026
+round(rsq.partial(mod2, adj = T)$partial.rsq, 3) # 0.017
+round(rsq.partial(mod3, adj = T)$partial.rsq, 3) # 0.024
+round(rsq.partial(mod4, adj = T)$partial.rsq, 3) # 0.014
+round(rsq.partial(mod5, adj = T)$partial.rsq, 3) # 0.013
+lm.beta(lm(AGE1ATK ~ PRS, data = tmp)) # -0.167
+lm.beta(lm(AGE1ATK ~ Urate_PRS, data = tmp)) # -0.140
+lm.beta(lm(AGE1ATK ~ PRS2, data = tmp)) # -0.162
+lm.beta(lm(AGE1ATK ~ Urate_PRS2, data = tmp)) # -0.127
+lm.beta(lm(AGE1ATK ~ Unweighted_PRS, data = tmp)) # -0.124
+
+mod1 <- lm(URATE ~ PRS_std, data = tmp) # 0.156 [-0.041, 0.353] mg/dL per SD
+mod2 <- lm(URATE ~ Urate_PRS_std, data = tmp) # 0.061 [-0.138, 0.261] mg/dL per SD # this suggests gout PRS is better than urate PRS for urate prediction
+mod3 <- lm(URATE ~ PRS2_std, data = tmp) # 0.136 [-0.061, 0.333] mg/dL per SD
+mod4 <- lm(URATE ~ Urate_PRS2_std, data = tmp) # 0.106 [-0.091, 0.303] mg/dL per SD
+mod5 <- lm(URATE ~ Unweighted_PRS_std, data = tmp) # 0.200 [0.003, 0.397] mg/dL per SD
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+round(c(summary(mod3)$coefficients[[2, 1]], confint.default(mod3)[2,]), 3)
+round(c(summary(mod4)$coefficients[[2, 1]], confint.default(mod4)[2,]), 3)
+round(c(summary(mod5)$coefficients[[2, 1]], confint.default(mod5)[2,]), 3)
+round(rsq.partial(mod1, adj = T)$partial.rsq, 4) # 0.0033
+round(rsq.partial(mod2, adj = T)$partial.rsq, 4) # -0.0015
+round(rsq.partial(mod3, adj = T)$partial.rsq, 4) # 0.0019
+round(rsq.partial(mod4, adj = T)$partial.rsq, 4) # 0.0003
+round(rsq.partial(mod5, adj = T)$partial.rsq, 4) # 0.0068
+lm.beta(lm(URATE ~ PRS, data = tmp)) # 0.075
+lm.beta(lm(URATE ~ Urate_PRS, data = tmp)) # 0.029
+lm.beta(lm(URATE ~ PRS2, data = tmp)) # 0.065
+lm.beta(lm(URATE ~ Urate_PRS2, data = tmp)) # 0.051
+lm.beta(lm(URATE ~ Unweighted_PRS, data = tmp)) # 0.0952
+
+mod1 <- glm(TOPHIGOUT ~ PRS_std, family = binomial, data = tmp) # OR: 1.42 [1.16, 1.74] per SD
+mod2 <- glm(TOPHIGOUT ~ Urate_PRS_std, family = binomial, data = tmp) # 1.24 [1.01, 1.51] per SD
+mod3 <- glm(TOPHIGOUT ~ PRS2_std, family = binomial, data = tmp) # 1.32 [1.08, 1.61] per SD
+mod4 <- glm(TOPHIGOUT ~ Urate_PRS2_std, family = binomial, data = tmp) # 1.24 [1.01, 1.51] per SD
+mod5 <- glm(TOPHIGOUT ~ Unweighted_PRS_std, family = binomial, data = tmp) # 1.32 [1.08, 1.61] per SD
+round(c(exp(summary(mod1)$coefficients[[2, 1]]), exp(confint.default(mod1)[2,])), 2)
+round(c(exp(summary(mod2)$coefficients[[2, 1]]), exp(confint.default(mod2)[2,])), 2)
+round(c(exp(summary(mod3)$coefficients[[2, 1]]), exp(confint.default(mod3)[2,])), 2)
+round(c(exp(summary(mod4)$coefficients[[2, 1]]), exp(confint.default(mod4)[2,])), 2)
+round(c(exp(summary(mod5)$coefficients[[2, 1]]), exp(confint.default(mod5)[2,])), 2)
+```
+
+- Overall, this suggests that the gout PRS is consistently the best for associations with age at onset, though it is only marginally better than the urate PRS
+
+- The urate PRS is better when it only includes the 15 gout associated variants compared to the 82 from tin, suggesting these may be adding noise to the model, and making the PRS less generalizable
+
+- The unweighted PRS is consistently the worst for both age at onset and urate models, except in west polynesian urate models, where it outperforms all other weighting schemes
+
+- Weirdly, the urate PRS is outperformed by the gout PRS for urate associations in europeans, though this is not the case for east polynesians, and west polynesians cannot be interpreted as they were non-significant
+
+- When considering tophaceous disease, it is not really appropriate to interpret pooled European models, but we can interpret the two Polynesian cohorts, and if we just look at Europeans in each cohort individually, we can say whether the PRS performance order is consistent
+
+- Based on the European models, it is not clear which PRS is better, though it does appear that all models show a weak positive effect on tophaceous gout
+
+- The Polynesian tophaceous disease models suggested that the 19 variant gout PRS performed best, followed by the 15 variant gout PRS, then unweighted, then the 15 variant urate PRS, then the 82 variant urate PRS
+
+<br/>
+
+```{r menvwomen}
+tmp <- all_pheno_prs %>%
+  filter(Pheno.Study != "UK Biobank",
+         !str_detect(COHORT2, "Polynesian"),
+         GOUT) %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp %>% filter(SEX == "Male"))
+mod2 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp %>% filter(SEX == "Female"))
+
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+
+mod1 <- lm(AGE1ATK ~ PRS_std, data = tmp %>% filter(SEX == "Male"))
+mod2 <- lm(AGE1ATK ~ PRS_std, data = tmp %>% filter(SEX == "Female"))
+
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+
+
+tmp <- all_pheno_prs %>%
+  filter(str_detect(COHORT2, "East Polynesian"),
+         GOUT) %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp %>% filter(SEX == "Male"))
+mod2 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp %>% filter(SEX == "Female"))
+
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+
+mod1 <- lm(AGE1ATK ~ PRS_std, data = tmp %>% filter(SEX == "Male"))
+mod2 <- lm(AGE1ATK ~ PRS_std, data = tmp %>% filter(SEX == "Female"))
+
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+
+tmp <- all_pheno_prs %>%
+  filter(str_detect(COHORT2, "West Polynesian"),
+         GOUT) %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp %>% filter(SEX == "Male"))
+mod2 <- lm(AGE1ATK ~ Urate_PRS_std, data = tmp %>% filter(SEX == "Female"))
+
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+
+mod1 <- lm(AGE1ATK ~ PRS_std, data = tmp %>% filter(SEX == "Male"))
+mod2 <- lm(AGE1ATK ~ PRS_std, data = tmp %>% filter(SEX == "Female"))
+
+round(c(summary(mod1)$coefficients[[2, 1]], confint.default(mod1)[2,]), 3)
+round(c(summary(mod2)$coefficients[[2, 1]], confint.default(mod2)[2,]), 3)
+```
+
+
+```{r interaction}
+tmp <- all_pheno_prs %>%
+  filter(Pheno.Study != "UK Biobank",
+         !str_detect(COHORT2, "Polynesian"),
+         GOUT) %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ PRS*SEX, data = tmp)
+summary(mod1)
+mod1 <- glm(TOPHIGOUT ~ PRS*SEX, family = binomial, data = tmp)
+summary(mod1)
+
+tmp <- all_pheno_prs %>%
+  filter(str_detect(COHORT2, "East Polynesian"),
+         GOUT) %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ PRS*SEX, data = tmp)
+summary(mod1)
+mod1 <- glm(TOPHIGOUT ~ PRS*SEX, family = binomial, data = tmp)
+summary(mod1)
+
+tmp <- all_pheno_prs %>%
+  filter(str_detect(COHORT2, "West Polynesian"),
+         GOUT) %>% 
+  mutate(PRS_std = PRS / sd(PRS),
+         Urate_PRS_std = Urate_PRS / sd(Urate_PRS, na.rm = T),
+         PRS2_std = PRS2 / sd(PRS2),
+         Urate_PRS2_std = Urate_PRS2 / sd(Urate_PRS2, na.rm = T),
+         Unweighted_PRS_std = Unweighted_PRS / sd(Unweighted_PRS, na.rm = T))
+
+mod1 <- lm(AGE1ATK ~ PRS*SEX, data = tmp)
+summary(mod1)
+mod1 <- glm(TOPHIGOUT ~ PRS*SEX, family = binomial, data = tmp)
+summary(mod1)
+```
+
+
+<br/>
+
+Playing around with prediction models.
+
+```{r Prediction, eval = F, include = F}
+tmp <- all_pheno_prs %>% 
+  filter(!is.na(AGE1ATK),
+         !is.na(PRS),
+         GOUT) %>% 
+  mutate(ANCESTRY = factor(case_when(str_detect(GROUP, "European") ~ "European",
+                              str_detect(GROUP, "East Polynesian") ~ "East Polynesian",
+                              str_detect(GROUP, "West Polynesian") ~ "West Polynesian"),
+                           levels = c("European", "East Polynesian", "West Polynesian")))
+
+mod <- lm(AGE1ATK ~ PRS + SEX + ANCESTRY + BMI, data = tmp)
+
+rsq::rsq.partial(mod, adj = T)
+
+library(relaimpo)
+metrics <- calc.relimp(mod, type = c("lmg", "first", "last"))
+
+# , "betasq", "pratt", "genizi", "car"
+
+
+# Testing model that produces greatest prediction accuracy for age at onset (including interaction stuff with ABCG2 SNPs)
+
+tmp <- all_pheno_prs_male %>% 
+  filter(!is.na(AGE1ATK))
+
+testmod <- lm(AGE1ATK ~ rs2231142, data = tmp)
+
+summary(testmod)
+
+tmp %>% 
+  mutate(Label = factor(case_when(COHORT2 == "East Polynesian - Gout" ~ "East Polynesian",
+                                  COHORT2 == "West Polynesian - Gout" ~ "West Polynesian",
+                                  COHORT2 %in% c("Aus/NZ - Gout", "GlobalGout - Gout") ~ "European 1",
+                                  TRUE ~ "European 2"), 
+                        levels = c("European 1", "European 2", "East Polynesian", "West Polynesian"))) %>% 
+  ggplot(mapping = aes(x = factor(rs2231142), y = AGE1ATK, fill = Label)) +
+  geom_bar(stat = "summary", fun = "mean", position = position_dodge(), color = "black") +
+  labs(x = "rs2231142 risk allele copies", y = "Age at Onset (years)") +
+  theme(legend.title = element_blank()) +
+  facet_wrap(~ factor(rs10011796))
+
+testmod <- lm(AGE1ATK ~ rs2231142 + rs10011796, data = tmp)
+
+summary(testmod)
+
+testmod <- lm(AGE1ATK ~ rs2231142 * rs10011796, data = tmp)
+
+summary(testmod)
+
+
+
+tmp <- all_pheno_prs %>% 
+  filter(!is.na(AGE1ATK),
+         !str_detect(COHORT2, "Polynesian"),
+         !is.na(BMI))
+
+testmod1 <- lm(AGE1ATK ~ SEX, data = tmp)
+
+summary(testmod1) # 7.55% explained by sex
+
+testmod1 <- lm(AGE1ATK ~ SEX + PRS, data = tmp)
+
+summary(testmod1) # further 2.47% explained by PRS (total 10.02%)
+
+testmod1 <- lm(AGE1ATK ~ SEX + rs2231142, data = tmp)
+
+summary(testmod1) # versus only 1.97% explained by rs2231142 alone (total 9.52%)
+
+testmod1 <- lm(AGE1ATK ~ SEX + rs2231142 + rs10011796, data = tmp)
+
+summary(testmod1) # versus 2.06% explained by rs2231142 and rs10011796 (total 9.61%)
+
+testmod1 <- lm(AGE1ATK ~ SEX * PRS, data = tmp)
+
+summary(testmod1) # only 0.09% explained by interaction (total 10.11%)
+
+testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
+
+summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
+
+rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 8.4%, PRS = 2.7%, BMI = 3.3%
+
+# Compared to urate PRS:
+
+testmod1 <- lm(AGE1ATK ~ SEX + Urate_PRS + BMI, data = tmp)
+
+rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 8.7%, PRS = 2.0%, BMI = 3.2%
+
+# Same in East Polynesians
+
+tmp <- all_pheno_prs %>% 
+  filter(!is.na(AGE1ATK),
+         str_detect(COHORT2, "East Polynesian"),
+         !is.na(BMI))
+
+testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
+
+summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
+
+rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 10.4%, PRS = 4.0%, BMI = 1.2%
+
+# Same in West Polynesians
+
+tmp <- all_pheno_prs %>% 
+  filter(!is.na(AGE1ATK),
+         str_detect(COHORT2, "West Polynesian"),
+         !is.na(BMI))
+
+testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
+
+summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
+
+rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 5.8%, PRS = 3.4%, BMI = 2.7%
+```
+
+<br/>
+
 Plot of the PRS distribution
 
 ```{r PRSdistribution, message = F, warning = F}
@@ -1879,119 +2564,6 @@ forest(gout_adj,
        rightlabs = c("", "[95% CI]"),
        addrows.below.overall = 2,
        overall = F)
-```
-
-<br/>
-
-Playing around with prediction models.
-
-```{r Prediction, eval = F, include = F}
-tmp <- all_pheno_prs %>% 
-  filter(!is.na(AGE1ATK),
-         !is.na(PRS),
-         GOUT) %>% 
-  mutate(ANCESTRY = factor(case_when(str_detect(GROUP, "European") ~ "European",
-                              str_detect(GROUP, "East Polynesian") ~ "East Polynesian",
-                              str_detect(GROUP, "West Polynesian") ~ "West Polynesian"),
-                           levels = c("European", "East Polynesian", "West Polynesian")))
-
-mod <- lm(AGE1ATK ~ PRS + SEX + ANCESTRY + BMI, data = tmp)
-
-rsq::rsq.partial(mod, adj = T)
-
-library(relaimpo)
-metrics <- calc.relimp(mod, type = c("lmg", "first", "last"))
-
-# , "betasq", "pratt", "genizi", "car"
-
-
-# Testing model that produces greatest prediction accuracy for age at onset (including interaction stuff with ABCG2 SNPs)
-
-tmp <- all_pheno_prs_male %>% 
-  filter(!is.na(AGE1ATK))
-
-testmod <- lm(AGE1ATK ~ rs2231142, data = tmp)
-
-summary(testmod)
-
-tmp %>% 
-  mutate(Label = factor(case_when(COHORT2 == "East Polynesian - Gout" ~ "East Polynesian",
-                                  COHORT2 == "West Polynesian - Gout" ~ "West Polynesian",
-                                  COHORT2 %in% c("Aus/NZ - Gout", "GlobalGout - Gout") ~ "European 1",
-                                  TRUE ~ "European 2"), 
-                        levels = c("European 1", "European 2", "East Polynesian", "West Polynesian"))) %>% 
-  ggplot(mapping = aes(x = factor(rs2231142), y = AGE1ATK, fill = Label)) +
-  geom_bar(stat = "summary", fun = "mean", position = position_dodge(), color = "black") +
-  labs(x = "rs2231142 risk allele copies", y = "Age at Onset (years)") +
-  theme(legend.title = element_blank()) +
-  facet_wrap(~ factor(rs10011796))
-
-testmod <- lm(AGE1ATK ~ rs2231142 + rs10011796, data = tmp)
-
-summary(testmod)
-
-testmod <- lm(AGE1ATK ~ rs2231142 * rs10011796, data = tmp)
-
-summary(testmod)
-
-
-
-tmp <- all_pheno_prs %>% 
-  filter(!is.na(AGE1ATK),
-         !str_detect(COHORT2, "Polynesian"),
-         !is.na(BMI))
-
-testmod1 <- lm(AGE1ATK ~ SEX, data = tmp)
-
-summary(testmod1) # 7.55% explained by sex
-
-testmod1 <- lm(AGE1ATK ~ SEX + PRS, data = tmp)
-
-summary(testmod1) # further 2.47% explained by PRS (total 10.02%)
-
-testmod1 <- lm(AGE1ATK ~ SEX + rs2231142, data = tmp)
-
-summary(testmod1) # versus only 1.97% explained by rs2231142 alone (total 9.52%)
-
-testmod1 <- lm(AGE1ATK ~ SEX + rs2231142 + rs10011796, data = tmp)
-
-summary(testmod1) # versus 2.06% explained by rs2231142 and rs10011796 (total 9.61%)
-
-testmod1 <- lm(AGE1ATK ~ SEX * PRS, data = tmp)
-
-summary(testmod1) # only 0.09% explained by interaction (total 10.11%)
-
-testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
-
-summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
-
-rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 8.4%, PRS = 2.7%, BMI = 3.3%
-
-# Same in East Polynesians
-
-tmp <- all_pheno_prs %>% 
-  filter(!is.na(AGE1ATK),
-         str_detect(COHORT2, "East Polynesian"),
-         !is.na(BMI))
-
-testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
-
-summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
-
-rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 10.4%, PRS = 4.0%, BMI = 1.2%
-
-# Same in West Polynesians
-
-tmp <- all_pheno_prs %>% 
-  filter(!is.na(AGE1ATK),
-         str_detect(COHORT2, "West Polynesian"),
-         !is.na(BMI))
-
-testmod1 <- lm(AGE1ATK ~ SEX + PRS + BMI, data = tmp)
-
-summary(testmod1) # further 3.03% explained by BMI (total 13.05%)
-
-rsq::rsq.partial(testmod1, adj = T) # this suggests that SEX = 5.8%, PRS = 3.4%, BMI = 2.7%
 ```
 
 <br/>

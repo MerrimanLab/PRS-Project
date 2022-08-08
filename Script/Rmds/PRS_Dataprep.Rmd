@@ -1,6 +1,6 @@
 ## Preparing Phenotype files and making PRS
 
-The purpose of this section is to generate cleaned up phenotype files for each cohort, with the polygenic risk score (PRS) included for each. It contains the code for going from the raw phenotype and genotype data (in combination with the SNP lists generated in PRS_GWAS.Rmd) to the finalized data frames for analysis.
+The purpose of this section is to generate cleaned up phenotype files for each cohort, with the polygenic risk score (PRS) included for each. It contains the code for going from the raw phenotype and genotype data (in combination with the SNP lists generated in the previous section) to the finalized data frames for analysis.
 
 The phenotypes of interest are the following (note some may be poorly phenotyped):
 
@@ -41,51 +41,58 @@ Exclusion criteria:
 ```{r dataprep, eval = FALSE}
 # Loading PRS SNPs
 load(here("Output/UKBB_Gene_OR.RData"))
+load(here("Output/Tin_Gene_OR.RData"))
 
 
-# Extracting SNPs from the CoreExome VCFs using plink ----------------------------------
-# for_plink <- UKBB_Gene_OR %>%
-#   select(CHR, BP, RSID) %>%
-#   mutate(BP2 = BP) %>%
-#   select(CHR, BP, BP2, RSID)
-# write_delim(for_plink, file = here("Output/Temp/UKBB_SNPs_Plink.txt"), col_names = F)
-# rm(for_plink)
-# 
-# system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --extract range ', here("Output/Temp/UKBB_SNPs_Plink.txt"), ' --make-bed --out ', here("Output/Temp/SNPs")))
-# 
-# system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'SNPs --recode --out ', here("Output/Temp/"), 'SNPs'))
+# Extracting SNPs from the CoreExome Plink file ----------------------------------
+for_plink <- UKBB_Gene_OR %>%
+  select(CHR, BP, RSID) %>% 
+  rbind(select(Tin_Gene_OR, CHR:RSID)) %>% 
+  unique() %>%
+  mutate(BP2 = BP) %>%
+  select(CHR, BP, BP2, RSID) %>% 
+  arrange(CHR, BP)
+write_delim(for_plink, file = here("Output/Temp/UKBB_SNPs_Plink.txt"), col_names = F)
+rm(for_plink)
+
+system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --extract range ', here("Output/Temp/UKBB_SNPs_Plink.txt"), ' --make-bed --out ', here("Output/Temp/SNPs")))
+
+system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'SNPs --recode --out ', here("Output/Temp/"), 'SNPs'))
 
 
 
-# Extracting SNPs from the UK Biobank  and converting to merged plink file -------------------------------
-# tmp <- UKBB_Gene_OR %>%
-#   select(CHR, BP)
-# 
-# bgen_range1 <- tmp %>%
-#   filter(CHR < 10) %>%
-#   mutate(BGEN = paste0("0", CHR, ":", BP, "-", BP))
-# 
-# bgen_range2 <- tmp %>%
-#   filter(CHR > 9) %>%
-#   mutate(BGEN = paste0(CHR, ":", BP, "-", BP))
-# 
-# bgen_range <- rbind(bgen_range1, bgen_range2) %>%
-#   arrange(CHR, BP) %>%
-#   select(BGEN)
-# 
-# write_delim(bgen_range, file = here("Output/Temp/PRS_SNPs_BGEN.txt"), delim = "\n", col_names = F)
-# 
-# rm(tmp, bgen_range1, bgen_range2, bgen_range)
+# Extracting SNPs from the UK Biobank and converting to merged plink file -------------------------------
+tmp <- UKBB_Gene_OR %>%
+  select(CHR, BP) %>% 
+  rbind(select(Tin_Gene_OR, CHR, BP)) %>% 
+  unique() %>% 
+  arrange(CHR, BP)
 
-# system(paste0('source ~/.bashrc; parallel "bgenix -g /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/ukb_imp_chr{}_v3.bgen -vcf -incl-range ', here("Output/Temp", "PRS_SNPs_BGEN.txt"), ' | bcftools reheader -h /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/rename_contigs.txt | bgzip -c > ', here("Output/Temp", "chr"), '{}_forPRS.vcf.gz" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
-# 
-# system(paste0('source ~/.bashrc; parallel "plink1.9b4.9 --vcf ', here("Output/Temp/"), 'chr{}_forPRS.vcf.gz --make-bed --out ', here("Output/Temp/"), 'chr{}_PRS" ::: ', paste(unique(UKBB_Gene_OR$CHR), collapse = " ")))
-# 
-# write_delim(as_tibble(paste0(here("Output/Temp/"), "chr", unique(UKBB_Gene_OR$CHR), "_PRS")), file = here("Output/Temp/mergefile_prs.txt"), delim = "\n", col_names = F)
-# 
-# system(paste0('source ~/.bashrc; plink1.9b6.10 --merge-list ', here("Output/Temp/"), 'mergefile_prs.txt --make-bed --out ', here("Output/Temp/"), 'merged_PRS'))
-# 
-# system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_PRS --recode --out ', here("Output/Temp/"), 'merged_PRS'))
+bgen_range1 <- tmp %>%
+  filter(CHR < 10) %>%
+  mutate(BGEN = paste0("0", CHR, ":", BP, "-", BP))
+
+bgen_range2 <- tmp %>%
+  filter(CHR > 9) %>%
+  mutate(BGEN = paste0(CHR, ":", BP, "-", BP))
+
+bgen_range <- rbind(bgen_range1, bgen_range2) %>%
+  arrange(CHR, BP) %>%
+  select(BGEN)
+
+write_delim(bgen_range, file = here("Output/Temp/PRS_SNPs_BGEN.txt"), delim = "\n", col_names = F)
+
+rm(bgen_range1, bgen_range2, bgen_range)
+
+system(paste0('source ~/.bashrc; parallel "bgenix -g /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/ukb_imp_chr{}_v3.bgen -vcf -incl-range ', here("Output/Temp", "PRS_SNPs_BGEN.txt"), ' | bcftools reheader -h /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/rename_contigs.txt | bgzip -c > ', here("Output/Temp", "chr"), '{}_forPRS.vcf.gz" ::: ', paste(unique(tmp$CHR), collapse = " ")))
+
+system(paste0('source ~/.bashrc; parallel "plink1.9b4.9 --vcf ', here("Output/Temp/"), 'chr{}_forPRS.vcf.gz --make-bed --out ', here("Output/Temp/"), 'chr{}_PRS" ::: ', paste(unique(tmp$CHR), collapse = " ")))
+
+write_delim(as_tibble(paste0(here("Output/Temp/"), "chr", unique(tmp$CHR), "_PRS")), file = here("Output/Temp/mergefile_prs.txt"), delim = "\n", col_names = F)
+
+system(paste0('source ~/.bashrc; plink1.9b6.10 --merge-list ', here("Output/Temp/"), 'mergefile_prs.txt --make-bed --out ', here("Output/Temp/"), 'merged_PRS'))
+
+system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_PRS --recode --out ', here("Output/Temp/"), 'merged_PRS'))
 
 
 
@@ -701,6 +708,8 @@ if(file.exists(here("Output/Phenotypes.RData"))){
 }
 ```
 
+Individuals with KING kinship coefficient of > 0.177 (i.e. first degree related or more) were removed from the analysis, preferentially keeping gout cases over controls where possible.
+
 ```{r Relatedness, eval = FALSE}
 # Use the KING algorithm to find all pairwise relationships that are above 0.177 in the CoreExome data (just based on the 9157 IDs that are in all_pheno)
 # Need to prioritize the keeping of gout cases over controls
@@ -800,9 +809,35 @@ all_pheno_dedup <- all_pheno %>%
 save(all_pheno_dedup, ukbb_pheno, file = here("Output/Phenotypes_dedup.RData"))
 ```
 
-The PRS was then calculated for all European and Polynesian samples. Using the results of the UKBB GWAS (only using genotyped variants), 21 PRS metrics were generated, this includes the complete PRS, the 19 variants individually, and the PRS without either ABCG2 variant.
+The UKBB gout PRS and Tin Urate PRS's were then calculated for all European and Polynesian samples. Using the results of the UKBB GWAS (only using genotyped variants), 21 PRS metrics were generated, this includes the complete PRS, the 19 variants individually, and the PRS without either ABCG2 variant. For the Tin GWAS this number was 84 (two PRS variants and 82 unique variants, some of which overlap with the 19 of the gout GWAS).
 
 ```{r PRS, eval = FALSE}
+load(here("Output/Phenotypes_dedup.RData"))
+load(here("Output/UKBB_Gene_OR.RData"))
+load(here("Output/Tin_Gene_OR.RData"))
+
+# Extracting variants from Tin that overlap UKBB
+tin <- vroom("/Volumes/scratch/merrimanlab/Nick/PRS/tin_filtered.txt", 
+             delim = "\t", 
+             col_names = T)
+
+tin2 <- tin %>% filter(RSID %in% UKBB_Gene_OR$RSID) %>% mutate(risk_allele = case_when(Effect > 0 ~ toupper(Allele1),
+                                                                                       Effect < 0 ~ toupper(Allele2)))
+
+sum(tin2$risk_allele == UKBB_Gene_OR$Effect_Allele) # all same effect direction, so can just take absolute of effect
+
+different <- UKBB_Gene_OR %>% filter(!(RSID %in% Tin_Gene_OR$RSID)) %>% select(CHR:BP, BP1:Locus_Name) # 4 are the secondary hits at the same loci
+different <- different %>% filter(!(Locus_Name %in% c("ABCG2", "SLC2A9", "SLC22A11")))
+
+tmp_gene_or <- UKBB_Gene_OR %>% 
+  mutate(Tin_Effect = abs(tin2$Effect)) %>% 
+  filter(RSID %in% c(Tin_Gene_OR$RSID, different$RSID)) %>% 
+  mutate(OR = case_when(is.na(OR_old) ~ OR,
+                        TRUE ~ OR_old),
+         Gout_Effect = log(OR),
+         Effect_Ratio = Gout_Effect / Tin_Effect) %>% 
+  select(CHR:BP, EAF, Locus_Name, Gout_Effect, Tin_Effect, Effect_Ratio)
+
 # Load in plink genotype files + rename column names + filter to only include IDs of cohort of interest
 map <- read_delim(here("Output/Temp/SNPs.map"), 
                   delim = "\t", 
@@ -817,24 +852,41 @@ colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
 colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
 colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
 
-x <- x %>% filter(IID %in% (all_pheno_dedup %>% pull(Geno.SampleID)))
+x <- x %>% filter(IID %in% (all_pheno_dedup$Geno.SampleID))
+
+tmp <- UKBB_Gene_OR %>%
+  select(CHR, BP) %>% 
+  rbind(select(Tin_Gene_OR, CHR, BP)) %>% 
+  filter(duplicated(BP)) %>% 
+  arrange(CHR, BP)
+
+tmp1 <- UKBB_Gene_OR %>% 
+  filter(BP %in% tmp$BP) %>% 
+  select(Effect_Allele) %>% 
+  cbind(Tin_Gene_OR %>% filter(BP %in% tmp$BP) %>% select(Effect_Allele)) # All risk alleles are the same
+
+Combined_Gene_OR <- UKBB_Gene_OR %>% 
+  select(CHR, BP, RSID, Effect_Allele, Alternate_Allele) %>% 
+  rbind(Tin_Gene_OR %>% select(CHR, BP, RSID, Effect_Allele, Alternate_Allele)) %>% 
+  arrange(CHR, BP) %>% 
+  unique()
 
 # Convert character genotypes into numeric genotypes based on risk allele = 1
 num_cols <- ncol(x)
-for (i in 1:nrow(UKBB_Gene_OR)) {
+for (i in 1:nrow(Combined_Gene_OR)) {
   x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
     str_replace("0", "NA") %>% 
-    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
+    str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
   x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
     str_replace("0", "NA") %>% 
-    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
+    str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
   x <- x %>% 
     mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
-  colnames(x) <- c(colnames(x[1:((num_cols - 1) + i)]), UKBB_Gene_OR[[i, "RSID"]])
+  colnames(x) <- c(colnames(x[1:((num_cols - 1) + i)]), Combined_Gene_OR[[i, "RSID"]])
 }
 x <- x %>% 
   select(2, (num_cols + 1):ncol(x))
@@ -843,6 +895,7 @@ x <- x %>%
 x1 <- x
 
 # Now to calculate the PRS
+x <- x %>% select(1, UKBB_Gene_OR$RSID)
 for(i in 1:nrow(UKBB_Gene_OR)) {
   x[i + 1] <- x[[i + 1]] * log(UKBB_Gene_OR[[i, "OR"]])
 }
@@ -851,11 +904,65 @@ x$PRS <- rowSums(x[2:(ncol(x))])
 
 x <- x %>% 
   mutate(PRS_noABCG2 = PRS - rs2231142 - rs10011796) %>%
-  select(IID, PRS, PRS_noABCG2) %>% 
-  left_join(x1)
+  select(IID, PRS, PRS_noABCG2)
 
 all_pheno_prs <- all_pheno_dedup %>%
-  full_join(x, by = c("Geno.SampleID" = "IID"))
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+x <- x1 %>% select(1, Tin_Gene_OR$RSID)
+for(i in 1:nrow(Tin_Gene_OR)) {
+  x[i + 1] <- x[[i + 1]] * Tin_Gene_OR[[i, "Beta"]]
+}
+
+x$Urate_PRS <- rowSums(x[2:(ncol(x))])
+
+x <- x %>% 
+  mutate(Urate_PRS_noABCG2 = Urate_PRS - rs2231142) %>%
+  select(IID, Urate_PRS, Urate_PRS_noABCG2)
+
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID")) %>% 
+  left_join(x1, by = c("Geno.SampleID" = "IID"))
+
+x <- x1 %>% select(1, tmp_gene_or$RSID)
+for(i in 1:nrow(tmp_gene_or)) {
+  x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Gout_Effect"]]
+}
+
+x$PRS2 <- rowSums(x[2:(ncol(x))])
+
+x <- x %>% 
+  mutate(PRS2_noABCG2 = PRS2 - rs2231142) %>%
+  select(IID, PRS2, PRS2_noABCG2)
+
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+x <- x1 %>% select(1, tmp_gene_or$RSID)
+for(i in 1:nrow(tmp_gene_or)) {
+  x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Tin_Effect"]]
+}
+
+x$Urate_PRS2 <- rowSums(x[2:(ncol(x))])
+
+x <- x %>% 
+  mutate(Urate_PRS2_noABCG2 = Urate_PRS2 - rs2231142) %>%
+  select(IID, Urate_PRS2, Urate_PRS2_noABCG2)
+
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+x <- x1 %>% select(1, tmp_gene_or$RSID)
+
+x$Unweighted_PRS <- rowSums(x[2:(ncol(x))])
+
+x <- x %>% 
+  mutate(Unweighted_PRS_noABCG2 = Unweighted_PRS - rs2231142) %>%
+  select(IID, Unweighted_PRS, Unweighted_PRS_noABCG2)
+
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
 
 
 
@@ -874,7 +981,7 @@ colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
 colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
 colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
 
-tmp <- c("FID", "IID", "PID", "MID", "SEX", "AFF", str_c(UKBB_Gene_OR$RSID, "_1"), str_c(UKBB_Gene_OR$RSID, "_2"))
+tmp <- c("FID", "IID", "PID", "MID", "SEX", "AFF", str_c(Combined_Gene_OR$RSID, "_1"), str_c(Combined_Gene_OR$RSID, "_2"))
 
 ids <- ukbb_pheno$IID
 
@@ -886,20 +993,20 @@ x <- x %>%
 # Convert character genotypes into numeric genotypes based on risk allele = 1
 num_cols <- ncol(x)
 
-for(i in 1:nrow(UKBB_Gene_OR)) {
+for(i in 1:nrow(Combined_Gene_OR)) {
   x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
       str_replace("0", "NA") %>% 
-    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
+    str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
   x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
       str_replace("0", "NA") %>% 
-    str_replace(UKBB_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(UKBB_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
+    str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
   x <- x %>% 
     mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
-  colnames(x) <- c(colnames(x[1:(num_cols - 1 + i)]), UKBB_Gene_OR[[i, "RSID"]])
+  colnames(x) <- c(colnames(x[1:(num_cols - 1 + i)]), Combined_Gene_OR[[i, "RSID"]])
 }
 
 x <- x %>% 
@@ -909,23 +1016,97 @@ x <- x %>%
 x1 <- x
 
 # Now to calculate the PRS
+x <- x %>% select(1, UKBB_Gene_OR$RSID)
 for(i in 1:nrow(UKBB_Gene_OR)) {
   x[i + 1] <- x[[i + 1]] * log(UKBB_Gene_OR[[i, "OR"]])
 }
 
-x$PRS <- rowSums(x[2:ncol(x)])
+x$PRS <- rowSums(x[2:(ncol(x))])
 
 x <- x %>% 
   mutate(PRS_noABCG2 = PRS - rs2231142 - rs10011796) %>%
   select(IID, PRS, PRS_noABCG2) %>% 
-  left_join(x1)
-
-x <- x %>% 
   mutate(IID = factor(IID))
 
 all_pheno_prs2 <- ukbb_pheno %>% 
   mutate(IID = factor(IID)) %>%
-  full_join(x, by = "IID")
+  left_join(x, by = "IID")
+
+
+x <- x1 %>% select(1, Tin_Gene_OR$RSID)
+for(i in 1:nrow(Tin_Gene_OR)) {
+  x[i + 1] <- x[[i + 1]] * Tin_Gene_OR[[i, "Beta"]]
+}
+
+x$Urate_PRS <- rowSums(x[2:(ncol(x))])
+
+x <- x %>% 
+  mutate(Urate_PRS_noABCG2 = Urate_PRS - rs2231142) %>%
+  select(IID, Urate_PRS, Urate_PRS_noABCG2) %>% 
+  mutate(IID = factor(IID))
+
+x1a <- x1 %>% 
+  mutate(IID = factor(IID))
+
+all_pheno_prs2 <- all_pheno_prs2 %>%
+  left_join(x, by = c("IID")) %>% 
+  left_join(x1a)
+
+
+x <- x1 %>% select(1, tmp_gene_or$RSID)
+for(i in 1:nrow(tmp_gene_or)) {
+  x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Gout_Effect"]]
+}
+
+x$PRS2 <- rowSums(x[2:(ncol(x))])
+
+x <- x %>% 
+  mutate(PRS2_noABCG2 = PRS2 - rs2231142) %>%
+  select(IID, PRS2, PRS2_noABCG2) %>% 
+  mutate(IID = factor(IID))
+
+x1a <- x1 %>% 
+  mutate(IID = factor(IID))
+
+all_pheno_prs2 <- all_pheno_prs2 %>%
+  left_join(x, by = c("IID"))
+
+
+x <- x1 %>% select(1, tmp_gene_or$RSID)
+for(i in 1:nrow(tmp_gene_or)) {
+  x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Tin_Effect"]]
+}
+
+x$Urate_PRS2 <- rowSums(x[2:(ncol(x))])
+
+x <- x %>% 
+  mutate(Urate_PRS2_noABCG2 = Urate_PRS2 - rs2231142) %>%
+  select(IID, Urate_PRS2, Urate_PRS2_noABCG2) %>% 
+  mutate(IID = factor(IID))
+
+x1a <- x1 %>% 
+  mutate(IID = factor(IID))
+
+all_pheno_prs2 <- all_pheno_prs2 %>%
+  left_join(x, by = c("IID"))
+
+
+x <- x1 %>% select(1, tmp_gene_or$RSID)
+
+x$Unweighted_PRS <- rowSums(x[2:(ncol(x))])
+
+x <- x %>% 
+  mutate(Unweighted_PRS_noABCG2 = Unweighted_PRS - rs2231142) %>%
+  select(IID, Unweighted_PRS, Unweighted_PRS_noABCG2) %>% 
+  mutate(IID = factor(IID))
+
+x1a <- x1 %>% 
+  mutate(IID = factor(IID))
+
+all_pheno_prs2 <- all_pheno_prs2 %>%
+  left_join(x, by = c("IID"))
+
+
 
 all_pheno_prs <- all_pheno_prs %>% 
   mutate(GOUT = as.logical(case_when(GOUT == "Gout" ~ TRUE,
@@ -934,5 +1115,5 @@ all_pheno_prs <- all_pheno_prs %>%
 
 save(all_pheno_prs, file = here("Output/all_pheno_prs.RData"))
 
-rm(all_pheno_prs2, map, x, x1, i, ids, num_cols, tmp, all_pheno, ukbb_pheno)
+rm(all_pheno_prs2, map, x, x1, x1a, i, ids, num_cols, tmp, ukbb_pheno, tmp1, all_pheno_dedup, different, tin, tin2)
 ```

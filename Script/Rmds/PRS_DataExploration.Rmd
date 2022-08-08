@@ -6,8 +6,6 @@ After loading in the data, I first produced a table of missing data for all of m
 
 Next, I produced a table that shows the distribution of all variables of interest in all cohorts. I then plotted each of these distributions in all cohorts. Next, I plotted the relationship between several combinations of variables. Finally, I plotted the minor allele frequency of all SNPs in each cohort.
 
-There is also code for observing the relationship of serum urate measurements over time, though this is not for this project.
-
 ```{r dataprep2}
 load(here("Output/UKBB_Gene_OR.RData"))
 
@@ -256,6 +254,7 @@ table1 <- tibble("Cohort" = cohortstring,
                  "Flares" = unlist(lapply(data_list, function(x) missing(x$NUMATK))),
                  "Tophi" = unlist(lapply(data_list, function(x) missing(x$TOPHIGOUT))),
                  "PRS" = unlist(lapply(data_list, function(x) missing(x$PRS))),
+                 "Urate PRS" = unlist(lapply(data_list, function(x) missing(x$Urate_PRS))),
                  "Prophylaxis" = unlist(lapply(data_list, function(x) missing(x$PROPHY))),
                  "BMI" = unlist(lapply(data_list, function(x) missing(x$BMI))),
                  "Hypertension" = unlist(lapply(data_list, function(x) missing(x$HYPERTENSION))),
