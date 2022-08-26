@@ -1,17 +1,22 @@
 ## Data Exploration
 
-The purpose of this section is to explore the data that was generated in the previous section.
+The purpose of this section is to explore the phenotype/PRS data that was generated in the previous section.
 
-After loading in the data, I first produced a table of missing data for all of my variables of interest. I used this as evidence for filtering individuals. After filtering the data, and removing certain phenotypes that had too much missing data, I then re-observed the missingness and reported the proportion for each variable.
+After loading in the data, I first produce a table of missing data for all of my variables of interest. I use this as evidence for filtering individuals. After filtering the data, and removing certain phenotypes that had too much missing data, I then re-observe the missingness and report the proportion for each variable.
 
-Next, I produced a table that shows the distribution of all variables of interest in all cohorts. I then plotted each of these distributions in all cohorts. Next, I plotted the relationship between several combinations of variables. Finally, I plotted the minor allele frequency of all SNPs in each cohort.
+Next, I produce a table that shows the distribution of all variables of interest in all cohorts. I then plot each of these distributions in all cohorts. Next, I plot the relationship between several combinations of variables. Finally, I plot the minor allele frequency of all SNPs in each cohort.
 
-```{r dataprep2}
+<br>
+
+```{r}
+# Loading phenotype file.
+load(path(scratch_path, "Output/all_pheno_prs.RData"))
+
+# Loading gout and urate PRS files.
 load(here("Output/UKBB_Gene_OR.RData"))
+load(here("Output/Tin_Gene_OR.RData"))
 
-load(here("Output/all_pheno_prs.RData"))
-
-# Making FLARE_CAT variable and setting all control gout severity traits to NA and removing any non-Europeans with an imputed PRS
+# Making a categorical flare frequency variable (FLARE_CAT) and setting all control gout severity traits to NA.
 all_pheno_prs <- all_pheno_prs %>%
   mutate(FLARE_CAT = factor(case_when(between(NUMATK, 0, 5) ~ paste0(as.character(NUMATK), " flares in last year"),
                                       between(NUMATK, 6, 11) ~ "One every one to two months", 
@@ -29,12 +34,7 @@ all_pheno_prs <- all_pheno_prs %>%
          TOPHIGOUT = case_when(GOUT ~ TOPHIGOUT),
          ULT = case_when(GOUT ~ ULT))
 
-all_pheno_prs_male <- all_pheno_prs %>% 
-  filter(SEX == "Male")
-
-all_pheno_prs_female <- all_pheno_prs %>% 
-  filter(SEX == "Female")
-
+# Making variable for naming all cohort subsets.
 cohortstring <- c("UK Biobank - Gout - Male",
                   "UK Biobank - Gout - Female",
                   "UK Biobank - Control - Male",
@@ -49,10 +49,10 @@ cohortstring <- c("UK Biobank - Gout - Male",
                   "GlobalGout - Control - Female",
                   "Ardea - LASSO - Male",
                   "Ardea - LASSO - Female",
-                  "Ardea - CLEAR1 - Male",
-                  "Ardea - CLEAR1 - Female",
-                  "Ardea - CLEAR2 - Male",
-                  "Ardea - CLEAR2 - Female",
+                  "Ardea - CLEAR 1 - Male",
+                  "Ardea - CLEAR 1 - Female",
+                  "Ardea - CLEAR 2 - Male",
+                  "Ardea - CLEAR 2 - Female",
                   "Ardea - CRYSTAL - Male",
                   "Ardea - CRYSTAL - Female",
                   "Ardea - LIGHT - Male",
@@ -70,129 +70,168 @@ cohortstring <- c("UK Biobank - Gout - Male",
                   "West Polynesian - Control - Male",
                   "West Polynesian - Control - Female")
 
-data_list <- list(all_pheno_prs_male %>% filter(GOUT,
-                                                Pheno.Study == "UK Biobank"),
-                  all_pheno_prs_female %>% filter(GOUT,
-                                                  Pheno.Study == "UK Biobank"),
-                  all_pheno_prs_male %>% filter(!GOUT,
-                                                Pheno.Study == "UK Biobank"),
-                  all_pheno_prs_female %>% filter(!GOUT,
-                                                  Pheno.Study == "UK Biobank"),
-                  all_pheno_prs_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                  Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                  Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs_male %>% filter(GOUT,
-                                                Pheno.Study == "EuroGout",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_female %>% filter(GOUT,
-                                                  Pheno.Study == "EuroGout",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_male %>% filter(!GOUT,
-                                                Pheno.Study == "EuroGout",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_female %>% filter(!GOUT,
-                                                  Pheno.Study == "EuroGout",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_male %>% filter(Pheno.Study == "Ardea: 401",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_female %>% filter(Pheno.Study == "Ardea: 401",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_male %>% filter(Pheno.Study == "Ardea: CLEAR1",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_female %>% filter(Pheno.Study == "Ardea: CLEAR1",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_male %>% filter(Pheno.Study == "Ardea: CLEAR2",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_female %>% filter(Pheno.Study == "Ardea: CLEAR2",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_male %>% filter(Pheno.Study == "Ardea: CRYSTAL",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_female %>% filter(Pheno.Study == "Ardea: CRYSTAL",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_male %>% filter(Pheno.Study == "Ardea: LIGHT",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_female %>% filter(Pheno.Study == "Ardea: LIGHT",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study != "Ngati Porou"),
-                  all_pheno_prs_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                  Pheno.Study != "Ngati Porou"),
-                  all_pheno_prs_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study != "Ngati Porou"),
-                  all_pheno_prs_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                  Pheno.Study != "Ngati Porou"),
-                  all_pheno_prs_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study == "Ngati Porou"),
-                  all_pheno_prs_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                  Pheno.Study == "Ngati Porou"),
-                  all_pheno_prs_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study == "Ngati Porou"),
-                  all_pheno_prs_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                  Pheno.Study == "Ngati Porou"),
-                  all_pheno_prs_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")))
+# Making list with each of the cohort subsets as listed in the cohortstring object. This will make it easier to manipulate the data for tables etc.
+data_list <- list(all_pheno_prs %>% filter(SEX == "Male",
+                                           GOUT,
+                                           Pheno.Study == "UK Biobank"),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           GOUT,
+                                           Pheno.Study == "UK Biobank"),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           !GOUT,
+                                           Pheno.Study == "UK Biobank"),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           !GOUT,
+                                           Pheno.Study == "UK Biobank"),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           GOUT,
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
+                                           Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           GOUT,
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
+                                           Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           !GOUT,
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
+                                           Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           !GOUT,
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
+                                           Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           GOUT,
+                                           Pheno.Study == "EuroGout",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           GOUT,
+                                           Pheno.Study == "EuroGout",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           !GOUT,
+                                           Pheno.Study == "EuroGout",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           !GOUT,
+                                           Pheno.Study == "EuroGout",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           Pheno.Study == "Ardea: 401",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           Pheno.Study == "Ardea: 401",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           Pheno.Study == "Ardea: CLEAR1",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           Pheno.Study == "Ardea: CLEAR1",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           Pheno.Study == "Ardea: CLEAR2",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           Pheno.Study == "Ardea: CLEAR2",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           Pheno.Study == "Ardea: CRYSTAL",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           Pheno.Study == "Ardea: CRYSTAL",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           Pheno.Study == "Ardea: LIGHT",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           Pheno.Study == "Ardea: LIGHT",
+                                           Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           GOUT,
+                                           Geno.SpecificAncestry %in% c("East Polynesian"),
+                                           Pheno.Study != "Ngati Porou"),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           GOUT,
+                                           Geno.SpecificAncestry %in% c("East Polynesian"),
+                                           Pheno.Study != "Ngati Porou"),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           !GOUT,
+                                           Geno.SpecificAncestry %in% c("East Polynesian"),
+                                           Pheno.Study != "Ngati Porou"),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           !GOUT,
+                                           Geno.SpecificAncestry %in% c("East Polynesian"),
+                                           Pheno.Study != "Ngati Porou"),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           GOUT,
+                                           Geno.SpecificAncestry %in% c("East Polynesian"),
+                                           Pheno.Study == "Ngati Porou"),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           GOUT,
+                                           Geno.SpecificAncestry %in% c("East Polynesian"),
+                                           Pheno.Study == "Ngati Porou"),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           !GOUT,
+                                           Geno.SpecificAncestry %in% c("East Polynesian"),
+                                           Pheno.Study == "Ngati Porou"),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           !GOUT,
+                                           Geno.SpecificAncestry %in% c("East Polynesian"),
+                                           Pheno.Study == "Ngati Porou"),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           GOUT,
+                                           Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           GOUT,
+                                           Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
+                  all_pheno_prs %>% filter(SEX == "Male",
+                                           !GOUT,
+                                           Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
+                  all_pheno_prs %>% filter(SEX == "Female",
+                                           !GOUT,
+                                           Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")))
 
-clean_names <- c("UK&nbsp;Biobank<br/>Gout<br/>Male",
-                 "UK&nbsp;Biobank<br/>Gout<br/>Female",
-                 "UK&nbsp;Biobank<br/>Control<br/>Male",
-                 "UK&nbsp;Biobank<br/>Control<br/>Female",
-                 "Aus/NZ&nbsp;European<br/>Gout<br/>Male",
-                 "Aus/NZ&nbsp;European<br/>Gout<br/>Female",
-                 "Aus/NZ&nbsp;European<br/>Control<br/>Male",
-                 "Aus/NZ&nbsp;European<br/>Control<br/>Female",
-                 "GlobalGout<br/>Gout<br/>Male",
-                 "GlobalGout<br/>Gout<br/>Female",
-                 "GlobalGout<br/>Control<br/>Male",
-                 "GlobalGout<br/>Control<br/>Female",
-                 "Ardea<br/>LASSO<br/>Gout<br/>Male",
-                 "Ardea<br/>LASSO<br/>Gout<br/>Female",
-                 "Ardea<br/>CLEAR1<br/>Gout<br/>Male",
-                 "Ardea<br/>CLEAR1<br/>Gout<br/>Female",
-                 "Ardea<br/>CLEAR2<br/>Gout<br/>Male",
-                 "Ardea<br/>CLEAR2<br/>Gout<br/>Female",
-                 "Ardea<br/>CRYSTAL<br/>Gout<br/>Male",
-                 "Ardea<br/>CRYSTAL<br/>Gout<br/>Female",
-                 "Ardea<br/>LIGHT<br/>Gout<br/>Male",
-                 "Ardea<br/>LIGHT<br/>Gout<br/>Female",
-                 "East&nbsp;Polynesian<br/>Gout<br/>Male",
-                 "East&nbsp;Polynesian<br/>Gout<br/>Female",
-                 "East&nbsp;Polynesian<br/>Control<br/>Male",
-                 "East&nbsp;Polynesian<br/>Control<br/>Female",
-                 "East&nbsp;Polynesian<br/>Gout<br/>Male<br/>NP",
-                 "East&nbsp;Polynesian<br/>Gout<br/>Female<br/>NP",
-                 "East&nbsp;Polynesian<br/>Control<br/>Male<br/>NP",
-                 "East&nbsp;Polynesian<br/>Control<br/>Female<br/>NP",
-                 "West&nbsp;Polynesian<br/>Gout<br/>Male",
-                 "West&nbsp;Polynesian<br/>Gout<br/>Female",
-                 "West&nbsp;Polynesian<br/>Control<br/>Male",
-                 "West&nbsp;Polynesian<br/>Control<br/>Female")
+# Making string of cohort subset names with HTML code to make for pretty printing on figures.
+clean_names <- c("UK&nbsp;Biobank<br>Gout<br>Male",
+                 "UK&nbsp;Biobank<br>Gout<br>Female",
+                 "UK&nbsp;Biobank<br>Control<br>Male",
+                 "UK&nbsp;Biobank<br>Control<br>Female",
+                 "Aus/NZ&nbsp;European<br>Gout<br>Male",
+                 "Aus/NZ&nbsp;European<br>Gout<br>Female",
+                 "Aus/NZ&nbsp;European<br>Control<br>Male",
+                 "Aus/NZ&nbsp;European<br>Control<br>Female",
+                 "GlobalGout<br>Gout<br>Male",
+                 "GlobalGout<br>Gout<br>Female",
+                 "GlobalGout<br>Control<br>Male",
+                 "GlobalGout<br>Control<br>Female",
+                 "Ardea<br>LASSO<br>Gout<br>Male",
+                 "Ardea<br>LASSO<br>Gout<br>Female",
+                 "Ardea<br>CLEAR1<br>Gout<br>Male",
+                 "Ardea<br>CLEAR1<br>Gout<br>Female",
+                 "Ardea<br>CLEAR2<br>Gout<br>Male",
+                 "Ardea<br>CLEAR2<br>Gout<br>Female",
+                 "Ardea<br>CRYSTAL<br>Gout<br>Male",
+                 "Ardea<br>CRYSTAL<br>Gout<br>Female",
+                 "Ardea<br>LIGHT<br>Gout<br>Male",
+                 "Ardea<br>LIGHT<br>Gout<br>Female",
+                 "East&nbsp;Polynesian<br>Gout<br>Male",
+                 "East&nbsp;Polynesian<br>Gout<br>Female",
+                 "East&nbsp;Polynesian<br>Control<br>Male",
+                 "East&nbsp;Polynesian<br>Control<br>Female",
+                 "East&nbsp;Polynesian<br>Gout<br>Male<br>NP",
+                 "East&nbsp;Polynesian<br>Gout<br>Female<br>NP",
+                 "East&nbsp;Polynesian<br>Control<br>Male<br>NP",
+                 "East&nbsp;Polynesian<br>Control<br>Female<br>NP",
+                 "West&nbsp;Polynesian<br>Gout<br>Male",
+                 "West&nbsp;Polynesian<br>Gout<br>Female",
+                 "West&nbsp;Polynesian<br>Control<br>Male",
+                 "West&nbsp;Polynesian<br>Control<br>Female")
 ```
 
+<br>
+
 ```{r functions2}
-# Functions 
+# Defining functions for use throughout this section.
+# This function will take any numeric variable and produce a report of the form "<mean> ± <sd>".
 report <- function(x) {
     if(sum(is.na(x)) != length(x)) {
       paste0(sprintf(mean(x, na.rm = TRUE), fmt = "%#.1f"), " ± ", sprintf(sd(x, na.rm = TRUE), fmt = "%#.1f"))
@@ -201,6 +240,7 @@ report <- function(x) {
     }
 }
 
+# This function will take any numeric variable and produce a report of the form "<median> (<lower quartile> - <upper quartile>)".
 report_median <- function(x) {
     if(sum(is.na(x)) != length(x)) {
       paste0(median(x, na.rm =T), " (", summary(x)[[2]], " - ", summary(x)[[5]], ")")
@@ -209,6 +249,7 @@ report_median <- function(x) {
     }
 }
 
+# This function will take any TRUE/FALSE variable and produce a report of the form "<N TRUE> (<% TRUE>)".
 sumreport <- function(x) {
   if(sum(is.na(x)) != length(x)){
     paste0(sum(x, na.rm = TRUE), " (", sprintf((mean(x, na.rm = TRUE) * 100), fmt = "%#.1f"), ")")
@@ -217,6 +258,7 @@ sumreport <- function(x) {
   }
 }
 
+# This function transposes a dataframe.
 transpose_df <- function(df) {
   t_df <- data.table::transpose(df)
   colnames(t_df) <- rownames(df)
@@ -228,6 +270,7 @@ transpose_df <- function(df) {
   return(t_df)
 }
 
+# This function will take any variable and report the missingness as either "All", "None", or the form "<N missing> (<% missing>)".
 missing <- function(x){
   if(sum(is.na(x)) == length(x)) {
     return("All")
@@ -239,20 +282,21 @@ missing <- function(x){
 }
 ```
 
-<br/>
+<br>
 
 ### Table of Missing Data Percentages
 
 ```{r MissingPercent}
+# Making table with missing data statistics for each cohort.
 table1 <- tibble("Cohort" = cohortstring,
-                 "N" = unlist(lapply(data_list, function(x) nrow(x))),
-                 "Age at Collection" = unlist(lapply(data_list, function(x) missing(x$AGECOL))),
+                 "N" = unlist(lapply(data_list, function(x) format(nrow(x), big.mark = ","))),
+                 "Age at Recruitment" = unlist(lapply(data_list, function(x) missing(x$AGECOL))),
                  "Serum Urate" = unlist(lapply(data_list, function(x) missing(x$URATE))),
                  "ULT" = unlist(lapply(data_list, function(x) missing(x$ULT))),
                  "Age at Onset" = unlist(lapply(data_list, function(x) missing(x$AGE1ATK))),
                  "Disease Duration" = unlist(lapply(data_list, function(x) missing(x$DURATION))),
-                 "Flares" = unlist(lapply(data_list, function(x) missing(x$NUMATK))),
-                 "Tophi" = unlist(lapply(data_list, function(x) missing(x$TOPHIGOUT))),
+                 "Flare Frequency" = unlist(lapply(data_list, function(x) missing(x$NUMATK))),
+                 "Tophaceous Disease" = unlist(lapply(data_list, function(x) missing(x$TOPHIGOUT))),
                  "PRS" = unlist(lapply(data_list, function(x) missing(x$PRS))),
                  "Urate PRS" = unlist(lapply(data_list, function(x) missing(x$Urate_PRS))),
                  "Prophylaxis" = unlist(lapply(data_list, function(x) missing(x$PROPHY))),
@@ -269,150 +313,188 @@ table1 <- tibble("Cohort" = cohortstring,
                  "Family History of Gout" = unlist(lapply(data_list, function(x) missing(x$FAMGOUT))),
                  "No. Relatives w/ Gout" = unlist(lapply(data_list, function(x) missing(x$FAMGOUTNUM))))
 
+# Transposing table and preparing it for display as an html.
 table1 <- transpose_df(table1) %>% 
   column_to_rownames(var = "Cohort") %>% 
   mutate(across(.cols = 1:ncol(table1), ~ str_replace_all(string = .x, pattern = " ", replacement = "&nbsp;")))
 
+# Further preparation of table.
 row.names(table1) <- str_replace_all(row.names(table1), " ", "&nbsp;")
 
+# Printing table using the kable function.
 table1 %>% 
   kable(col.names = clean_names,
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
-  scroll_box(width = "900px", height = "475px") %>% 
+  scroll_box(width = "800px", height = "490px") %>% 
   footnote("'All' = all missing, 'None' = none missing")
-
-#datatable(table1, extension = "Responsive")
 ```
+
+<br>
 
 From this table we can tell the following:
 
-1. Age at collection is only missing in GlobalGout, LASSO and West Polynesian Controls, and thus anybody missing this variable should be removed
+1. Most cohorts have at minimum 50 individuals within them, though all Ardea Ironwood studies and the East Polynesian Ngati Porou gout cohort have less than 30 females, suggesting these cohorts will have limited power for study of gout phenotypes.
 
-2. Serum urate has less than 5% missingness in all European cohorts except for GlobalGout (with 22%), Polynesian controls also have approximately 10% missingness
+2. Very few cohorts are missing any age at recruitment measurements, though the GlobalGout cohorts has close to 10% missingness for this phenotype. For further analyses, anybody missing this phenotype should be excluded.
 
-3. ULT data seems to be missing for around 50% of people in Gout in Aotearoa, GlobalGout, and the CRYSTAL trial but is present for all other cohorts
+3. Among gout cohorts, serum urate is missing in less than 6% of individuals, excluding the GlobalGout cohort, with close to 20% missing data. Control cohorts have slightly higher missing data rates for this variable. This variable should therefore be suitable for use in analyses.
 
-4. Age at onset (and disease duration) are missing at around 10% or less for all cohorts except GlobalGout, which has over 40% missingness for this variable
+4. Among gout cohorts, data for current ULT usage is missing in close to 50% of individuals among all cohorts excluding the Ardea cohorts (though it is missing at 50% or more in CRYSTAL cohorts).
 
-5. Flare data is missing at up to 20% for most cohorts, but around 43% missing in GlobalGout
+5. Among gout cohorts (excluding UK Biobank), data for age at gout onset and disease duration are missing in around 10% or fewer individuals for all cohorts except GlobalGout, which has over 40% missingness for these variables.
 
-6. Tophi data is not missing in Ardea, around 10 - 25% missing in Gout in Aotearoa, and 67% missing in GlobalGout
+6. Among gout cohorts (excluding UK Biobank), data for flare frequency is missing in up to ~20% of individuals for most cohorts, but around 43% of the GlobalGout cohort are missing this variable.
 
-7. The PRS is missing in up to 8% of individuals (mainly GlobalGout and UK Biobank)
+7. Among gout cohorts (excluding UK Biobank), data for tophaceous disease is missing at very low rates among Ardea cohorts, but is missing in around 25% of individuals among Aus/NZ European cohorts and Polynesian cohorts. Importantly, it is missing in close to two thirds of individuals in the GlobalGout cohort.
 
-8. Prophylaxis, comorbidity, lifestyle, and family history data are inconsistently phenotyped
+8. The gout PRS has very little missing data in all cohorts, though there is up to 10% missing data for individuals in the GlobalGout and UK Biobank cohorts.
 
-Therefore, I will take the following actions:
+9. The urate PRS is generally missing at higher rates than the gout PRS, and thus comparisons should be carefully done to ensure the cohort size is consistent.
 
-1. I will remove anyone missing age at collection
+10. Data on prophylaxis, comorbidities, lifestyle factors, and family history of gout are all inconsistently phenotyped across the cohorts and thus should not be used in analyses (with the exception of BMI which is missing at low rates in all cohorts except for GlobalGout).
 
-2. I will remove anyone missing all three severity traits (excluding controls and UK Biobank)
+Based on the above observations, I will take the following actions:
 
-3. I will remove anyone missing the PRS
+1. I will remove anyone missing age at recruitment.
 
-<br/>
+2. I will remove anyone missing all three severity traits (excluding controls and UK Biobank).
+
+3. I will remove anyone missing the gout PRS (and the urate PRS for models comparing the two risk scores).
+
+<br>
 
 ```{r MissingPercent2}
+# Excluding individuals missing age at recruitment, and those missing the gout PRS, and those gout cases missing all three severity traits (excluding the UK Biobank cohort).
 all_pheno_prs2 <- all_pheno_prs %>% 
   filter(!is.na(AGECOL),
          !is.na(PRS),
-         (Pheno.Study == "UK Biobank" | !GOUT | GOUT & !(is.na(AGE1ATK) & is.na(NUMATK) & is.na(TOPHIGOUT))))
+         (GOUT & !(is.na(AGE1ATK) & is.na(NUMATK) & is.na(TOPHIGOUT)) | Pheno.Study == "UK Biobank" | !GOUT))
 
-all_pheno_prs2_male <- all_pheno_prs2 %>% 
-  filter(SEX == "Male")
+# Remaking the data_list object with the newly filtered data.
+data_list2 <- list(all_pheno_prs2 %>% filter(SEX == "Male",
+                                             GOUT,
+                                             Pheno.Study == "UK Biobank"),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             GOUT,
+                                             Pheno.Study == "UK Biobank"),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             !GOUT,
+                                             Pheno.Study == "UK Biobank"),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             !GOUT,
+                                             Pheno.Study == "UK Biobank"),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             GOUT,
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
+                                             Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             GOUT,
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
+                                             Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             !GOUT,
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
+                                             Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             !GOUT,
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
+                                             Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             GOUT,
+                                             Pheno.Study == "EuroGout",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             GOUT,
+                                             Pheno.Study == "EuroGout",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             !GOUT,
+                                             Pheno.Study == "EuroGout",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             !GOUT,
+                                             Pheno.Study == "EuroGout",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             Pheno.Study == "Ardea: 401",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             Pheno.Study == "Ardea: 401",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             Pheno.Study == "Ardea: CLEAR1",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             Pheno.Study == "Ardea: CLEAR1",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             Pheno.Study == "Ardea: CLEAR2",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             Pheno.Study == "Ardea: CLEAR2",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             Pheno.Study == "Ardea: CRYSTAL",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             Pheno.Study == "Ardea: CRYSTAL",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             Pheno.Study == "Ardea: LIGHT",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             Pheno.Study == "Ardea: LIGHT",
+                                             Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             GOUT,
+                                             Geno.SpecificAncestry %in% c("East Polynesian"),
+                                             Pheno.Study != "Ngati Porou"),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             GOUT,
+                                             Geno.SpecificAncestry %in% c("East Polynesian"),
+                                             Pheno.Study != "Ngati Porou"),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             !GOUT,
+                                             Geno.SpecificAncestry %in% c("East Polynesian"),
+                                             Pheno.Study != "Ngati Porou"),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             !GOUT,
+                                             Geno.SpecificAncestry %in% c("East Polynesian"),
+                                             Pheno.Study != "Ngati Porou"),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             GOUT,
+                                             Geno.SpecificAncestry %in% c("East Polynesian"),
+                                             Pheno.Study == "Ngati Porou"),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             GOUT,
+                                             Geno.SpecificAncestry %in% c("East Polynesian"),
+                                             Pheno.Study == "Ngati Porou"),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             !GOUT,
+                                             Geno.SpecificAncestry %in% c("East Polynesian"),
+                                             Pheno.Study == "Ngati Porou"),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             !GOUT,
+                                             Geno.SpecificAncestry %in% c("East Polynesian"),
+                                             Pheno.Study == "Ngati Porou"),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             GOUT,
+                                             Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             GOUT,
+                                             Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
+                   all_pheno_prs2 %>% filter(SEX == "Male",
+                                             !GOUT,
+                                             Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
+                   all_pheno_prs2 %>% filter(SEX == "Female",
+                                             !GOUT,
+                                             Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")))
 
-all_pheno_prs2_female <- all_pheno_prs2 %>% 
-  filter(SEX == "Female")
-
-data_list2 <- list(all_pheno_prs2_male %>% filter(GOUT,
-                                                Pheno.Study == "UK Biobank"),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Pheno.Study == "UK Biobank"),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Pheno.Study == "UK Biobank"),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Pheno.Study == "UK Biobank"),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                  Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian"),
-                                                  Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease")),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Pheno.Study == "EuroGout",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Pheno.Study == "EuroGout",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Pheno.Study == "EuroGout",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Pheno.Study == "EuroGout",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: 401",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: 401",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: CLEAR1",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: CLEAR1",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: CLEAR2",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: CLEAR2",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: CRYSTAL",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: CRYSTAL",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(Pheno.Study == "Ardea: LIGHT",
-                                                Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_female %>% filter(Pheno.Study == "Ardea: LIGHT",
-                                                  Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian")),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study != "Ngati Porou"),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study != "Ngati Porou"),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study != "Ngati Porou"),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study != "Ngati Porou"),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study == "Ngati Porou"),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study == "Ngati Porou"),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study == "Ngati Porou"),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("East Polynesian"),
-                                                Pheno.Study == "Ngati Porou"),
-                  all_pheno_prs2_male %>% filter(GOUT,
-                                                Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs2_female %>% filter(GOUT,
-                                                  Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs2_male %>% filter(!GOUT,
-                                                Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")),
-                  all_pheno_prs2_female %>% filter(!GOUT,
-                                                  Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan")))
-
+# Remaking missing data table after filtering.
 table1 <- tibble("Cohort" = cohortstring,
-                 "N" = unlist(lapply(data_list2, function(x) nrow(x))),
+                 "N" = unlist(lapply(data_list2, function(x) format(nrow(x), big.mark = ","))),
                  "Age at Collection" = unlist(lapply(data_list2, function(x) missing(x$AGECOL))),
                  "Serum Urate" = unlist(lapply(data_list2, function(x) missing(x$URATE))),
                  "ULT" = unlist(lapply(data_list2, function(x) missing(x$ULT))),
@@ -421,6 +503,7 @@ table1 <- tibble("Cohort" = cohortstring,
                  "Flares" = unlist(lapply(data_list2, function(x) missing(x$NUMATK))),
                  "Tophi" = unlist(lapply(data_list2, function(x) missing(x$TOPHIGOUT))),
                  "PRS" = unlist(lapply(data_list2, function(x) missing(x$PRS))),
+                 "Urate PRS" = unlist(lapply(data_list2, function(x) missing(x$Urate_PRS))),
                  "Prophylaxis" = unlist(lapply(data_list2, function(x) missing(x$PROPHY))),
                  "BMI" = unlist(lapply(data_list2, function(x) missing(x$BMI))),
                  "Hypertension" = unlist(lapply(data_list2, function(x) missing(x$HYPERTENSION))),
@@ -435,50 +518,65 @@ table1 <- tibble("Cohort" = cohortstring,
                  "Family History of Gout" = unlist(lapply(data_list2, function(x) missing(x$FAMGOUT))),
                  "No. Relatives w/ Gout" = unlist(lapply(data_list2, function(x) missing(x$FAMGOUTNUM))))
 
+# Transposing table.
 table1 <- transpose_df(table1) %>% 
   column_to_rownames(var = "Cohort") %>% 
   mutate(across(.cols = 1:ncol(table1), ~ str_replace(string = .x, pattern = " ", replacement = "&nbsp;")))
 
+# Further preparing for printing.
 row.names(table1) <- str_replace(row.names(table1), " ", "&nbsp;")
 
+# Printing table.
 table1 %>% 
   kable(col.names = clean_names,
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
-  scroll_box(width = "900px", height = "475px") %>% 
+  scroll_box(width = "800px", height = "490px") %>% 
   footnote("'All' = all missing, 'None' = none missing")
 ```
 
-So now the following is true about the final cohort:
+Based on this new missing data table, the following observations can be made:
 
-1. Age at collection and the PRS are both fully phenotyped
+1. Most cohorts have at minimum 50 individuals within them, though all Ardea Ironwood studies and the East Polynesian Ngati Porou gout cohort have less than 30 females, suggesting these cohorts will have limited power for study of gout phenotypes.
 
-2. Serum urate has less than 10% missingness in all cohorts except the GlobalGout controls (80% missing)
+2. No individuals are missing any age at recruitment measurements.
 
-3. ULT has around 30-40% missingness in most gout cohorts except 4 of the 5 Ardea cohorts and the UK Biobank gout cohort
+3. Among all gout cohorts, serum urate is missing in less than 7% of individuals. Control cohorts have slightly higher missing data rates for this variable. This variable should therefore be suitable for use in analyses.
 
-4. The three severity traits are completely available in all Ardea cohorts and completely missing in the UK Biobank. In the remaining cohorts, age at onset/disease duration has around 5 - 10% missingness, flares have around 5 - 15% missingness, and tophi have 10 - 20% missingness for Aus/NZ and around 45% missingness in GlobalGout
+4. Among all gout cohorts, data for current ULT usage is missing in up to 35% of individuals, with very little missing data among Ardea cohorts and the UK Biobank cohort. The exceptions are the Aus/NZ European gout cohorts at close to 40% missing data, and the CRYSTAL cohort with around 50% missing data.
 
-5. Prophylaxis, comorbidity, lifestyle and family history data are poorly phenotyped overall
+5. Among gout cohorts (excluding UK Biobank), data for age at gout onset and disease duration are missing in around 10% or fewer individuals for all cohorts.
 
-Given the relatively low proportions of missingness for our most important variables, we are probably okay to just use complete cases only for each model. This will of course reduce power, and may introduce bias which I need to be okay with as a limitation.
+6. Among gout cohorts (excluding UK Biobank), data for flare frequency is missing in up to ~15% of individuals.
 
-<br/>
+7. Among gout cohorts (excluding UK Biobank), data for tophaceous disease is missing at very low rates among Ardea cohorts, but is missing in around 20% of individuals among Aus/NZ European cohorts and Polynesian cohorts. Importantly, it is missing in close to 40% of individuals in the GlobalGout cohort.
+
+8. The gout PRS has no missing data in all cohorts.
+
+9. The urate PRS is missing at around 5% in all cohorts, though it is missing at close to 33% in the UK Biobank. Comparisons with the gout PRS should be carefully done to ensure the cohort size is consistent.
+
+10. Data on prophylaxis, comorbidities, lifestyle factors, and family history of gout are all inconsistently phenotyped across the cohorts and thus should not be used in analyses (with the exception of BMI which is missing at low rates in all cohorts).
+
+Given the relatively low proportions of missingness for the most important variables for this study, we can use complete cases only for each model. This will of course reduce power, and may introduce bias which I need to be okay with as a limitation.
+
+<br>
 
 ### Characteristics of each Cohort
 
 ```{r Table1}
+# Making table with statistics describing the distribution of each variable for each cohort (aftering filtering for missing data).
 table1 <- tibble("Cohort" = cohortstring, 
-                 "N" = unlist(lapply(data_list2, nrow)),
-                 "Age at Collection (years)" = unlist(lapply(data_list2, function(x) report(x$AGECOL))),
+                 "N" = unlist(lapply(data_list2, function(x) format(nrow(x), big.mark = ","))),
+                 "Age at Recruitment (years)" = unlist(lapply(data_list2, function(x) report(x$AGECOL))),
                  "Serum Urate (mg/dL)" = unlist(lapply(data_list2, function(x) report(x$URATE))),
                  "ULT" = unlist(lapply(data_list2, function(x) sumreport(x$ULT))),
                  "Age at Onset (years)" = unlist(lapply(data_list2, function(x) report(x$AGE1ATK))),
                  "Disease Duration (years)" = unlist(lapply(data_list2, function(x) report(x$DURATION))),
                  "Number of Flares in Last Year" = unlist(lapply(data_list2, function(x) report_median(x$NUMATK))),
-                 "Presence of Tophi" = unlist(lapply(data_list2, function(x) sumreport(x$TOPHIGOUT))),
+                 "Tophaceous Disease" = unlist(lapply(data_list2, function(x) sumreport(x$TOPHIGOUT))),
                  "PRS" = unlist(lapply(data_list2, function(x) report(x$PRS))),
+                 "Urate PRS" = unlist(lapply(data_list2, function(x) report(x$Urate_PRS))),
                  "Prophylaxis" = unlist(lapply(data_list2, function(x) sumreport(x$PROPHY))),
                  "BMI" = unlist(lapply(data_list2, function(x) report(x$BMI))),
                  "Hypertension" = unlist(lapply(data_list2, function(x) sumreport(x$HYPERTENSION))),
@@ -493,153 +591,179 @@ table1 <- tibble("Cohort" = cohortstring,
                  "Family History of Gout" = unlist(lapply(data_list2, function(x) sumreport(x$FAMGOUT))),
                  "No. Relatives w/ Gout" = unlist(lapply(data_list2, function(x) report(x$FAMGOUTNUM))))
 
+# Tranposing the table.
 table1 <- transpose_df(table1) %>% 
   column_to_rownames(var = "Cohort") %>% 
   mutate(across(.cols = 1:ncol(table1), ~ str_replace(string = .x, pattern = " ", replacement = "&nbsp;")))
 
+# Further preparing the table for printing.
 row.names(table1) <- str_replace(row.names(table1), " ", "&nbsp;")
 
+# Printing the table.
 table1 %>% 
   kable(col.names = clean_names,
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
-  scroll_box(width = "900px", height = "475px") %>% 
+  scroll_box(width = "800px", height = "490px") %>% 
   footnote("Flares reported as median (inter-quartile range). All other numeric variables reported as mean ± sd. All binary variables reported as N (%).")
 ```
 
-From this table we learn the following:
+From this table we can make the following observations:
 
-1. In general, gout cohorts consist of approximately 80 - 90% males, while control cohorts are closer to 50% male.
+1. In general, there are around 5 to 10 times more male gout cases than female gout cases. Though the control male to female ratio is closer to 1:1.
 
-2. Male European gout cohorts are mostly 60 years old on average, except for Ardea cohorts who are younger (around 50-55). Male East Polynesian gout cohorts are around 50 - 60 years old, while the male West Polynesian gout cases are younger (average of 47 years old). Female gout cohorts are consistently 5-10 years older than their male counterparts. Controls are generally 5 to 10 years younger than cases.
+2. Within each population group, gout cases are consistently older than controls by around 5 to 20 years. Male European gout cohorts are mostly 60 years old on average, except for Ardea cohorts who are younger (around 50 - 55 years old on average). Male East Polynesian gout cohorts are around 55 - 60 years old on average, while the male West Polynesian gout cases appear to be younger (average of 47 years old). Female gout cohorts are consistently older than their male counterparts, with an average age difference of around 10 years.
 
-3. Serum urate levels for gout cohorts tend to be between 6.5 and 9 mg/dL, while control cohorts sit around 4 to 6 mg/dL on average. Females in general have lower serum urate than males.
+3. Serum urate levels for gout cohorts tend to be between 6.5 and 9 mg/dL, while control cohorts sit around 4 to 6 mg/dL on average. Women in general have lower serum urate than men.
 
-4. Most gout cohorts have high rates of ULT (many are over 90% on ULT - though this is likely related to missing data issues). Similar ULT usage is seen in males and females, though perhaps slightly less females are prescribed ULT than males.
+4. Most gout cohorts have high rates of ULT (many are over 90% on ULT - though this is likely related to missing data issues). Similar ULT usage is seen in men and women, though perhaps slightly less women are prescribed ULT than men.
 
-5. Mean onset is around 40 - 50 for European cohorts and around 35 - 40 for Polynesians. Average disease duration is around 10 - 20 years for all cohorts. All females have a much higher age at onset compared to males and a shorter disease duration.
+5. Mean age at gout onset is around 40 - 50 for male European cohorts and around 35 - 40 for Polynesian men. Women have a mean age at gout onset 5 to 20 years higher than men. Average disease duration is around 10 - 20 years for all male cohorts, while being about 5 to 10 years shorter for female cohorts.
 
-6. Gout cohorts have up to 10 flares per year on average. No obvious difference in flares between males and females, perhaps slightly lower in Polynesian females vs Polynesian males.
+6. Gout cohorts have up to a median of around 2 to 4 flares per year on average, with slightly higher flare rates among Ardea cohorts. There are no obvious difference in flares between men and women, nor between European and Polynesian cohorts.
 
-7. Gout cohorts tend to have between 15 and 50% tophaceous gout. Inconsistent decrease in number of tophi in females vs males.
+7. Gout cohorts tend to have between 15 and 50% tophaceous gout. There are no obvious differences between men and women, nor between ancestries.
 
-8. The PRS sits around 4.0 to 4.4 for European gout cohorts, around 3.7 for European control cohorts, around 4.4 for East Polynesian gout cohorts, 4.8 for West Polynesian gout cohorts and around 4.2 to 4.3 for Polynesian control cohorts. No obvious difference between males and females.
+8. The mean gout PRS is around 4.0 to 4.3 for European gout cohorts, around 3.7 for European control cohorts, around 4.4 for East Polynesian gout cohorts, 4.8 for West Polynesian gout cohorts and around 4.2 to 4.3 for Polynesian control cohorts. There is no difference between men and women. Interestingly, the urate PRS is similar between all ancestral groups, though it is consistently slightly lower among controls versus cases.
 
-9. For cohorts with prophylaxis data, almost all gout cases are on prophylaxis. No obvious sex differences.
+9. For cohorts with prophylaxis data, almost all gout cases are on prophylaxis. No obvious sex differences. I don't think this data is usable due to excessive missing data.
 
-10. European gout cases have a mean BMI of between 30 and 35 on average, while European controls are closer to 27 on average. Polynesian cases have a mean BMI of 36 while controls have around 33 on average. Female gout cases consistently have higher BMI and higher rates of all comorbidities than their male counterparts, while female controls have lower BMI and lower rates of all comorbidities than male controls.
+10. Male European gout cases have a mean BMI of 30, though male Ardea cohorts are all closer to 35. Female European gout cases have a mean BMI of 31 - 32 on average, though female Ardea cohorts are all around 37. European control cohorts typically have an average BMI of around 27/28 for women/men respectively. Male Polynesian cases have a mean BMI of ~36 while male controls have a BMI of ~32 on average. Polynesian women consistently have around 2 to 3 units higher BMI than their male counterparts, regardless of gout status.
 
-12. Gout cohorts are around 50 - 100% hypertensive, while European control cohorts are around 35 - 50% and Polynesian control cohorts are 90 - 95% hypertensive
-
-13. Type 2 diabetes seems to be more common in gout cohorts, at between 10 and 40%, while it sits at around 7 - 13% for European controls, and around 23% for Polynesian controls 
-
-14. Heart disease is around 20 - 45% frequency in gout cohorts, though Ardea cohorts all show lower amounts at around 5 - 10% each. The control cohorts sit around 10 - 20% each
-
-15. Kidney disease is relatively common among the Aus/NZ cohorts and the GlobalGout cohort, but not as common among the Ardea cohorts or UK Biobank. This may be because mainly the people involved in renal disease studies had kidney disease measurements
-
-16. Dyslipidemia clearly associates with gout status, sitting at around 20 to 42% in European control cohorts vs 50 to 80% in European gout cohorts. Ardea cohorts have closer to 40 to 50% dyslipidemia however. The Polynesian cohorts appear to have very high proportions of dyslipidemia, particularly in the gout cohorts.
-
-17. Stroke proportions are mostly low, except for the Aus/NZ control cohort who have very high proportions of this disease, and in general stroke associates with gout status.
-
-18. Alcoholic drinks do associate with gout status, and generally Polynesians drink less than Europeans. Males tend to drink much more than females, regardless of gout status, but male gout vs controls have higher rates of drinking while females are no different between cases and controls.
-
-19. Sugar sweetened drinks also seem to associate slightly with gout status, and Polynesians drink more of these than Europeans. Sugar-sweetened bevarages seems to be gout associated in all Europeans and West Polynesians but not East Polynesians. Also females tend to drink less of these than men.
-
-20. Smoking status shows no correlation with gout status but does seem to be higher rates in GlobalGout, Ardea, and Polynesian cohorts. Smoking status may be positively gout associated in females but negatively associated in males (European specific).
-
-21. Family history of gout is clearly correlated with gout status, and is much higher in Polynesians in general, which is also reflected by mean no. relatives with gout. As expected, family history of gout associates with gout status independent of sex.
+12. All remaining variables cannot be interpreted due to missing data.
 
 Based on this information, I will take the following action:
 
-1. Remove any cohort with fewer than ~30 individuals (i.e. female Ardea cohorts) as they are unlikely to contribute to the meta-analyses.
+1. Remove any cohort with fewer than ~30 individuals (i.e. female Ardea cohorts) as they are unlikely to contribute to the meta-analyses (due to inverse variance weighting).
 
-2. Ignore any phenotypes that are not phenotyped at more than 80% across all cohorts, given that there are likely biases as to inclusion in phenotyping (i.e. negative ULT cases reported as missing in some cohorts).
+2. Ignore any phenotypes that are not phenotyped at more than 80% across all cohorts (excluding UK Biobank), given that there are likely biases as to inclusion in phenotyping (i.e. negative ULT cases reported as missing in some cohorts).
 
-<br/>
+<br>
 
 ### Plotting distribution of each variable {.tabset}
 
 ```{r}
-# Plotting distributions of each of these variables in males and females separately, colored by cohort
+# Creating table for plotting the distributions of all variables of interest in each cohort, stratified by sex.
 all_cohorts <- all_pheno_prs2 %>% 
   mutate(SEX = factor(SEX, levels = c("Male", "Female")),
          GOUT2 = factor(GOUT, levels = c(TRUE, FALSE), labels = c("Gout", "Control")),
-         GROUP = factor(case_when(GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Gout",
-                                  !GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Control",
-                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian Gout",
-                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian Control",
-                                  GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian Gout - NP",
-                                  !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian Control - NP",
-                                  GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Gout",
-                                  !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Control"), 
-                        levels = c("European Gout", "European Control", "East Polynesian Gout", "East Polynesian Control", "East Polynesian Gout - NP", "East Polynesian Control - NP", "West Polynesian Gout", "West Polynesian Control")),
-         GROUP2 = factor(case_when(GROUP == "European Gout" & SEX == "Male" ~ "European Gout - male",
-                                  GROUP == "European Gout" & SEX == "Female" ~ "European Gout - female",
-                                  GROUP == "European Control" & SEX == "Male" ~ "European Control - male",
-                                  GROUP == "European Control" & SEX == "Female" ~ "European Control - female",
-                                  GROUP == "East Polynesian Gout" & SEX == "Male" ~ "East Polynesian Gout - male",
-                                  GROUP == "East Polynesian Gout" & SEX == "Female" ~ "East Polynesian Gout - female",
-                                  GROUP == "East Polynesian Control" & SEX == "Male" ~ "East Polynesian Control - male",
-                                  GROUP == "East Polynesian Control" & SEX == "Female" ~ "East Polynesian Control - female",
-                                  GROUP == "East Polynesian Gout - NP" & SEX == "Male" ~ "East Polynesian Gout - NP - male",
-                                  GROUP == "East Polynesian Gout - NP" & SEX == "Female" ~ "East Polynesian Gout - NP - female",
-                                  GROUP == "East Polynesian Control - NP" & SEX == "Male" ~ "East Polynesian Control - NP - male",
-                                  GROUP == "East Polynesian Control - NP" & SEX == "Female" ~ "East Polynesian Control - NP - female",
-                                  GROUP == "West Polynesian Gout" & SEX == "Male" ~ "West Polynesian Gout - male",
-                                  GROUP == "West Polynesian Gout" & SEX == "Female" ~ "West Polynesian Gout - female",
-                                  GROUP == "West Polynesian Control" & SEX == "Male" ~ "West Polynesian Control - male",
-                                  GROUP == "West Polynesian Control" & SEX == "Female" ~ "West Polynesian Control - female"), 
-                        levels = c("European Gout - male", "European Gout - female", "European Control - male", "European Control - female", "East Polynesian Gout - male", "East Polynesian Gout - female", "East Polynesian Control - male", "East Polynesian Control - female", "East Polynesian Gout - NP - male", "East Polynesian Gout - NP - female", "East Polynesian Control - NP - male", "East Polynesian Control - NP - female", "West Polynesian Gout - male", "West Polynesian Gout - female", "West Polynesian Control - male", "West Polynesian Control - female")),
-         GROUP3 = factor(case_when(GOUT & SEX == "Male" ~ "Male Gout",
-                                   GOUT & SEX == "Female" ~ "Female Gout",
-                                   !GOUT & SEX == "Male" ~ "Male Control",
-                                   !GOUT & SEX == "Female" ~ "Female Control"), 
-                         levels = c("Male Gout", "Female Gout", "Male Control", "Female Control")),
-         COHORT2 = factor(case_when(GOUT & Pheno.Study == "UK Biobank" ~ "UK Biobank - Gout",
-                                    !GOUT & Pheno.Study == "UK Biobank" ~ "UK Biobank - Control",
-                                    GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") & Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease") ~ "Aus/NZ - Gout",
-                                    !GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") & Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease") ~ "Aus/NZ - Control",
-                                    GOUT & Pheno.Study == "EuroGout" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "GlobalGout - Gout",
-                                    !GOUT & Pheno.Study == "EuroGout" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "GlobalGout - Control",
-                                    Pheno.Study == "Ardea: 401" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - LASSO",
-                                    Pheno.Study == "Ardea: CLEAR1" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CLEAR1",
-                                    Pheno.Study == "Ardea: CLEAR2" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CLEAR2",
-                                    Pheno.Study == "Ardea: CRYSTAL" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CRYSTAL",
-                                    Pheno.Study == "Ardea: LIGHT" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - LIGHT",
-                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian - Gout",
-                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian - Control",
-                                    GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - Gout - NP",
-                                    !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - Control - NP",
-                                    GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Gout",
-                                    !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Control"), 
-                          levels = c("UK Biobank - Gout", "UK Biobank - Control", "Aus/NZ - Gout", "Aus/NZ - Control", "GlobalGout - Gout", "GlobalGout - Control", "Ardea - LASSO", "Ardea - CLEAR1", "Ardea - CLEAR2", "Ardea - CRYSTAL", "Ardea - LIGHT", "East Polynesian - Gout", "East Polynesian - Control", "East Polynesian - Gout - NP", "East Polynesian - Control - NP", "West Polynesian - Gout", "West Polynesian - Control"))) %>% 
-  filter(!is.na(COHORT2))
+         ANCESTRY_GOUT = factor(case_when(GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Gout",
+                                          !GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "European Control",
+                                          GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian Gout",
+                                          !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian Control",
+                                          GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian Gout - NP",
+                                          !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian Control - NP",
+                                          GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Gout",
+                                          !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian Control"),
+                                levels = c("European Gout", 
+                                           "European Control", 
+                                           "East Polynesian Gout", 
+                                           "East Polynesian Control", 
+                                           "East Polynesian Gout - NP", 
+                                           "East Polynesian Control - NP", 
+                                           "West Polynesian Gout", 
+                                           "West Polynesian Control")),
+         ANCESTRY_GOUT_SEX = factor(case_when(ANCESTRY_GOUT == "European Gout" & SEX == "Male" ~ "European Gout - male",
+                                              ANCESTRY_GOUT == "European Gout" & SEX == "Female" ~ "European Gout - female",
+                                              ANCESTRY_GOUT == "European Control" & SEX == "Male" ~ "European Control - male",
+                                              ANCESTRY_GOUT == "European Control" & SEX == "Female" ~ "European Control - female",
+                                              ANCESTRY_GOUT == "East Polynesian Gout" & SEX == "Male" ~ "East Polynesian Gout - male",
+                                              ANCESTRY_GOUT == "East Polynesian Gout" & SEX == "Female" ~ "East Polynesian Gout - female",
+                                              ANCESTRY_GOUT == "East Polynesian Control" & SEX == "Male" ~ "East Polynesian Control - male",
+                                              ANCESTRY_GOUT == "East Polynesian Control" & SEX == "Female" ~ "East Polynesian Control - female",
+                                              ANCESTRY_GOUT == "East Polynesian Gout - NP" & SEX == "Male" ~ "East Polynesian Gout - NP - male",
+                                              ANCESTRY_GOUT == "East Polynesian Gout - NP" & SEX == "Female" ~ "East Polynesian Gout - NP - female",
+                                              ANCESTRY_GOUT == "East Polynesian Control - NP" & SEX == "Male" ~ "East Polynesian Control - NP - male",
+                                              ANCESTRY_GOUT == "East Polynesian Control - NP" & SEX == "Female" ~ "East Polynesian Control - NP - female",
+                                              ANCESTRY_GOUT == "West Polynesian Gout" & SEX == "Male" ~ "West Polynesian Gout - male",
+                                              ANCESTRY_GOUT == "West Polynesian Gout" & SEX == "Female" ~ "West Polynesian Gout - female",
+                                              ANCESTRY_GOUT == "West Polynesian Control" & SEX == "Male" ~ "West Polynesian Control - male",
+                                              ANCESTRY_GOUT == "West Polynesian Control" & SEX == "Female" ~ "West Polynesian Control - female"), 
+                                    levels = c("European Gout - male", 
+                                               "European Gout - female", 
+                                               "European Control - male", 
+                                               "European Control - female", 
+                                               "East Polynesian Gout - male", 
+                                               "East Polynesian Gout - female", 
+                                               "East Polynesian Control - male", 
+                                               "East Polynesian Control - female", 
+                                               "East Polynesian Gout - NP - male", 
+                                               "East Polynesian Gout - NP - female", 
+                                               "East Polynesian Control - NP - male", 
+                                               "East Polynesian Control - NP - female", 
+                                               "West Polynesian Gout - male", 
+                                               "West Polynesian Gout - female", 
+                                               "West Polynesian Control - male", 
+                                               "West Polynesian Control - female")),
+         SEX_GOUT = factor(case_when(GOUT & SEX == "Male" ~ "Male Gout",
+                                     GOUT & SEX == "Female" ~ "Female Gout",
+                                     !GOUT & SEX == "Male" ~ "Male Control",
+                                     !GOUT & SEX == "Female" ~ "Female Control"), 
+                           levels = c("Male Gout", 
+                                      "Female Gout",
+                                      "Male Control",
+                                      "Female Control")),
+         COHORT_GOUT = factor(case_when(GOUT & Pheno.Study == "UK Biobank" ~ "UK Biobank - Gout",
+                                        !GOUT & Pheno.Study == "UK Biobank" ~ "UK Biobank - Control",
+                                        GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") & Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease") ~ "Aus/NZ - Gout",
+                                        !GOUT & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") & Pheno.Study %in% c("AGRIA", "Diabetes Mellitus", "Gout in Aotearoa", "LPA", "Ngati Porou", "Renal Disease") ~ "Aus/NZ - Control",
+                                        GOUT & Pheno.Study == "EuroGout" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "GlobalGout - Gout",
+                                        !GOUT & Pheno.Study == "EuroGout" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "GlobalGout - Control",
+                                        Pheno.Study == "Ardea: 401" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - LASSO",
+                                        Pheno.Study == "Ardea: CLEAR1" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CLEAR1",
+                                        Pheno.Study == "Ardea: CLEAR2" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CLEAR2",
+                                        Pheno.Study == "Ardea: CRYSTAL" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - CRYSTAL",
+                                        Pheno.Study == "Ardea: LIGHT" & Geno.SpecificAncestry %in% c("European", "European; Iberian", "Iberian") ~ "Ardea - LIGHT",
+                                        GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian - Gout",
+                                        !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study != "Ngati Porou" ~ "East Polynesian - Control",
+                                        GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - Gout - NP",
+                                        !GOUT & Geno.SpecificAncestry %in% c("East Polynesian") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - Control - NP",
+                                        GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Gout",
+                                        !GOUT & Geno.SpecificAncestry %in% c("West Polynesian", "Niuean", "Pukapukan") ~ "West Polynesian - Control"), 
+                              levels = c("UK Biobank - Gout", 
+                                         "UK Biobank - Control", 
+                                         "Aus/NZ - Gout", 
+                                         "Aus/NZ - Control", 
+                                         "GlobalGout - Gout", 
+                                         "GlobalGout - Control", 
+                                         "Ardea - LASSO", 
+                                         "Ardea - CLEAR1", 
+                                         "Ardea - CLEAR2", 
+                                         "Ardea - CRYSTAL", 
+                                         "Ardea - LIGHT", 
+                                         "East Polynesian - Gout", 
+                                         "East Polynesian - Control", 
+                                         "East Polynesian - Gout - NP", 
+                                         "East Polynesian - Control - NP", 
+                                         "West Polynesian - Gout", 
+                                         "West Polynesian - Control"))) %>% 
+  filter(!is.na(COHORT_GOUT))
 ```
 
-#### Age at collection
+#### Age at Recruitment
 
 ```{r}
-# Age at collection
+# Plotting distribution of age at recruitment in each cohort, stratified by sex.
 all_cohorts %>% 
-  ggplot(aes(x = AGECOL, y = COHORT2, color = SEX)) +
+  ggplot(aes(x = AGECOL, y = COHORT_GOUT, color = SEX)) +
     geom_boxplot(position = position_dodge2(reverse = T)) +
-    labs(x = "Age at Collection (years)") +
+    labs(x = "Age at Recruitment (years)") +
     theme(axis.title.y = element_blank(),
           panel.grid.major.y = element_blank(),
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, 100)) + 
-    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT2)))
+    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT_GOUT)))
 ```
 
-#### Serum urate
+#### Serum Urate
 
 ```{r}
-# Serum urate
+# Plotting distribution of serum urate in each cohort, stratified by sex.
 all_cohorts %>% 
   filter(!is.na(URATE)) %>% 
-  ggplot(aes(x = URATE, y = COHORT2, color = SEX)) +
+  ggplot(aes(x = URATE, y = COHORT_GOUT, color = SEX)) +
     geom_boxplot(position = position_dodge2(reverse = T)) +
     labs(x = "Serum Urate (mg/dL)") +
     theme(axis.title.y = element_blank(),
@@ -647,22 +771,22 @@ all_cohorts %>%
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, max(all_cohorts$URATE, na.rm = T))) + 
-    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT2)))
+    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT_GOUT)))
 ```
 
-#### Urate-lowering therapy
+#### Urate-Lowering Therapy
 
 ```{r}
-# ULT
+# Plotting distribution of ULT usage in each cohort, stratified by sex.
 all_cohorts %>% 
   filter(GOUT) %>% 
   mutate(ULT = factor(case_when(ULT ~ "On ULT",
                                 !ULT ~ "Not on ULT",
                                 is.na(ULT) ~ "No Data"), 
                       levels = c("No Data", "Not on ULT", "On ULT"))) %>% 
-  group_by(COHORT2, ULT, SEX) %>% 
+  group_by(COHORT_GOUT, ULT, SEX) %>% 
   summarize(value = n()) %>% 
-  ggplot(aes(x = COHORT2, y = value, fill = ULT, color = COHORT2)) +
+  ggplot(aes(x = COHORT_GOUT, y = value, fill = ULT, color = COHORT_GOUT)) +
     geom_bar(position = "fill", stat = "identity") +
     facet_wrap(~ SEX) +
     scale_fill_discrete(type = c("black", "#C0C0C0", "#505050"), limits = c("On ULT", "Not on ULT", "No Data")) +
@@ -679,13 +803,13 @@ all_cohorts %>%
           legend.title = element_blank())
 ```
 
-#### Age at onset
+#### Age at Gout Onset
 
 ```{r}
-# Age at onset
+# Plotting distribution of age at onset in each cohort, stratified by sex.
 all_cohorts %>% 
   filter(GOUT, !is.na(AGE1ATK)) %>% 
-  ggplot(aes(x = AGE1ATK, y = COHORT2, color = SEX)) +
+  ggplot(aes(x = AGE1ATK, y = COHORT_GOUT, color = SEX)) +
     geom_boxplot(position = position_dodge2(reverse = T)) +
     labs(x = "Age at Onset (years)") +
     theme(axis.title.y = element_blank(),
@@ -693,16 +817,16 @@ all_cohorts %>%
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, 100)) + 
-    scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(AGE1ATK)) %>% mutate(COHORT2 = factor(COHORT2)) %>% pull(COHORT2))))
+    scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(AGE1ATK)) %>% mutate(COHORT_GOUT = factor(COHORT_GOUT)) %>% pull(COHORT_GOUT))))
 ```
 
-#### Disease duration
+#### Disease Duration
 
 ```{r}
-# Disease duration
+# Plotting distribution of age at onset in each cohort, stratified by sex.
 all_cohorts %>% 
   filter(GOUT, !is.na(DURATION)) %>% 
-  ggplot(aes(x = DURATION, y = COHORT2, color = SEX)) +
+  ggplot(aes(x = DURATION, y = COHORT_GOUT, color = SEX)) +
     geom_boxplot(position = position_dodge2(reverse = T)) +
     labs(x = "Disease Duration (years)") +
     theme(axis.title.y = element_blank(),
@@ -710,18 +834,18 @@ all_cohorts %>%
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, max(all_cohorts$DURATION, na.rm = T))) + 
-    scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(DURATION)) %>% mutate(COHORT2 = factor(COHORT2)) %>% pull(COHORT2))))
+    scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(DURATION)) %>% mutate(COHORT_GOUT = factor(COHORT_GOUT)) %>% pull(COHORT_GOUT))))
 ```
 
-#### Flare frequency
+#### Flare Frequency
 
 ```{r}
-# Flare frequency
+# Plotting distribution of flare frequency in each cohort, stratified by sex.
 all_cohorts %>% 
   filter(GOUT, !is.na(NUMATK)) %>% 
   mutate(NUMATK = case_when(NUMATK > 52 ~ 52,
                             TRUE ~ NUMATK)) %>% 
-  ggplot(aes(x = NUMATK, y = COHORT2, color = SEX)) +
+  ggplot(aes(x = NUMATK, y = COHORT_GOUT, color = SEX)) +
     geom_boxplot(position = position_dodge2(reverse = T)) +
     labs(x = "Number of Flares in Last Year") +
     theme(axis.title.y = element_blank(),
@@ -729,14 +853,16 @@ all_cohorts %>%
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank()) + 
     scale_x_continuous(limits = c(0, 52)) + 
-    scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(NUMATK)) %>% mutate(COHORT2 = factor(COHORT2)) %>% pull(COHORT2))))
+    scale_y_discrete(limits = rev(levels(all_cohorts %>% filter(GOUT, !is.na(NUMATK)) %>% mutate(COHORT_GOUT = factor(COHORT_GOUT)) %>% pull(COHORT_GOUT))))
 ```
 
-#### Flare frequency (categorical)
+#### Flare Frequency (categorical)
 
 ```{r}
+# Plotting distribution of flare frequency as a categorical variable in each cohort, stratified by sex.
 all_cohorts %>% 
-  filter(GOUT) %>% 
+  filter(GOUT,
+         COHORT_GOUT != "UK Biobank - Gout") %>% 
   mutate(FLARE_CAT = factor(case_when(is.na(FLARE_CAT) ~ "No Data",
                                       TRUE ~ as.character(FLARE_CAT)), 
                             levels = rev(c(paste0(0:5), 
@@ -744,9 +870,9 @@ all_cohorts %>%
                                        "12 - 52",
                                        "No Data")),
                             ordered = TRUE)) %>% 
-  group_by(COHORT2, FLARE_CAT, SEX) %>% 
+  group_by(COHORT_GOUT, FLARE_CAT, SEX) %>% 
   summarize(value = n()) %>% 
-  ggplot(aes(x = COHORT2, y = value, fill = FLARE_CAT, color = COHORT2)) +
+  ggplot(aes(x = COHORT_GOUT, y = value, fill = FLARE_CAT, color = COHORT_GOUT)) +
     geom_bar(position = "fill", stat = "identity") +
     facet_wrap(~ SEX) +
     scale_fill_discrete(type = c("#C0C0C0", "#FDE725FF", "#9FDA3AFF", "#4AC16DFF", "#1FA187FF", "#277F8EFF", "#365C8DFF", "#46337EFF", "#440154FF")) +
@@ -763,19 +889,20 @@ all_cohorts %>%
           legend.title = element_blank())
 ```
 
-#### Tophi
+#### Tophaceous Disease
 
 ```{r}
-# Tophi
+# Plotting distribution of tophaceous disease in each cohort, stratified by sex.
 all_cohorts %>% 
-  filter(GOUT) %>% 
+  filter(GOUT,
+         COHORT_GOUT != "UK Biobank - Gout") %>% 
   mutate(TOPHIGOUT = factor(case_when(TOPHIGOUT ~ "Tophi",
                                 !TOPHIGOUT ~ "No Tophi",
                                 is.na(TOPHIGOUT) ~ "No Data"), 
                       levels = c("No Data", "No Tophi", "Tophi"))) %>% 
-  group_by(COHORT2, TOPHIGOUT, SEX) %>% 
+  group_by(COHORT_GOUT, TOPHIGOUT, SEX) %>% 
   summarize(value = n()) %>% 
-  ggplot(aes(x = COHORT2, y = value, fill = TOPHIGOUT, color = COHORT2)) +
+  ggplot(aes(x = COHORT_GOUT, y = value, fill = TOPHIGOUT, color = COHORT_GOUT)) +
     geom_bar(position = "fill", stat = "identity") +
     facet_wrap(~ SEX) +
     scale_fill_discrete(type = c("black", "#C0C0C0", "#505050"), limits = c("Tophi", "No Tophi", "No Data")) +
@@ -792,77 +919,94 @@ all_cohorts %>%
           legend.title = element_blank())
 ```
 
-#### PRS
+#### Gout PRS
 
 ```{r}
-# PRS
+# Plotting distribution of gout PRS in each cohort, stratified by sex.
 all_cohorts %>% 
-  ggplot(aes(x = PRS, y = COHORT2, color = SEX)) +
+  ggplot(aes(x = PRS, y = COHORT_GOUT, color = SEX)) +
     geom_boxplot(position = position_dodge2(reverse = T)) +
     labs(x = "Gout PRS") +
     theme(axis.title.y = element_blank(),
           panel.grid.major.y = element_blank(),
           panel.grid.minor.y = element_blank(),
           legend.title = element_blank()) + 
-    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT2)))
-```
+    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT_GOUT)))
 
-<br/>
-
-### Plotting relationship between age/sex and each outcome of interest {.tabset}
-
-#### Gout
-
-```{r}
-# Plotting relationship between covariates (age + sex) and each outcome of interest (GOUT, SU, Onset, Duration, Flares, Tophi)
-# Gout
-all_cohorts %>%
-  filter(!is.na(GROUP)) %>% 
-  mutate(GROUP = factor(case_when(str_detect(GROUP, "European") ~ "European",
-                                  str_detect(GROUP, "East") & Pheno.Study != "Ngati Porou" ~ "East Polynesian",
-                                  str_detect(GROUP, "East") & Pheno.Study == "Ngati Porou" ~ "East Polynesian - NP",
-                                  str_detect(GROUP, "West") ~ "West Polynesian"),
-                        levels = c("European", "East Polynesian", "East Polynesian - NP", "West Polynesian"))) %>% 
-  ggplot(mapping = aes(x = GOUT2, y = AGECOL, fill = GROUP)) +
-    stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
-    stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
-    facet_wrap(~ SEX) +
-    labs(y = "Mean Age at Collection (years)") +
-    #scale_fill_discrete(limits = c("Gout", "Control")) +
-    theme(axis.title.x = element_blank(),
-            panel.grid.major.x = element_blank(),
-            panel.grid.minor.x = element_blank(),
-            legend.title = element_blank())
-```
-
-#### Serum urate v Age
-
-```{r}
-# Serum urate
 all_cohorts %>% 
-  filter(!is.na(URATE)) %>% 
+  ggplot(aes(x = PRS2, y = COHORT_GOUT, color = SEX)) +
+    geom_boxplot(position = position_dodge2(reverse = T)) +
+    labs(x = "Gout PRS") +
+    theme(axis.title.y = element_blank(),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          legend.title = element_blank()) + 
+    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT_GOUT)))
+```
+
+#### Urate PRS
+
+```{r}
+# Plotting distribution of urate PRS in each cohort, stratified by sex.
+all_cohorts %>% 
+  ggplot(aes(x = Urate_PRS, y = COHORT_GOUT, color = SEX)) +
+    geom_boxplot(position = position_dodge2(reverse = T)) +
+    labs(x = "Urate PRS") +
+    theme(axis.title.y = element_blank(),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          legend.title = element_blank()) + 
+    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT_GOUT)))
+
+all_cohorts %>% 
+  ggplot(aes(x = Urate_PRS2, y = COHORT_GOUT, color = SEX)) +
+    geom_boxplot(position = position_dodge2(reverse = T)) +
+    labs(x = "Urate PRS") +
+    theme(axis.title.y = element_blank(),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          legend.title = element_blank()) + 
+    scale_y_discrete(limits = rev(levels(all_cohorts$COHORT_GOUT)))
+```
+
+<br>
+
+### Plotting relationship between age at recruitment and each outcome of interest, stratified by sex {.tabset}
+
+#### Serum Urate vs Age at Recruitment, stratified by ULT usage
+
+```{r}
+# Plotting relationship between age at recruitment and serum urate, stratified by ULT usage.
+all_cohorts %>% 
+  filter(!is.na(URATE),
+         Pheno.Study != "UK Biobank") %>% 
   mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
                                  ULT ~ "On ULT",
                                  is.na(ULT) ~ "No Data / Control"),
                        levels = c("On ULT", "Not on ULT", "No Data / Control"))) %>% 
-  ggplot(mapping = aes(x = AGECOL, y = URATE, color = GROUP)) +
+  ggplot(mapping = aes(x = AGECOL, y = URATE, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX * ULT2) +
-    labs(x = "Mean Age at Collection (years)", 
+    labs(x = "Mean Age at Recruitment (years)", 
          y = "Serum Urate (mg/dL)") +
     theme(legend.title = element_blank())
 ```
 
-#### Serum urate v Duration
+#### Serum Urate vs Disease Duration, stratified by ULT usage
 
 ```{r}
+# Plotting relationship between disease duration and serum urate, stratified by ULT usage.
 all_cohorts %>% 
-  filter(!is.na(URATE)) %>% 
+  filter(!is.na(URATE),
+         Pheno.Study != "UK Biobank",
+         GOUT) %>% 
   mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
                                  ULT ~ "On ULT",
-                                 is.na(ULT) ~ "No Data / Control"),
-                       levels = c("On ULT", "Not on ULT", "No Data / Control"))) %>% 
-  ggplot(mapping = aes(x = DURATION, y = URATE, color = GROUP)) +
+                                 is.na(ULT) ~ "No Data"),
+                       levels = c("On ULT", "Not on ULT", "No Data"))) %>% 
+  ggplot(mapping = aes(x = DURATION, y = URATE, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX * ULT2) +
     labs(x = "Disease Duration (years)", 
@@ -870,137 +1014,166 @@ all_cohorts %>%
     theme(legend.title = element_blank())
 ```
 
-#### ULT
+#### ULT Usage vs Age at Recruitment
 
 ```{r}
-# ULT
+# Plotting relationship between ULT usage and age at recruitment.
 all_cohorts %>% 
   filter(GOUT) %>% 
   mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
-                          ULT ~ "On ULT",
-                          is.na(ULT) ~ "No Data"),
+                                 ULT ~ "On ULT",
+                                 is.na(ULT) ~ "No Data"),
                        levels = c("On ULT", "Not on ULT", "No Data"))) %>% 
-  ggplot(mapping = aes(x = ULT2, y = AGECOL, fill = GROUP)) +
+  ggplot(mapping = aes(x = ULT2, y = AGECOL, fill = ANCESTRY_GOUT)) +
     stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
     stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
     facet_wrap(~ SEX) +
-    labs(y = "Mean Age at Collection (years)") +
+    labs(y = "Mean Age at Recruitment (years)") +
     theme(axis.title.x = element_blank(),
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
           legend.title = element_blank())
 ```
 
-#### Onset
+#### Age at Gout Onset vs Age at Recruitment
 
 ```{r}
-# Age at onset
+# Plotting relationship between age at onset and age at recruitment.
 all_cohorts %>% 
   filter(!is.na(AGE1ATK)) %>% 
-  ggplot(mapping = aes(x = AGECOL, y = AGE1ATK, color = COHORT2)) +
+  ggplot(mapping = aes(x = AGECOL, y = AGE1ATK, color = COHORT_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
-    labs(x = "Age at Collection (years)", y = "Age at Onset (years)") +
+    labs(x = "Age at Recruitment (years)", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Duration
+#### Disease Duration vs Age at Recruitment
 
 ```{r}
-# Disease duration
+# Plotting relationship between disease duration and age at recruitment.
 all_cohorts %>% 
   filter(GOUT, !is.na(AGE1ATK)) %>% 
-  ggplot(mapping = aes(x = AGECOL, y = DURATION, color = COHORT2)) +
+  ggplot(mapping = aes(x = AGECOL, y = DURATION, color = COHORT_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
-    labs(x = "Age at Collection (years)", y = "Disease Duration (years)") +
+    labs(x = "Age at Recruitment (years)", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Flare frequency (all)
+#### Flare Frequency vs Age at Recruitment (in all individuals)
 
 ```{r}
-# Flare frequency
+# Plotting relationship between categorized flare frequency and age at recruitment (in all individuals with gout).
 all_cohorts %>% 
-  filter(GOUT, !is.na(FLARE_CAT),
-         !str_detect(COHORT2, "Ardea")) %>% 
-  ggplot(aes(x = FLARE_CAT, y = AGECOL, color = COHORT2)) +
+  filter(GOUT, 
+         !is.na(FLARE_CAT),
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
+  ggplot(aes(x = FLARE_CAT, y = AGECOL, color = COHORT_GOUT)) +
     stat_summary(geom = "point", fun = mean) +
     stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
     facet_wrap(~ SEX) +
-    labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Collection (years)") +
+    labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Recruitment (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Flare frequency (> 1)
+#### Flare Frequency vs Age at Recruitment (in individuals with at least 2 flares in last year)
 
 ```{r}
+# Plotting relationship between categorized flare frequency and age at recruitment (in individuals with at least 2 flares in last year).
 all_cohorts %>% 
-  filter(GOUT, !is.na(FLARE_CAT),
+  filter(GOUT, 
+         !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
-  ggplot(aes(x = FLARE_CAT, y = AGECOL, color = COHORT2)) +
+  ggplot(aes(x = FLARE_CAT, y = AGECOL, color = COHORT_GOUT)) +
     stat_summary(geom = "point", fun = mean) +
     stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
     facet_wrap(~ SEX) +
-    labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Collection (years)") +
+    labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Recruitment (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Tophi
+#### Tophaceous Disease vs Age at Recruitment
 
 ```{r}
-# Tophi
+# Plotting relationship between tophaceous disease and age at recruitment
 all_cohorts %>% 
   filter(GOUT,
-         !str_detect(COHORT2, "CRYSTAL")) %>% 
+         !str_detect(COHORT_GOUT, "CRYSTAL")) %>% 
   mutate(TOPHIGOUT = factor(case_when(TOPHIGOUT ~ "Tophi",
                                       !TOPHIGOUT ~ "No Tophi",
                                       is.na(TOPHIGOUT) ~ "No Data"), 
                             levels = c("Tophi", "No Tophi", "No Data"))) %>% 
-  ggplot(mapping = aes(x = TOPHIGOUT, y = AGECOL, fill = GROUP)) +
+  ggplot(mapping = aes(x = TOPHIGOUT, y = AGECOL, fill = ANCESTRY_GOUT)) +
     stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
     stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
     facet_wrap(~ SEX) +
-    labs(y = "Mean Age at Collection (years)") +
+    labs(y = "Mean Age at Recruitment (years)") +
     theme(axis.title.x = element_blank(),
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
           legend.title = element_blank())
 ```
 
-<br/>
+<br>
 
-### Plotting relationship between PRS and each outcome of interest {.tabset}
+### Plotting relationship between both PRS and each outcome of interest {.tabset}
 
-#### Gout vs PRS
+#### Gout vs Gout PRS
     
 ```{r}
+# Plotting the relationship between the gout PRS and gout.
 all_cohorts %>%
-  filter(!is.na(GROUP)) %>% 
-  ggplot(aes(x = GROUP, y = PRS, fill = GOUT2)) +
+  filter(!is.na(Geno.SpecificAncestry)) %>% 
+  ggplot(aes(x = Geno.SpecificAncestry, y = PRS, fill = GOUT2)) +
     stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
     stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
     facet_wrap(~ SEX) +
     labs(y = "Gout PRS") +
     scale_fill_discrete(limits = c("Gout", "Control")) +
     theme(axis.title.x = element_blank(),
-            panel.grid.major.x = element_blank(),
-            panel.grid.minor.x = element_blank(),
-            legend.title = element_blank())
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
-#### Serum urate vs PRS
+#### Gout vs Urate PRS
     
 ```{r}
+# Plotting the relationship between the urate PRS and gout.
+all_cohorts %>%
+  filter(!is.na(Geno.SpecificAncestry)) %>% 
+  ggplot(aes(x = Geno.SpecificAncestry, y = Urate_PRS, fill = GOUT2)) +
+    stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
+    stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
+    facet_wrap(~ SEX) +
+    labs(y = "Urate PRS") +
+    scale_fill_discrete(limits = c("Gout", "Control")) +
+    theme(axis.title.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+#### Serum urate vs Gout PRS
+    
+```{r}
+# Plotting the relationship between the gout PRS and serum urate.
 all_cohorts %>% 
-  filter(!is.na(URATE)) %>% 
+  filter(!is.na(URATE),
+         Pheno.Study != "UK Biobank") %>% 
   mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
                                  ULT ~ "On ULT",
                                  is.na(ULT) ~ "No Data / Control"),
                        levels = c("On ULT", "Not on ULT", "No Data / Control"))) %>% 
-  ggplot(mapping = aes(x = PRS, y = URATE, color = GROUP)) +
+  ggplot(mapping = aes(x = PRS, y = URATE, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX * ULT2) +
     labs(x = "Gout PRS", 
@@ -1008,16 +1181,37 @@ all_cohorts %>%
     theme(legend.title = element_blank())
 ```
 
-#### ULT vs PRS
+#### Serum urate vs Urate PRS
     
 ```{r}
+# Plotting the relationship between the urate PRS and serum urate.
+all_cohorts %>% 
+  filter(!is.na(URATE),
+         Pheno.Study != "UK Biobank") %>% 
+  mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
+                                 ULT ~ "On ULT",
+                                 is.na(ULT) ~ "No Data / Control"),
+                       levels = c("On ULT", "Not on ULT", "No Data / Control"))) %>% 
+  ggplot(mapping = aes(x = Urate_PRS, y = URATE, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
+    geom_smooth(method = "lm", se = F) +
+    facet_wrap(~ SEX * ULT2) +
+    labs(x = "Gout PRS", 
+         y = "Serum Urate (mg/dL)") +
+    theme(legend.title = element_blank())
+```
+
+#### ULT vs Gout PRS
+    
+```{r}
+# Plotting the relationship between ULT usage and the gout PRS.
 all_cohorts %>% 
   filter(GOUT) %>% 
   mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
                           ULT ~ "On ULT",
                           is.na(ULT) ~ "No Data"),
                        levels = c("On ULT", "Not on ULT", "No Data"))) %>% 
-  ggplot(mapping = aes(x = ULT2, y = PRS, fill = GROUP)) +
+  ggplot(mapping = aes(x = ANCESTRY_GOUT, y = PRS, fill = ULT2)) +
     stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
     stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
     facet_wrap(~ SEX) +
@@ -1025,74 +1219,164 @@ all_cohorts %>%
     theme(axis.title.x = element_blank(),
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
-          legend.title = element_blank())
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
-#### Onset vs PRS
+#### ULT vs Urate PRS
     
 ```{r}
+# Plotting the relationship between ULT usage and the urate PRS.
+all_cohorts %>% 
+  filter(GOUT) %>% 
+  mutate(ULT2 = factor(case_when(!ULT ~ "Not on ULT",
+                          ULT ~ "On ULT",
+                          is.na(ULT) ~ "No Data"),
+                       levels = c("On ULT", "Not on ULT", "No Data"))) %>% 
+  ggplot(mapping = aes(x = ANCESTRY_GOUT, y = Urate_PRS, fill = ULT2)) +
+    stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
+    stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
+    facet_wrap(~ SEX) +
+    labs(y = "Gout PRS") +
+    theme(axis.title.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+#### Age at Onset vs Gout PRS
+    
+```{r}
+# Plotting the relationship between age at onset and the gout PRS.
 all_cohorts %>% 
   filter(!is.na(AGE1ATK)) %>% 
-  ggplot(mapping = aes(x = PRS, y = AGE1ATK, color = COHORT2)) +
+  ggplot(mapping = aes(x = PRS, y = AGE1ATK, color = COHORT_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
     labs(x = "Gout PRS", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Duration vs PRS
+#### Age at Onset vs Urate PRS
     
 ```{r}
+# Plotting the relationship between age at onset and the urate PRS.
+all_cohorts %>% 
+  filter(!is.na(AGE1ATK)) %>% 
+  ggplot(mapping = aes(x = Urate_PRS, y = AGE1ATK, color = COHORT_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
+    geom_smooth(method = "lm", se = F) +
+    facet_wrap(~ SEX) +
+    labs(x = "Urate PRS", y = "Age at Onset (years)") +
+    theme(legend.title = element_blank())
+```
+
+#### Disease Duration vs Gout PRS
+    
+```{r}
+# Plotting the relationship between disease duration and the gout PRS.
 all_cohorts %>% 
   filter(!is.na(DURATION)) %>% 
-  ggplot(mapping = aes(x = PRS, y = DURATION, color = COHORT2)) +
+  ggplot(mapping = aes(x = PRS, y = DURATION, color = COHORT_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
     labs(x = "Gout PRS", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Flares (all) vs PRS
+#### Disease Duration vs Urate PRS
     
 ```{r}
+# Plotting the relationship between disease duration and the urate PRS.
+all_cohorts %>% 
+  filter(!is.na(DURATION)) %>% 
+  ggplot(mapping = aes(x = Urate_PRS, y = DURATION, color = COHORT_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
+    geom_smooth(method = "lm", se = F) +
+    facet_wrap(~ SEX) +
+    labs(x = "Urate PRS", y = "Disease Duration (years)") +
+    theme(legend.title = element_blank())
+```
+
+#### Flare Frequency vs Gout PRS (all individuals)
+    
+```{r}
+# Plotting the relationship between flare frequency and the gout PRS in all individuals.
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
-         !str_detect(COHORT2, "Ardea")) %>% 
-  ggplot(aes(x = FLARE_CAT, y = PRS, color = COHORT2)) +
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
+  ggplot(aes(x = FLARE_CAT, y = PRS, color = COHORT_GOUT)) +
     stat_summary(geom = "point", fun = mean) +
     stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Gout PRS") +
     theme(legend.title = element_blank())
 ```
 
-#### Flares (> 1) vs PRS
+#### Flare Frequency vs Urate PRS (all individuals)
     
 ```{r}
+# Plotting the relationship between flare frequency and the urate PRS in all individuals.
+all_cohorts %>% 
+  filter(GOUT, !is.na(FLARE_CAT),
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
+  ggplot(aes(x = FLARE_CAT, y = Urate_PRS, color = COHORT_GOUT)) +
+    stat_summary(geom = "point", fun = mean) +
+    stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
+    facet_wrap(~ SEX) +
+    labs(x = "Number of Flares in Last Year (categorical)", y = "Urate PRS") +
+    theme(legend.title = element_blank())
+```
+
+#### Flare Frequency vs Gout PRS (> 1 flares only)
+    
+```{r}
+# Plotting the relationship between flare frequency and the gout PRS in all individuals with > 1 flares in the last year.
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
-  ggplot(aes(x = FLARE_CAT, y = PRS, color = COHORT2)) +
+  ggplot(aes(x = FLARE_CAT, y = PRS, color = COHORT_GOUT)) +
     stat_summary(geom = "point", fun = mean) +
     stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Gout PRS") +
     theme(legend.title = element_blank())
 ```
 
-#### Tophi vs PRS
+#### Flare Frequency vs Urate PRS (> 1 flares only)
     
 ```{r}
+# Plotting the relationship between flare frequency and the urate PRS in all individuals with > 1 flares in the last year.
+all_cohorts %>% 
+  filter(GOUT, !is.na(FLARE_CAT),
+         NUMATK >= 2) %>% 
+  ggplot(aes(x = FLARE_CAT, y = Urate_PRS, color = COHORT_GOUT)) +
+    stat_summary(geom = "point", fun = mean) +
+    stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
+    facet_wrap(~ SEX) +
+    labs(x = "Number of Flares in Last Year (categorical)", y = "Urate PRS") +
+    theme(legend.title = element_blank())
+```
+
+#### Tophaceous Disease vs Gout PRS
+    
+```{r}
+# Plotting the relationship between tophaceous disease and the gout PRS.
 all_cohorts %>% 
   filter(GOUT,
-         !str_detect(COHORT2, "CRYSTAL")) %>% 
+         !str_detect(COHORT_GOUT, "CRYSTAL")) %>% 
   mutate(TOPHIGOUT = factor(case_when(TOPHIGOUT ~ "Tophi",
                                       !TOPHIGOUT ~ "No Tophi",
                                       is.na(TOPHIGOUT) ~ "No Data"), 
                             levels = c("Tophi", "No Tophi", "No Data"))) %>% 
-  ggplot(mapping = aes(x = TOPHIGOUT, y = PRS, fill = GROUP)) +
+  ggplot(mapping = aes(x = ANCESTRY_GOUT, y = PRS, fill = TOPHIGOUT)) +
     stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
     stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
     facet_wrap(~ SEX) +
@@ -1100,99 +1384,147 @@ all_cohorts %>%
     theme(axis.title.x = element_blank(),
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
-          legend.title = element_blank())
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
-<br/>
+#### Tophaceous Disease vs Urate PRS
+    
+```{r}
+# Plotting the relationship between tophaceous disease and the urate PRS.
+all_cohorts %>% 
+  filter(GOUT,
+         !str_detect(COHORT_GOUT, "CRYSTAL")) %>% 
+  mutate(TOPHIGOUT = factor(case_when(TOPHIGOUT ~ "Tophi",
+                                      !TOPHIGOUT ~ "No Tophi",
+                                      is.na(TOPHIGOUT) ~ "No Data"), 
+                            levels = c("Tophi", "No Tophi", "No Data"))) %>% 
+  ggplot(mapping = aes(x = ANCESTRY_GOUT, y = Urate_PRS, fill = TOPHIGOUT)) +
+    stat_summary(fun = mean, geom = "bar", position = position_dodge()) +
+    stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(width = 0.9), width = 0.3, alpha = 0.75) +
+    facet_wrap(~ SEX) +
+    labs(y = "Urate PRS") +
+    theme(axis.title.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
 
-### Plotting relationship between PRS and age/sex {.tabset}
+<br>
 
-#### Age vs Genotyped PRS
+### Plotting relationship between each PRS and age at recruitment {.tabset}
+
+#### Age at Recruitment vs Gout PRS
 
 ```{r}
+# Plotting the relationship between age at recruitment and the gout PRS.
 all_cohorts %>% 
-  ggplot(mapping = aes(x = AGECOL, y = PRS, color = GROUP)) +
+  filter(Pheno.Study != "UK Biobank") %>% 
+  ggplot(mapping = aes(x = AGECOL, y = PRS, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
-    labs(x = "Mean Age at Collection (years)", 
+    labs(x = "Mean Age at Recruitment (years)", 
          y = "Gout PRS") +
     theme(legend.title = element_blank())
 ```
 
-<br/>
+#### Age at Recruitment vs Urate PRS
+
+```{r}
+# Plotting the relationship between age at recruitment and the urate PRS.
+all_cohorts %>% 
+  filter(Pheno.Study != "UK Biobank") %>% 
+  ggplot(mapping = aes(x = AGECOL, y = Urate_PRS, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
+    geom_smooth(method = "lm", se = F) +
+    facet_wrap(~ SEX) +
+    labs(x = "Mean Age at Recruitment (years)", 
+         y = "Urate PRS") +
+    theme(legend.title = element_blank())
+```
+
+<br>
 
 ### Plotting relationship between severity traits {.tabset}
 
-#### Onset vs Tophi
+#### Age at Onset vs Tophaceous Disease
 
 ```{r}
-# Plotting relationships between severity traits
+# Plotting relationship between age at onset and tophaceous disease.
 all_cohorts %>% 
   filter(!is.na(AGE1ATK),
-         !str_detect(COHORT2, "CRYSTAL")) %>% 
+         !str_detect(COHORT_GOUT, "CRYSTAL")) %>% 
   mutate(TOPHIGOUT = factor(case_when(is.na(TOPHIGOUT) ~ "No Data",
                                       TOPHIGOUT ~ "Tophi",
                                       !TOPHIGOUT ~ "No Tophi"),
                             levels = c("Tophi", "No Tophi", "No Data"))) %>% 
-  ggplot(aes(y = AGE1ATK, x = TOPHIGOUT, color = GROUP)) +
-  geom_boxplot() +
-  facet_wrap(~ SEX) +
-  labs(y = "Age at Onset (years)") +
-  theme(axis.title.x = element_blank(),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        legend.title = element_blank())
+  ggplot(aes(y = AGE1ATK, x = ANCESTRY_GOUT, color = TOPHIGOUT)) +
+    geom_boxplot() +
+    facet_wrap(~ SEX) +
+    labs(y = "Age at Onset (years)") +
+    theme(axis.title.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
-#### Duration vs Tophi
+#### Disease Duration vs Tophaceous Disease
 
 ```{r}
+# Plotting relationship between disease duration and tophaceous disease.
 all_cohorts %>% 
   filter(!is.na(DURATION),
-         !str_detect(COHORT2, "CRYSTAL")) %>% 
+         !str_detect(COHORT_GOUT, "CRYSTAL")) %>% 
   mutate(TOPHIGOUT = factor(case_when(is.na(TOPHIGOUT) ~ "No Data",
                                       TOPHIGOUT ~ "Tophi",
                                       !TOPHIGOUT ~ "No Tophi"),
                             levels = c("Tophi", "No Tophi", "No Data"))) %>% 
-  ggplot(aes(y = DURATION, x = TOPHIGOUT, color = GROUP)) +
-  geom_boxplot() +
-  facet_wrap(~ SEX) +
-  labs(y = "Disease Duration (years)") +
-  theme(axis.title.x = element_blank(),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        legend.title = element_blank())
+  ggplot(aes(y = DURATION, x = ANCESTRY_GOUT, color = TOPHIGOUT)) +
+    geom_boxplot() +
+    facet_wrap(~ SEX) +
+    labs(y = "Disease Duration (years)") +
+    theme(axis.title.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
-#### Flares (all) vs Tophi
+#### Flare Frequency (all individuals) vs Tophaceous Disease
 
 ```{r}
+# Plotting relationship between flare frequency and tophaceous disease in all individuals.
 all_cohorts %>% 
   filter(!is.na(NUMATK),
-         !str_detect(COHORT2, "CRYSTAL"),
-         !str_detect(COHORT2, "Ardea")) %>% 
+         !str_detect(COHORT_GOUT, "CRYSTAL"),
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
   mutate(TOPHIGOUT = factor(case_when(is.na(TOPHIGOUT) ~ "No Data",
                                       TOPHIGOUT ~ "Tophi",
                                       !TOPHIGOUT ~ "No Tophi"),
                             levels = c("Tophi", "No Tophi", "No Data")),
          NUMATK = case_when(NUMATK > 52 ~ 52,
                             TRUE ~ NUMATK)) %>% 
-  ggplot(aes(y = NUMATK, x = TOPHIGOUT, color = GROUP)) +
-  geom_boxplot() +
-  facet_wrap(~ SEX) +
-  labs(y = "Number of Flares in Last Year") +
-  theme(axis.title.x = element_blank(),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        legend.title = element_blank())
+  ggplot(aes(y = NUMATK, x = ANCESTRY_GOUT, color = TOPHIGOUT)) +
+    geom_boxplot() +
+    facet_wrap(~ SEX) +
+    labs(y = "Number of Flares in Last Year") +
+    theme(axis.title.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
-#### Flares (> 1) vs Tophi
+#### Flare Frequency (> 1 flares only) vs Tophaceous Disease
 
 ```{r}
+# Plotting relationship between flare frequency and tophaceous disease in all individuals with > 1 flare in the last year.
 all_cohorts %>% 
   filter(!is.na(NUMATK),
-         !str_detect(COHORT2, "CRYSTAL"),
+         !str_detect(COHORT_GOUT, "CRYSTAL"),
          NUMATK >= 2) %>% 
   mutate(TOPHIGOUT = factor(case_when(is.na(TOPHIGOUT) ~ "No Data",
                                       TOPHIGOUT ~ "Tophi",
@@ -1200,23 +1532,25 @@ all_cohorts %>%
                             levels = c("Tophi", "No Tophi", "No Data")),
          NUMATK = case_when(NUMATK > 52 ~ 52,
                             TRUE ~ NUMATK)) %>% 
-  ggplot(aes(y = NUMATK, x = TOPHIGOUT, color = GROUP)) +
-  geom_boxplot() +
-  facet_wrap(~ SEX) +
-  labs(y = "Number of Flares in Last Year") +
-  theme(axis.title.x = element_blank(),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        legend.title = element_blank())
+  ggplot(aes(y = NUMATK, x = ANCESTRY_GOUT, color = TOPHIGOUT)) +
+    geom_boxplot() +
+    facet_wrap(~ SEX) +
+    labs(y = "Number of Flares in Last Year") +
+    theme(axis.title.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          legend.title = element_blank(),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
-#### Flares (all - cat) vs Tophi
+#### Flare Frequency (all individuals - categorical) vs Tophaceous Disease
 
 ```{r}
+# Plotting relationship between flare frequency (categorical) and tophaceous disease in all individuals.
 all_cohorts %>% 
   filter(GOUT,
-         !str_detect(COHORT2, "CRYSTAL"),
-         !str_detect(COHORT2, "Ardea")) %>% 
+         !str_detect(COHORT_GOUT, "CRYSTAL"),
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
   mutate(FLARE_CAT = factor(case_when(is.na(FLARE_CAT) ~ "No Data",
                                       TRUE ~ as.character(FLARE_CAT)), 
                             levels = rev(c(paste0(0:5), 
@@ -1228,31 +1562,32 @@ all_cohorts %>%
                                       TOPHIGOUT ~ "Tophi",
                                       !TOPHIGOUT ~ "No Tophi"),
                             levels = c("Tophi", "No Tophi", "No Data"))) %>% 
-  group_by(GROUP, TOPHIGOUT, FLARE_CAT, SEX) %>% 
+  group_by(ANCESTRY_GOUT, TOPHIGOUT, FLARE_CAT, SEX) %>% 
   summarize(value = n()) %>% 
   ggplot(aes(fill = FLARE_CAT, y = value, x = TOPHIGOUT, color = TOPHIGOUT)) +
-  geom_bar(position = "fill", stat = "identity") +
-  facet_wrap(~ SEX * GROUP) +
-  scale_fill_discrete(type = c("#C0C0C0", "#FDE725FF", "#9FDA3AFF", "#4AC16DFF", "#1FA187FF", "#277F8EFF", "#365C8DFF", "#46337EFF", "#440154FF")) +
-  theme(axis.title.x = element_blank(),
-          axis.ticks.x = element_blank(),
-          axis.text.x = element_blank(),
-          panel.grid.major.x = element_blank(),
-          panel.grid.minor.x = element_blank(),
-          axis.title.y = element_blank(),
-          axis.ticks.y = element_blank(),
-          axis.text.y = element_blank(),
-          panel.grid.major.y = element_blank(),
-          panel.grid.minor.y = element_blank(),
-          legend.title = element_blank())
+    geom_bar(position = "fill", stat = "identity") +
+    facet_wrap(~ SEX * ANCESTRY_GOUT) +
+    scale_fill_discrete(type = c("#C0C0C0", "#FDE725FF", "#9FDA3AFF", "#4AC16DFF", "#1FA187FF", "#277F8EFF", "#365C8DFF", "#46337EFF", "#440154FF")) +
+    theme(axis.title.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.text.x = element_blank(),
+            panel.grid.major.x = element_blank(),
+            panel.grid.minor.x = element_blank(),
+            axis.title.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.text.y = element_blank(),
+            panel.grid.major.y = element_blank(),
+            panel.grid.minor.y = element_blank(),
+            legend.title = element_blank())
 ```
 
-#### Flares (> 1 - cat) vs Tophi
+#### Flare Frequency (> 1 flares only - categorical) vs Tophaceous Disease
 
 ```{r}
+# Plotting relationship between flare frequency (categorical) and tophaceous disease in all individuals with > 1 flares.
 all_cohorts %>% 
   filter(GOUT,
-         !str_detect(COHORT2, "CRYSTAL"),
+         !str_detect(COHORT_GOUT, "CRYSTAL"),
          NUMATK >= 2) %>% 
   mutate(FLARE_CAT = factor(case_when(is.na(FLARE_CAT) ~ "No Data",
                                       TRUE ~ as.character(FLARE_CAT)), 
@@ -1265,33 +1600,37 @@ all_cohorts %>%
                                       TOPHIGOUT ~ "Tophi",
                                       !TOPHIGOUT ~ "No Tophi"),
                             levels = c("Tophi", "No Tophi", "No Data"))) %>% 
-  group_by(GROUP, TOPHIGOUT, FLARE_CAT, SEX) %>% 
+  group_by(ANCESTRY_GOUT, TOPHIGOUT, FLARE_CAT, SEX) %>% 
   summarize(value = n()) %>% 
   ggplot(aes(fill = FLARE_CAT, y = value, x = TOPHIGOUT, color = TOPHIGOUT)) +
-  geom_bar(position = "fill", stat = "identity") +
-  facet_wrap(~ SEX * GROUP) +
-  scale_fill_discrete(type = c("#C0C0C0", "#FDE725FF", "#9FDA3AFF", "#4AC16DFF", "#1FA187FF", "#277F8EFF", "#365C8DFF", "#46337EFF", "#440154FF")) +
-  theme(axis.title.x = element_blank(),
-          axis.ticks.x = element_blank(),
-          axis.text.x = element_blank(),
-          panel.grid.major.x = element_blank(),
-          panel.grid.minor.x = element_blank(),
-          axis.title.y = element_blank(),
-          axis.ticks.y = element_blank(),
-          axis.text.y = element_blank(),
-          panel.grid.major.y = element_blank(),
-          panel.grid.minor.y = element_blank(),
-          legend.title = element_blank())
+    geom_bar(position = "fill", stat = "identity") +
+    facet_wrap(~ SEX * ANCESTRY_GOUT) +
+    scale_fill_discrete(type = c("#C0C0C0", "#FDE725FF", "#9FDA3AFF", "#4AC16DFF", "#1FA187FF", "#277F8EFF", "#365C8DFF", "#46337EFF", "#440154FF")) +
+    theme(axis.title.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.text.x = element_blank(),
+            panel.grid.major.x = element_blank(),
+            panel.grid.minor.x = element_blank(),
+            axis.title.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.text.y = element_blank(),
+            panel.grid.major.y = element_blank(),
+            panel.grid.minor.y = element_blank(),
+            legend.title = element_blank())
 ```
 
-#### Onset vs Flares (all)
+#### Age at Onset vs Flare Frequency (all individuals)
 
 ```{r}
+# Plotting relationship between age at gout onset and flare frequency in all individuals.
 all_cohorts %>% 
   filter(!is.na(AGE1ATK),
          !is.na(NUMATK),
-         !str_detect(COHORT2, "Ardea")) %>% 
-  ggplot(aes(x = AGE1ATK, y = NUMATK, color = GROUP)) +
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
+  mutate(NUMATK = case_when(NUMATK > 52 ~ 52,
+                            TRUE ~ NUMATK)) %>% 
+  ggplot(aes(x = AGE1ATK, y = NUMATK, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
     labs(x = "Age at Onset (years)", 
@@ -1299,14 +1638,18 @@ all_cohorts %>%
     theme(legend.title = element_blank())
 ```
 
-#### Onset vs Flares (> 1)
+#### Age at Onset vs Flare Frequency (> 1 flares only)
 
 ```{r}
+# Plotting relationship between age at gout onset and flare frequency in all individuals with > 1 flares.
 all_cohorts %>% 
   filter(!is.na(AGE1ATK),
          !is.na(NUMATK),
          NUMATK >= 2) %>% 
-  ggplot(aes(x = AGE1ATK, y = NUMATK, color = GROUP)) +
+  mutate(NUMATK = case_when(NUMATK > 52 ~ 52,
+                            TRUE ~ NUMATK)) %>% 
+  ggplot(aes(x = AGE1ATK, y = NUMATK, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
     labs(x = "Age at Onset (years)", 
@@ -1314,14 +1657,18 @@ all_cohorts %>%
     theme(legend.title = element_blank())
 ```
 
-#### Duration vs Flares (all)
+#### Duration vs Flare Frequency (all individuals)
 
 ```{r}
+# Plotting relationship between disease duration and flare frequency in all individuals.
 all_cohorts %>% 
   filter(!is.na(DURATION),
          !is.na(NUMATK),
-         !str_detect(COHORT2, "Ardea")) %>% 
-  ggplot(aes(x = DURATION, y = NUMATK, color = GROUP)) +
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
+  mutate(NUMATK = case_when(NUMATK > 52 ~ 52,
+                            TRUE ~ NUMATK)) %>% 
+  ggplot(aes(x = DURATION, y = NUMATK, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
     labs(x = "Disease Duration (years)", 
@@ -1329,14 +1676,18 @@ all_cohorts %>%
     theme(legend.title = element_blank())
 ```
 
-#### Duration vs Flares (> 1)
+#### Duration vs Flare Frequency (> 1 flares only)
 
 ```{r}
+# Plotting relationship between disease duration and flare frequency in all individuals with > 1 flares.
 all_cohorts %>% 
   filter(!is.na(DURATION),
          !is.na(NUMATK),
          NUMATK >= 2) %>% 
-  ggplot(aes(x = DURATION, y = NUMATK, color = GROUP)) +
+  mutate(NUMATK = case_when(NUMATK > 52 ~ 52,
+                            TRUE ~ NUMATK)) %>% 
+  ggplot(aes(x = DURATION, y = NUMATK, color = ANCESTRY_GOUT)) + 
+    geom_point(size = 0.5, alpha = 0.5, shape = 1) +
     geom_smooth(method = "lm", se = F) +
     facet_wrap(~ SEX) +
     labs(x = "Disease Duration (years)", 
@@ -1344,104 +1695,116 @@ all_cohorts %>%
     theme(legend.title = element_blank())
 ```
 
-#### Onset vs Flares (all - cat)
+#### Age at Onset vs Flare Frequency (all individuals - categorical)
 
 ```{r}
+# Plotting relationship between age at gout onset and flare frequency (categorical) in all individuals.
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
-         !str_detect(COHORT2, "Ardea")) %>% 
-  ggplot(aes(x = FLARE_CAT, y = AGE1ATK, color = COHORT2)) +
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
+  ggplot(aes(x = FLARE_CAT, y = AGE1ATK, color = COHORT_GOUT)) +
     stat_summary(geom = "point", fun = mean) +
     stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Onset vs Flares (> 1 - cat)
+#### Age at Onset vs Flare Frequency (> 1 flares only - categorical)
 
 ```{r}
+# Plotting relationship between age at gout onset and flare frequency (categorical) in all individuals with > 1 flares.
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
-  ggplot(aes(x = FLARE_CAT, y = AGE1ATK, color = COHORT2)) +
+  ggplot(aes(x = FLARE_CAT, y = AGE1ATK, color = COHORT_GOUT)) +
     stat_summary(geom = "point", fun = mean) +
     stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Age at Onset (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Duration vs Flares (all - cat)
+#### Duration vs Flare Frequency (all individuals - categorical)
 
 ```{r}
+# Plotting relationship between disease duration and flare frequency (categorical) in all individuals.
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
-         !str_detect(COHORT2, "Ardea")) %>% 
-  ggplot(aes(x = FLARE_CAT, y = DURATION, color = COHORT2)) +
+         !str_detect(COHORT_GOUT, "Ardea")) %>% 
+  ggplot(aes(x = FLARE_CAT, y = DURATION, color = COHORT_GOUT)) +
     stat_summary(geom = "point", fun = mean) +
     stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
 ```
 
-#### Duration vs Flares (> 1 - cat)
+#### Duration vs Flare Frequency (> 1 flares only - categorical)
 
 ```{r}
+# Plotting relationship between disease duration and flare frequency (categorical) in all individuals with > 1 flares.
 all_cohorts %>% 
   filter(GOUT, !is.na(FLARE_CAT),
          NUMATK >= 2) %>% 
-  ggplot(aes(x = FLARE_CAT, y = DURATION, color = COHORT2)) +
+  ggplot(aes(x = FLARE_CAT, y = DURATION, color = COHORT_GOUT)) +
     stat_summary(geom = "point", fun = mean) +
     stat_summary(geom = "errorbar", fun.data = mean_se, width = 0.3) +
-    stat_summary(geom = "line", fun = mean, aes(group = COHORT2)) +
+    stat_summary(geom = "line", fun = mean, aes(group = COHORT_GOUT)) +
     facet_wrap(~ SEX) +
     labs(x = "Number of Flares in Last Year (categorical)", y = "Disease Duration (years)") +
     theme(legend.title = element_blank())
 ```
 
-<br/>
+<br>
 
-### Table of MAF for each SNP in each cohort
+### Minor Allele Frequency for Each Gout PRS SNP in Each Cohort
 
 ```{r MAF}
-# Making a table with SNPs as rows and columns representing MAF for each cohort for that SNP
+# Making a table with SNPs as rows and columns representing MAF for each cohort for that SNP.
+# Extracting the RSID list from the gout PRS table.
 SNPlist <- UKBB_Gene_OR$RSID
 
+# Writing function for extracting minor allele frequency for each SNP.
 get_maf <- function(cohort, snps){
+  # Extracting all SNP columns and converting them to factors plus removing any individuals that are missing any SNPs.
   test <- cohort %>% 
     select(all_of(snps)) %>% 
     mutate_all(factor, levels = 0:2) %>% 
     na.omit()
   
+  # Making tmp variable.
   tmp <- c()
+  
+  # For each column in test (each SNP), extract the 
   for(i in 1:ncol(test)){
     tmp[i] <- ((sum(test[[i]] == 1) + (sum(test[[i]] == 2) * 2)) / (2 * nrow(test))) %>% sprintf(fmt = "%#.3f")
   }
   return(tmp)
 }
 
+# Making table of minor allele frequencies.
 freq_table <- tibble("Cohort" = rep(cohortstring, each = length(SNPlist)), 
                      "MAF" = unlist(lapply(data_list2, function(x) get_maf(cohort = x, snps = SNPlist))),
                      "SNP" = rep(SNPlist, length(cohortstring))) %>%
   pivot_wider(names_from = SNP, values_from = MAF)
 
+# Cleaning up table for viewing.
 freq_table <- transpose_df(freq_table) %>% 
   column_to_rownames(var = "Cohort") %>% 
   mutate(across(.cols = 1:ncol(freq_table), ~ str_replace(string = .x, pattern = " ", replacement = "&nbsp;")))
 
+# Further cleaning up table for viewing.
 row.names(freq_table) <- str_replace(row.names(freq_table), " ", "&nbsp;")
 
+# Printing table.
 freq_table %>% 
   kable(col.names = clean_names,
         align = "c",
         escape = F) %>% 
   kable_styling("striped") %>% 
   scroll_box(width = "900px", height = "475px")
-
-# rs35332062 is monomorphic in females in western polynesians so it should be removed from the individual SNP analysis, though it can be left in the PRS
 ```

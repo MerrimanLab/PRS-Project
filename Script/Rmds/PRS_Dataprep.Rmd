@@ -1,736 +1,788 @@
-## Preparing Phenotype files and making PRS
+## Preparing Phenotype files
 
 The purpose of this section is to generate cleaned up phenotype files for each cohort, with the polygenic risk score (PRS) included for each. It contains the code for going from the raw phenotype and genotype data (in combination with the SNP lists generated in the previous section) to the finalized data frames for analysis.
 
 The phenotypes of interest are the following (note some may be poorly phenotyped):
 
-1. Self-reported gout status (i.e. gout vs control)
+1. Self-reported gout status (i.e. gout vs control).
 
-2. Self-reported age at collection
+2. Self-reported age at collection.
 
-3. Genetically determined sex
+3. Genetically determined sex.
 
-4. Genetic principal components (all 10 global PCs and all 10 Oceanian PCs for Polynesians)
+4. Genetic principal components (all 10 global PCs and all 10 Oceanian PCs for Polynesians).
 
-5. Self-reported age at gout onset
+5. Self-reported age at gout onset.
 
-    - Disease duration derived from this and age at collection
+    - Disease duration derived from this and age at collection.
 
-6. Self-reported presence of tophi
+6. Self-reported tophaceous disease.
 
-7. Self-reported flare frequency (number of flares in the last year)
+7. Self-reported flare frequency (number of flares in the last year).
 
-8. Serum urate at collection
+8. Serum urate at collection.
 
-9. Self-reported urate lowering therapy data (at collection)
+9. Self-reported urate lowering therapy data (at collection).
 
-10. Self-reported gout prophylaxis data (at collection)
+10. Self-reported gout prophylaxis data (at collection).
 
-11. Genetic ancestry data (i.e. European vs West Polynesian vs East Polynesian)
+11. Genetic ancestry data (i.e. European vs West Polynesian vs East Polynesian).
 
-12. Comorbidity data, including BMI, hypertension, diabetes, heart disease (angina, myocardial infarction, or heart failure), kidney disease (serum creatinine/eGFR), dyslipidemia, stroke - including self report, medication, and metrics such as BMI (for descriptive stats table)
+12. Comorbidity data, including hypertension, diabetes, heart disease (angina, myocardial infarction, or heart failure), kidney disease (serum creatinine/eGFR), dyslipidemia, stroke - including self report, medication, and metrics such as BMI (for descriptive stats table).
 
-13. Lifestyle factors - total alcohol consumption, sugar-sweetened drink consumption, smoking status (for descriptive stats table)
+13. Lifestyle factors - total alcohol consumption, sugar-sweetened drink consumption, smoking status (for descriptive stats table).
 
-14. Self-reported family history of gout
+14. Self-reported family history of gout.
 
 Exclusion criteria:
 
-1. Genetic sex to self-report gender mismatch
+1. Genetic sex to self-report gender mismatch.
 
-```{r dataprep, eval = FALSE}
-# Loading PRS SNPs
-load(here("Output/UKBB_Gene_OR.RData"))
-load(here("Output/Tin_Gene_OR.RData"))
+Initially, the list of individuals for studying was derived from a single phenotype file that had been prepared previously by Tanya. These cohorts were divided into European and Polynesian samples, then further subdivided into individual European cohorts, and East and West Polynesian cohorts. Below is a summary of which cohorts contributed to which combined cohorts, along with basic statistics for total cohort size and proportion of gout cases. Importantly, all statistics reported below are prior to exclusion for missing data.
 
+Note that there were 232 other Ardea study participants (labeled 594 and 3170) that were not part of any of the main studies. They don't have any of the phenotypes of interest so there was no point including them in the study.
 
-# Extracting SNPs from the CoreExome Plink file ----------------------------------
-for_plink <- UKBB_Gene_OR %>%
-  select(CHR, BP, RSID) %>% 
-  rbind(select(Tin_Gene_OR, CHR:RSID)) %>% 
-  unique() %>%
-  mutate(BP2 = BP) %>%
-  select(CHR, BP, BP2, RSID) %>% 
-  arrange(CHR, BP)
-write_delim(for_plink, file = here("Output/Temp/UKBB_SNPs_Plink.txt"), col_names = F)
-rm(for_plink)
+Overall, the European cohorts of interest include 5,055 gout cases, along with 1,576 controls. These cohorts are comprised as follows:
 
-system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --extract range ', here("Output/Temp/UKBB_SNPs_Plink.txt"), ' --make-bed --out ', here("Output/Temp/SNPs")))
+1. The pooled Australian/New Zealand European cohort, comprising 2,741 total individuals (1,299 gout, 1,442 control) from the following cohorts:
+    
+    - Gout in Aotearoa.
+    - AGRIA.
+    - Diabetes Mellitus.
+    - Renal Disease.
+    - Ngāti Porou Hauora trust.
+    - LPA.
+    
+2. The EuroGout cohort, including EireGout, a total of 2,053 individuals (1,919 gout, 134 controls (controls excluded from further analyses)).
 
-system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'SNPs --recode --out ', here("Output/Temp/"), 'SNPs'))
+3. The five Ardea Biosciences (Ardea) cohorts recruited from the following clinical trials (each was analyzed separately, with a total of 1,837 individuals (all gout) across all 5 cohorts):
 
+    - LASSO (908 gout).
+    - CLEAR 1 (293 gout) - People who are poor responders to allopurinol (everyone was on ULT at screening yet had > 6mg/dL).
+    - CLEAR 2 (310 gout) - People who are poor responders to allopurinol (everyone was on ULT at screening yet had > 6mg/dL).
+    - CRYSTAL (194 gout) - Two groups, 1 = same as CLEAR trials but also had >= 1 tophus, 2 = very HU people not on ULT with at least one tophus.
+    - LIGHT (132 gout) - People who cannot take allopurinol, some may be on other ULT at screening.
+    
+<br/>
+    
+For Polynesian cohorts, three total cohorts were produced, excluding individuals of mixed East/West Polynesian ancestry, resulting in 1,380 gout cases, along with 1,269 controls:
 
+1. The pooled West Polynesian gout cohort, comprising 906 West Polynesian individuals (492 gout, 414 control) from the following studies:
 
-# Extracting SNPs from the UK Biobank and converting to merged plink file -------------------------------
-tmp <- UKBB_Gene_OR %>%
-  select(CHR, BP) %>% 
-  rbind(select(Tin_Gene_OR, CHR, BP)) %>% 
-  unique() %>% 
-  arrange(CHR, BP)
+    - AGRIA
+    - Ardea - LASSO
+    - Ardea - CLEAR 1 - People who are poor responders to allopurinol (everyone was on ULT at screening yet had > 6mg/dL).
+    - Ardea - CLEAR 2 - People who are poor responders to allopurinol (everyone was on ULT at screening yet had > 6mg/dL).
+    - Ardea - CRYSTAL - Two groups, 1 = same as CLEAR trials but also had >= 1 tophus, 2 = very HU people not on ULT with at least one tophus.
+    - Diabetes Mellitus
+    - Gout in Aotearoa
+    - LPA
+    - Ngāti Porou Hauora trust
+    - Renal Disease
 
-bgen_range1 <- tmp %>%
-  filter(CHR < 10) %>%
-  mutate(BGEN = paste0("0", CHR, ":", BP, "-", BP))
+2. The pooled East Polynesian gout cohort, comprising 1,422 East Polynesian individuals (666 gout, 756 control) from the following studies:
 
-bgen_range2 <- tmp %>%
-  filter(CHR > 9) %>%
-  mutate(BGEN = paste0(CHR, ":", BP, "-", BP))
+    - AGRIA
+    - Ardea - LASSO
+    - Ardea - CLEAR 1 - People who are poor responders to allopurinol (everyone was on ULT at screening yet had > 6mg/dL).
+    - Ardea - CLEAR 2 - People who are poor responders to allopurinol (everyone was on ULT at screening yet had > 6mg/dL).
+    - Ardea - CRYSTAL - Two groups, 1 = same as CLEAR trials but also had >= 1 tophus, 2 = very HU people not on ULT with at least one tophus.
+    - Diabetes Mellitus
+    - Gout in Aotearoa
+    - LPA
+    - Renal Disease
+    
+3. The Ngāti Porou Hauora trust East Polynesian cohort, comprising 283 East Polynesian individuals (176 gout, 107 control) from the Ngāti Porou Hauora trust cohort.
 
-bgen_range <- rbind(bgen_range1, bgen_range2) %>%
-  arrange(CHR, BP) %>%
-  select(BGEN)
+<br/>
 
-write_delim(bgen_range, file = here("Output/Temp/PRS_SNPs_BGEN.txt"), delim = "\n", col_names = F)
+```{r, eval = FALSE}
+# Making phenotype files.
+# Loading CoreExome QC 1-10 phenotype file into R (this was made by Tanya).
+CoreExPheno <- read_delim("/Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_MergedPhenotypes_20082020.txt", delim = "\t") %>%
+  mutate(across(where(is_character), factor))
 
-rm(bgen_range1, bgen_range2, bgen_range)
+# Loading IDs of individuals genotyped on the CoreExome chip.
+All_CoreEx_ID <- read_delim("/Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam", delim = " ", col_names = F)
 
-system(paste0('source ~/.bashrc; parallel "bgenix -g /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/ukb_imp_chr{}_v3.bgen -vcf -incl-range ', here("Output/Temp", "PRS_SNPs_BGEN.txt"), ' | bcftools reheader -h /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/bgen_to_vcf/rename_contigs.txt | bgzip -c > ', here("Output/Temp", "chr"), '{}_forPRS.vcf.gz" ::: ', paste(unique(tmp$CHR), collapse = " ")))
+# Extracting information on the genotyped individuals from European cohorts of interest.
+CoreExPheno_Euro <- CoreExPheno %>% 
+  filter(Geno.BroadAncestry == "European",
+         Geno.SampleID %in% All_CoreEx_ID$X2,
+         General.Use != "No",
+         !(Pheno.Study %in% c("Auckland Controls", "Australian Controls", "ESR", "Rheumatoid Arthritis")))
 
-system(paste0('source ~/.bashrc; parallel "plink1.9b4.9 --vcf ', here("Output/Temp/"), 'chr{}_forPRS.vcf.gz --make-bed --out ', here("Output/Temp/"), 'chr{}_PRS" ::: ', paste(unique(tmp$CHR), collapse = " ")))
+# Extracting information on the genotyped individuals from Polynesian cohorts of interest. 
+CoreExPheno_Poly <- CoreExPheno %>% 
+  filter(Geno.BroadAncestry == "Oceanian",
+         Geno.SampleID %in% All_CoreEx_ID$X2,
+         General.Use != "No",
+         !(Pheno.Study %in% c("ESR", "Pacific Trust")))
 
-write_delim(as_tibble(paste0(here("Output/Temp/"), "chr", unique(tmp$CHR), "_PRS")), file = here("Output/Temp/mergefile_prs.txt"), delim = "\n", col_names = F)
+# Combining the above European and Polynesian cohort information together into one phenotype file, excluding individuals with unknown genetic sex, and excluding those without gout phenotype information. Columns of interest were extracted at this step.
+CoreExPheno_Final <- full_join(CoreExPheno_Euro, CoreExPheno_Poly) %>% 
+  filter(Geno.GeneticSex != "Unknown",
+         !is.na(Pheno.GoutSummary)) %>% 
+  mutate(Pheno.GoutSummary = factor(case_when(Pheno.GoutSummary == "Gout" ~ "Gout", 
+                                              Pheno.GoutSummary %in% c("Control", "HyperU") ~ "Control")),
+         across(where(is.factor), factor)) %>% 
+  select(Pheno.SampleID:Pheno.UrateTherapy, GenStudio.ChipType, GenStudio.CallRate:Notes)
 
-system(paste0('source ~/.bashrc; plink1.9b6.10 --merge-list ', here("Output/Temp/"), 'mergefile_prs.txt --make-bed --out ', here("Output/Temp/"), 'merged_PRS'))
+# Cleaning up.
+rm(CoreExPheno, CoreExPheno_Euro, CoreExPheno_Poly, All_CoreEx_ID)
 
-system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_PRS --recode --out ', here("Output/Temp/"), 'merged_PRS'))
+# Investigating basic statistics on each cohort to be analyzed.
+aus_nz <- CoreExPheno_Final %>% 
+  filter(Geno.BroadAncestry == "European",
+         Pheno.Study %in% c("Gout in Aotearoa", "AGRIA", "Diabetes Mellitus", "Renal Disease", "Ngati Porou", "LPA"))
 
+eurogout <- CoreExPheno_Final %>% 
+  filter(Geno.BroadAncestry == "European",
+         Pheno.Study %in% c("EuroGout", "EireGout"))
 
+ardea <- CoreExPheno_Final %>% 
+  filter(Geno.BroadAncestry == "European",
+         str_detect(Pheno.Study, "Ardea"),
+         !str_detect(Pheno.Study, "594|3170"))
 
-# Making phenotype files -----------------------------------------------------------------------------------
-if(file.exists(here("Output/Phenotypes.RData"))){
-  load(here("Output/Phenotypes.RData"))
-  } else {
-  # CoreExome QC 1-10 Phenotype file (made by Tanya)
-  CoreExPheno <- read_delim(here("Data/Phenotypes/CZ-MB1.2-QC1.10_MergedPhenotypes_20082020.txt"), delim = "\t") %>%
-    mutate(across(where(is_character), factor))
-  
-  # European cohorts = All Ardea (split into each study), EuroGout (includes EireGout), Gout in Aotearoa (combine with AGRIA + DM + RD + NP + LPA => ANZ cohort)
-  All_CoreEx_ID <- read_delim(here("Data/Genotypes/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam"), delim = " ", col_names = F)
-  
-  CoreExPheno_Euro <- CoreExPheno %>% 
-    filter(Geno.BroadAncestry == "European",
-           Geno.SampleID %in% All_CoreEx_ID$X2,
-           General.Use != "No",
-           !(Pheno.Study %in% c("Auckland Controls", "Australian Controls", "ESR", "Rheumatoid Arthritis")))
-  # 1,304 NU, 483 HU controls (1,787 total) + 5,161 gout = either GP or ACR or self-report
-  
-  # Polynesian cohorts = AGRIA, All Ardea, DM, EuroGout, Aotearoa (both new + old), LPA, Ngati Porou, RD => all split into East and West
-  CoreExPheno_Poly <- CoreExPheno %>% 
-    filter(Geno.BroadAncestry == "Oceanian",
-           Geno.SampleID %in% All_CoreEx_ID$X2,
-           General.Use != "No",
-           !(Pheno.Study %in% c("ESR", "Pacific Trust")))
-  # 1,021 NU, 248 HU controls (1,269 total) + 1,380 gout
-  
-  CoreExPheno_Final <- full_join(CoreExPheno_Euro, CoreExPheno_Poly) %>% 
-    filter(Geno.GeneticSex != "Unknown",
-           !is.na(Pheno.GoutSummary)) %>% 
-    mutate(Pheno.GoutSummary = factor(case_when(Pheno.GoutSummary == "Gout" ~ "Gout", 
-                                                Pheno.GoutSummary %in% c("Control", "HyperU") ~ "Control")),
-           across(where(is.factor), factor)) %>% 
-    select(Pheno.SampleID:Pheno.UrateTherapy, GenStudio.ChipType, GenStudio.CallRate:Notes)
-  
-  rm(CoreExPheno, CoreExPheno_Euro, CoreExPheno_Poly, All_CoreEx_ID)
-  
-  
-  # Throughout, duration will be derived from onset - age + 1 (because I am deriving it from ages in years, there is up to 1 additional year duration that needs to be accounted for)
-  # Going through each cohort alphabetically: AGRIA, Ardea - Ironwood, Ardea - LASSO, DM, EuroGout, Gout in Aotearoa, LPA, Ngati Porou, RD
-  
-  logicfactor <- function(x) {
-    as.logical(factor(x, levels = c(1, 2), labels = c("FALSE", "TRUE")))
-  }
-  
-  # AGRIA
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study == "AGRIA")
-  
-  agria_pheno <- read_delim(here("Data/Phenotypes/AGRIAPheno.txt"), delim = "\t") %>% 
-    filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
-    left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>%
-    mutate(across(where(is_character), factor),
-           across(c(DIABETES:KIDNEY, ALLOP, PROBEN:STEROID, ANTIINFLAM, COLCHI, GPGOUT:SUSTOPHUS, FAMGOUT, FAMGOUT3, CAUGOUTAFFSTAT:TOPHIGOUT, URATELOWERING, FOOD),
-                  logicfactor),
-           SEX = factor(SEX, labels = c("Male", "Female")),
-           ETHCLASS = factor(ETHCLASS, 
-                             levels = c(1:4, 9), 
-                             labels = c("East Polynesian", "West Polynesian", "Caucasian", "Other", "Mixed East/West Polynesian")),
-           ASPIRATE = factor(ASPIRATE, 
-                             levels = 1:3, 
-                             labels = c("No", "Yes", "Unknown")),
-           DIURETICINDUCED = factor(DIURETICINDUCED, 
-                                    levels = 1:3, 
-                                    labels = c("No", "Yes", "Unknown")),
-           TOPHUS = factor(TOPHUS, 
-                           levels = 1:3, 
-                           labels = c("No", "Yes", "Undetermined")),
-           TOPHUS = case_when(TOPHUS == "Yes" ~ TRUE, TOPHUS == "No" ~ FALSE, TRUE ~ NA),
-           ALLOPSIDE = factor(ALLOPSIDE, 
-                              levels = 1:3, 
-                              labels = c("No", "Yes", "Not taking allopurinol")),
-           OFFWORK = factor(OFFWORK, 
-                            levels = 1:3, 
-                            labels = c("No", "Yes", "Not applicable as not currently working")),
-           ALCOTRIG = factor(ALCOTRIG, 
-                             levels = 1:4, 
-                             labels = c("No", "Yes", "Unsure", "Non drinker")),
-           SECONDARYGOUT = factor(SECONDARYGOUT, 
-                                  levels = 1:4, 
-                                  labels = c("Primary Gout", "Secondary Gout", "Unknown", "Control")),
-           SSBCODE = factor(SSBCODE, 
-                            levels = 0:5, 
-                            labels = c("0/day", "0.1 - 0.99", "1.0 - 1.99", "2.0 - 2.99", "3.0 - 3.99", "4.0 +")),
-           FRUITCODE = factor(FRUITCODE, 
-                              levels = 0:5, 
-                              labels = c("0/day", "0.1 - 0.99", "1.0 - 1.99", "2.0 - 2.99", "3.0 - 3.99", "4.0 +")),
-           DIURETICSUMMARY = factor(DIURETICSUMMARY, 
-                                    levels = 1:3, 
-                                    labels = c("Not taking diuretics", "Taking diuretics", "Maybe taking diuretics")),
-           GOUTSUM = factor(GOUTSUM, 
-                            levels = 1:3, 
-                            labels = c("Control", "Gout", "May have gout/weak gout"))) %>%
-    rename(IID = PATIENT,
-           GOUT = Pheno.GoutSummary) %>%
-    mutate(SEX = Geno.GeneticSex,
-           AGESERUM = round(as.duration(interval(DOB, SERUMDATE)) / as.duration(years(1)), 
-                            digits = 0),
-           AGESCL = round(as.duration(interval(DOB, SCLDATE)) / as.duration(years(1)), 
-                          digits = 0),
-           AGE1ATK = case_when(is.na(AGEGOUTDOX) ~ round(as.duration(interval(DOB, GOUTDOXDATE)) / as.duration(years(1)), 
-                                                         digits = 0),
-                               TRUE ~ AGEGOUTDOX),
-           DURATION = AGECOL - AGE1ATK + 1,
-           TOPHIGOUT = case_when(COMMENT %in% c("No information, neither tophaceous or aspirate proven, Deceased", 
-                                                "No information, neither tophaceous or aspirate proven",
-                                                "Gout, no tophi",
-                                                "No information, neither tophaceous or aspirate proven, lymphoma") ~ FALSE, 
-                                 TRUE ~ TOPHUS | GOUTCRITERIAB | SUSTOPHUS | COMMENT %in% c("Tophaceous",
-                                                                                            "Urate crystals present, tophaceous", 
-                                                                                            "Aspirate proven, tophacous", 
-                                                                                            "allopurinol intolerant, febuxostat intolerant, taking benzobromarone.  Urate crystals present, tophacious", 
-                                                                                            "Tophaceous gout", 
-                                                                                            "Polyarticular tophaceous gout", 
-                                                                                            "Chronic tophaceous gout")),
-           EROSIONS = NA,
-           NUMATK = NA,
-           URATE1 = round(URATE * 1000 / 59.48, digits = 1),
-           URATEAGE1 = AGESERUM,
-           URATE2 = round(SURICACID_SCL * 1000 / 59.48, digits = 1),
-           URATEAGE2 = AGESCL,
-           URATE = case_when(!is.na(URATE1) ~ URATE1, 
-                             TRUE ~ URATE2),
-           ULT = case_when(is.na(URATE1) & !is.na(URATE2) ~ NA,
-                           TRUE ~ ALLOP | PROBEN | COMMENT %in% c("allopurinol intolerant, febuxostat intolerant, taking benzobromarone.  Urate crystals present, tophacious",
-                                                                  "Allopurinol hypersensitivity, Cholchicine induced diarrhoea, Febuxostat 40mg/day", 
-                                                                  "febuxostat 40mg/day; liver toxicity with allopurinol")),
-           PROPHY = STEROID | ANTIINFLAM | COLCHI,
-           HYPERTENSION = case_when(!is.na(HIBP) ~ HIBP, 
-                                    TRUE ~ DIURETICINDUCED == "Yes" | DIURETICSUMMARY == "Maybe taking diuretics"),
-           TRIGLY = TRIGLY_SCL * 88.57,
-           CHOLES = CHOLES_SCL * 38.67,
-           STROKE = NA,
-           HDL = HDL_SCL * 38.67,
-           CREAT = CREAT / 88.42,
-           SCREAT = SCREAT / 88.42,
-           CREAT2 = rowMeans(across(c(CREAT, SCREAT)), na.rm = TRUE),
-           EGFR = case_when(SEX == "Male" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
-           KIDNEY = KIDNEY | !is.na(KIDNEY2) | EGFR < 60,
-           TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
-           CURSMOKE = NA,
-           FAMGOUT = FAMGOUT | FAMGOUT3,
-           FAMGOUTNUM = as.numeric(FAMGOUT4)) %>%
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  
-  # Ardea - Ironwood (CLEAR1, CLEAR2, CRYSTAL, LIGHT)
-  # CLEAR1 and CLEAR2 = People who are poor responders to allopurinol (everyone was on ULT at screening yet had > 6mg/dL)
-  # CRYSTAL = Two groups, 1 = same as CLEAR trials but also had >= 1 tophus, 2 = very HU people not on ULT with at least one tophus
-  # LIGHT = People who cannot take allopurinol, some may be on other ULT at screening
-  logicfactor2 <- function(x) {
-    as.logical(factor(x, levels = c(0, 1), labels = c("FALSE", "TRUE")))
-  }
-  
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study %in% c("Ardea: CLEAR1", "Ardea: CLEAR2", "Ardea: CRYSTAL", "Ardea: LIGHT"))
-  
-  ironwood_pheno <- read_delim(here("Data/Phenotypes/ArdeaPheno.txt"), delim = "\t") %>% 
-    filter(SUBJID %in% tmp$Pheno.SampleID) %>% 
-    select(SUBJID, AGE, BRTHDTC, BLWEIGHT, BLHEIGHT, BLBMI, TRT01AN, CONSDT, TRTSDT, ANGINA:HYPERTRIGLY, MI, STROKE, AGFIDDT:GFDUR, CRITBFL, PHNM8FL, ULTALLO:ULTOTH, PLACTOTSTDT:PLACTOTENDT, THIALKFL:PROPHTYPN, TOPHIFN:BLAREA, GFNUM:GFNUMGR, DATESCREENING:EGFRSCREENING, CHOLSCREENING, TRIGSCREENING, URATESCREENING, DATENEG7, URATENEG7, EGFRNEG7, DATEBASELINE, URATEBASELINE, EGFRBASELINE, DATEMONTH1, URATEMONTH1, DATEMONTH2, URATEMONTH2, DATEMONTH3, URATEMONTH3, DATEMONTH4, URATEMONTH4, DATEMONTH5, URATEMONTH5, DATEMONTH6, URATEMONTH6, DATEMONTH8, URATEMONTH8, DATEMONTH10, URATEMONTH10, DATEMONTH12, URATEMONTH12, DATEEARLYTERM, URATEEARLYTERM, DATEFOLLOWUP, URATEFOLLOWUP, CURSMOKE:ALCOHOL, TOPHIGOUT:GOUTNOTES) %>% 
-    left_join(tmp, by = c("SUBJID" = "Pheno.SampleID")) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(ANGINA:STROKE, CRITBFL:ULTOTH, THIALKFL:PROPHYFL, TOPHIFN, CURSMOKE:ALCOHOL), 
-                  logicfactor2),
-           TRT01AN = factor(TRT01AN, 
-                            levels = 0:5, 
-                            labels = c("Screen Failure", "Group A (Placebo)", "Group B (Lesinurad 200 mg)", "Group C (Lesinurad 400 mg)", "Not Assigned", "Not Treated"))) %>%
-    rename(IID = SUBJID,
-           GOUT = Pheno.GoutSummary,
-           AGECOL = AGE) %>%
-    mutate(SEX = Geno.GeneticSex,
-           AGE1ATK = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), AGFIDDT)) / as.duration(years(1)), 
-                           digits = 0),
-           DURATION = AGECOL - AGE1ATK + 1,
-           TOPHIGOUT = TOPHIFN,
-           EROSIONS = NA,
-           NUMATK = GFNUM,
-           URATE = URATESCREENING,
-           ULT = ULTALLO | ULTPROB | ULTFEBU | ULTOTH | Pheno.Study %in% c("Ardea: CLEAR1", "Ardea: CLEAR2") | (Pheno.Study == "Ardea: CRYSTAL" & URATE < 8),
-           PROPHY = PROPHYFL,
-           BMI = BLBMI,
-           HEART = HEARTFAILURE | MI | ANGINA,
-           KIDNEY = EGFRSCREENING < 60,
-           LIPIDS = HYPERCHOLESTEROL | HYPERTRIGLY,
-           TOTALALC = NA,
-           SUGDRINK = NA,
-           FAMGOUT = NA,
-           FAMGOUTNUM = NA,
-           EGFR2 = case_when(SEX == "Male" ~ 175 * (SCRSCREENING ^ -1.154) * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (SCRSCREENING ^ -1.154) * (AGECOL ^ -0.203) * 0.742)) %>%
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  
-  # Ardea - LASSO (all on ULT the whole time)
-  lassopheno1 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoFlare.txt"), delim = "\t")
-  lassopheno2 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoLabChem.txt"), delim = "\t")
-  lassopheno3 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoMain.txt"), delim = "\t")
-  
-  tmp <- full_join(lassopheno3, lassopheno2, by = "SUBJID")
-  
-  lasso_pheno <- full_join(tmp, lassopheno1, by = "SUBJID")
-  
-  rm(lassopheno1, lassopheno2, lassopheno3)
-  
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study == "Ardea: 401")
-  
-  lasso_pheno <- lasso_pheno %>% 
-    filter(DNAID %in% tmp$Pheno.SampleID) %>% 
-    mutate(IID = as.character(DNAID)) %>% 
-    select(IID, AGE, BRTHDTC, GFNUM:ULTOSCR, BLBMI:PROPHTYP, AGFIDDT:GFDUR, TOLOCL:GFDTDURL, ANGINA:RENALIMPAIR, MI:STROKE, SCREENGFSTDT, SCREENGFENDT, SCREENGFOUT, SCREENGFSEV, SCREENPAIN, SCREENGFDUR:SCREENPAIN2, SCREENGFSTRSTP, SCREENLBDT, SCREENALT, SCREENCREAT, SCREENGGT, SCREENURATE, BASELINELBDT, BASELINEURATE, BASET1LBDT, BASET1URATE, BASET2LBDT, BASET2URATE, BASET3LBDT, BASET3URATE, MONTH1LBDT, MONTH1URATE, MONTH1T1LBDT, MONTH1T1URATE, MONTH1T2LBDT, MONTH1T2URATE, MONTH2LBDT, MONTH2URATE, MONTH2T1LBDT, MONTH2T1URATE, MONTH3LBDT, MONTH3URATE, MONTH3T1LBDT, MONTH3T1URATE, MONTH3T3LBDT, MONTH3T3URATE, MONTH4LBDT, MONTH4URATE, MONTH4T1LBDT, MONTH4T1URATE, MONTH5LBDT, MONTH5URATE, MONTH6LBDT, MONTH6URATE, UNSCHEDLBDT, UNSCHEDURATE, EARLYTERMLBDT, EARLYTERMURATE) %>% 
-    left_join(tmp, by = c("IID" = "Pheno.SampleID")) %>% 
-    rename(GOUT = Pheno.GoutSummary,
-           AGECOL = AGE,
-           NUMATK = GFNUM,
-           SEX = Geno.GeneticSex,
-           BMI = BLBMI) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(TOHANDFL:ULTOSCR, BLCDFL, ANGINA:RENALIMPAIR, MI:STROKE), 
-                  logicfactor2),
-           AGE1ATK = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), AGFIDDT)) / as.duration(years(1)), 
-                           digits = 0),
-           DURATION = AGECOL - AGE1ATK + 1,
-           TOPHIGOUT = BLTPHFN,
-           EROSIONS = NA,
-           URATE = SCREENURATE,
-           ULT = ALLOSCR | ULTOSCR | SCREENURATE < 8,
-           PROPHY = PROPHTYP %in% c("Both", "Colchicine", "NSAID"),
-           HEART = ANGINA | MI,
-           EGFR = case_when(SEX == "Male" ~ 175 * (SCREENCREAT ^ -1.154) * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (SCREENCREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
-           KIDNEY = RENALIMPAIR | EGFR < 60,
-           LIPIDS = HYPERCHOLESTEROL | HYPERTRIGLY,
-           TOTALALC = NA,
-           SUGDRINK = NA,
-           CURSMOKE = NA,
-           FAMGOUT = NA,
-           FAMGOUTNUM = NA) %>%
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  # Ardea - Other (232 other Ardea study participants (594 and 3170)) - asked ruth if they have separate pheno files - she said we aren't allowed to use them - Tony suggested I just say Tony said why not use them
-  # They don't have phenotypes of interest so no point including them
-  # tmp <- CoreExPheno_Euro_Gout %>% 
-  #   filter(str_detect(Pheno.Study, "Ardea: 3170") | str_detect(Pheno.Study, "Ardea: 594"))
-  # 
-  # other_ardea_euro_pheno <- read_delim(here("Data/Phenotypes/ArdeaPheno.txt"), delim = "\t") %>% 
-  #   filter(SUBJID %in% tmp$Pheno.SampleID)
-  # 
-  # other_ardea_euro_pheno2 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoMain.txt"), delim = "\t") %>% 
-  #   filter(DNAID %in% tmp$Pheno.SampleID | SUBJID %in% tmp$Pheno.SampleID)
-  # 
-  # rm(tmp, other_ardea_euro_pheno, other_ardea_euro_pheno2)
-  
-  
-  # DM
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study == "Diabetes Mellitus")
-  
-  dm_pheno <- read_delim(here("Data/Phenotypes/DMPheno.txt"), delim = "\t") %>% 
-    filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
-    select(PATIENT, DOB, DATECOL, AGECOL, DIABETES:DIABETESTREAT, FAMGOUT:HIBPTREAT, LIPIDS, HEART:STROKE, KIDNEY:KIDNEY2, SUGDRINK, SMOKER:OTHALCO, WEIGHT, HEIGHT, BMI, URATE:CREAT, DIURETIC:OTHDIURETIC, LIPIDLOWER:BILEACIDSEQ, COMMENT, GOUTCRITERIAB, SUSTOPHUS:OTHDRUG, URATEDOX:DATEDOX, DIABETESAFFSTAT, KIDNEYTRANSPLANT, RENALDISEASE, FASTING:TRIGLY, SURICACID:EGFR) %>% 
-    left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
-    rename(IID = PATIENT,
-           GOUT = Pheno.GoutSummary,
-           SEX = Geno.GeneticSex) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(DIABETES, FAMGOUT, FAMGOUT3, HIBP, LIPIDS, HEART:STROKE, KIDNEY, DIURETIC:OTHDIURETIC, LIPIDLOWER:BILEACIDSEQ, GOUTCRITERIAB, SUSTOPHUS, TOPHUS, ALLOP:COLCHI, DIABETESAFFSTAT, KIDNEYTRANSPLANT, RENALDISEASE), logicfactor),
-           DURATION = AGECOL - AGE1ATK + 1,
-           TOPHIGOUT = TOPHUS | GOUTCRITERIAB | SUSTOPHUS,
-           EROSIONS = NA,
-           URATE = case_when(!is.na(SURICACID) ~ SURICACID * 1000 / 59.48,
-                             !is.na(URATE) ~ URATE * 1000 / 59.48,
-                             TRUE ~ URATEDOX * 1000 / 59.48),
-           ULT = ALLOP | PROBEN, 
-           PROPHY = STEROID | ANTIINFLAM | COLCHI | OTHDRUG != "no",
-           HEIGHT = HEIGHT / 100,
-           BMI = case_when(!is.na(BMI) ~ BMI, 
-                           TRUE ~ WEIGHT / (HEIGHT * HEIGHT)),
-           HYPERTENSION = HIBP | !is.na(HIBPTREAT) | DIURETIC | LOOPDIURETIC | THIAZIDEDIURETIC | OTHDIURETIC | DIURGOUT,
-           DIABETES = DIABETES | !is.na(DIABETESTREAT) | DIABETESAFFSTAT,
-           HEART = HEART | ANGINA | HEARTFAILURE | HEARTSURGERY | HEARTATTACK,
-           CREAT = CREAT / 88.42,
-           SCREAT = SCREAT / 88.42,
-           CREAT2 = rowMeans(across(c(CREAT, SCREAT)), na.rm = T),
-           EGFR = case_when(SEX == "Male" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203) * 0.742,
-                            TRUE ~ EGFR),
-           KIDNEY = KIDNEY | !is.na(KIDNEY2) | EGFR < 60 | KIDNEYTRANSPLANT | RENALDISEASE,
-           LIPIDS = LIPIDS | LIPIDLOWER | STATIN | FIBRATES | EZETIMIBE | NICOTINICACID | BILEACIDSEQ,
-           STROKE = STROKE,
-           TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
-           SUGDRINK = SUGDRINK,
-           CURSMOKE = SMOKER == 2,
-           FAMGOUT = FAMGOUT | FAMGOUT3,
-           FAMGOUTNUM = FAMGOUT4) %>%
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  # EuroGout
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study == "EuroGout")
-  
-  eurogout_pheno <- read_delim(here("Data/Phenotypes/EuroGoutPheno.txt"), delim = "\t") %>% 
-    filter(SUBJECT %in% tmp$Pheno.SampleID) %>% 
-    select(SUBJECT, RECRUITMENTDATE, DOB:WEIGHT, HEIGHT, BMI, TOPHUS:GOUTNOTES, ACRB, ACRC8, RENALDISEASE, T2DIABETES:HEARTFAILURE, MEDICALCOMMENT, URATETHERAPY:ALLOPURINOL, CHOLCHICINE:TLDIURETICS, ASPRIN, SUGARDRINK:FRUITJUICE, ALCOHOL:PREUTLKURATE, TCHOLESTEROL:TRIGLYCERIDES, EGFR) %>% 
-    left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
-    rename(IID = SUBJECT,
-           GOUT = Pheno.GoutSummary,
-           AGECOL = AGERECRUITMENT,
-           SEX = Geno.GeneticSex) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(TOPHUS, EROSIONS, ACRB, ACRC8, RENALDISEASE, T2DIABETES, HYPERTENSION, DYSLIPIDEMIA, STROKE:HEARTFAILURE, ALLOPURINOL:ASPRIN), 
-                  logicfactor2),
-           AGE1ATK = case_when(!is.na(AGEFIRSTATTK) ~ AGEFIRSTATTK,
-                               TRUE ~ AGECOL - DURATIONGOUT),
-           DURATION = AGECOL - AGE1ATK + 1,
-           NUMATK = case_when(!is.na(NUMATTACKS) ~ NUMATTACKS, 
-                              NUMATTACKS_TXT == ">5" ~ 5, 
-                              NUMATTACKS_TXT == "1" ~ 1, 
-                              NUMATTACKS_TXT == "2" ~ 2, 
-                              NUMATTACKS_TXT == "3" ~ 3, 
-                              NUMATTACKS_TXT %in% c("3 to 5", "3-5") ~ 4, 
-                              NUMATTACKS_TXT %in% c("reported 'continue' I think. I assume this means ongoing.", "reported 100.") ~ 52, 
-                              NUMATTACKS_TXT == "zehn" ~ 10),
-           TOPHIGOUT = TOPHUS | NUMTOPHI %in% 1:3 | ACRB | ACRC8,
-           URATE = case_when(is.na(SERUMURATE) ~ PREUTLKURATE * 1000 / 59.48,
-                             TRUE ~ SERUMURATE * 1000 / 59.48),
-           ULT = GOUTNOTES == "Gout assumed, taking allopurinol" | (!is.na(URATETHERAPY) & !(URATETHERAPY %in% c("diet", "NIL", "no", "No uric acid lowering therapy", "none", "None", "NONE", "none listed", "Unclear"))) | ALLOPURINOL, 
-           PROPHY = CHOLCHICINE | NSAIDS | ASPRIN,
-           HEIGHT = HEIGHT / 100,
-           BMI = case_when(!is.na(BMI) ~ BMI, 
-                           TRUE ~ WEIGHT / (HEIGHT * HEIGHT)),
-           HYPERTENSION = HYPERTENSION | !is.na(HYPERTENTREATM) | MEDICALCOMMENT == "Said no to hypertension but beside BP states is on losartan" | DIURETICS | TLDIURETICS,
-           DIABETES = T2DIABETES | !is.na(T2DTREATMENT),
-           HEART = MI | IHD | HEARTFAILURE | MEDICALCOMMENT %in% c("Cardiovascular disease", "Heart problems", "Heart problems. EGFR available", "Heart problems. EGFR available. EGFR available. EGFR<60"),
-           CREAT = SERUMCREATININE / 88.42,
-           EGFR = case_when(SEX == "Male" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742,
-                            TRUE ~ EGFR),
-           KIDNEY = RENALDISEASE | EGFR < 60,
-           LIPIDS = DYSLIPIDEMIA | !is.na(LIPIDTREATMENT),
-           STROKE = STROKE,
-           TOTALALC = ALCOHOL,
-           SUGDRINK = SUGARDRINK + FRUITJUICE,
-           CURSMOKE = SMOKER == 1,
-           FAMGOUT = FAMILYHISTORY == 1,
-           FAMGOUTNUM = NUMFAMILYGOUT) %>% 
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  
-  # Gout in Aotearoa
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study == "Gout in Aotearoa")
-  
-  aotearoa_pheno <- read_delim(here("Data/Phenotypes/NZPheno.txt"), delim = "\t") %>% 
-    filter(SUBJECT %in% tmp$Pheno.SampleID) %>% 
-    select(SUBJECT, DATEARR, DOB, AGECOL, DIABETES, FAMGOUT, FAMGOUT3:HIBP, HIBPTREAT:FRUSEMIDE, BUMETANIDE, THIAZIDEDIURETIC:BENDROFLUAZIDE, HCTZ, METOLAZONE, CHLORHALIDONE, INDAPAMIDE, OTHDIURETIC, SPIRONOLACTONE, AMILORIDE, ACETAZOLAMIDE, DIURETICCOMMENT:DIURRECRUIT, LIPIDS, LIPIDLOWER:BILEACIDSEQ, HEART:STROKE, KIDNEY:HEALTHOTH, SUGDRINK, SMOKER:OTHALCO, WEIGHT:HEIGHT, BMI:BMICALC, MRURATE:MRCREATDATE, GOUTCRITERIAB, SUSTOPHUS:DIURGOUT, ALLOPCURRENT, PROBENCURRENT, BENZBROCURRENT, FEBUXCURRENT, OTHULTCURRENT, CURULTCOMMENT:ALLOPINTOLERANCE, ALLOPSIDE, URATEDOX:HIGHESTSUDATE, CHOLES:TRIGLY, SCREAT:SURICACID, URATE1MONTH, RELATEDFILTER:RELATED) %>% 
-    left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
-    rename(IID = SUBJECT,
-           GOUT = Pheno.GoutSummary,
-           SEX = Geno.GeneticSex) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(FAMGOUT, FAMGOUT3, HIBP, DIURETIC:ACETAZOLAMIDE, LIPIDS:KIDNEY, FATTYLIVER, GOUTCRITERIAB:SUSTOPHUS, TOPHUS, ALLOPCURRENT:OTHULTCURRENT, ALLOPINTOLERANCE), 
-                  logicfactor),
-           AGE1ATK = case_when(!is.na(AGE1ATK) ~ AGE1ATK,
-                               TRUE ~ AGECOL - DURATION),
-           DURATION = AGECOL - AGE1ATK + 1,
-           NUMATK = NUMATK,
-           TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
-           EROSIONS = NA,
-           URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(MRURATE, URATEDOX, PREULTURATE, HIGHESTSU, URATE1MONTH)), na.rm = TRUE) * 1000 / 59.48,
-                             TRUE ~ SURICACID * 1000 / 59.48),
-           ULT = ALLOPCURRENT | PROBENCURRENT | BENZBROCURRENT | FEBUXCURRENT | OTHULTCURRENT, 
-           PROPHY = NA,
-           HEIGHT = HEIGHT / 100,
-           BMI = case_when(!is.na(BMI) ~ BMI,
-                           TRUE ~ WEIGHT / (HEIGHT * HEIGHT)),
-           HYPERTENSION = HIBP | !is.na(HIBPTREAT) | DIURETIC | DIURETICCURRENT | LOOPDIURETIC | FRUSEMIDE | BUMETANIDE | THIAZIDEDIURETIC | BENDROFLUAZIDE | HCTZ | METOLAZONE | CHLORHALIDONE | INDAPAMIDE | OTHDIURETIC | SPIRONOLACTONE | AMILORIDE | ACETAZOLAMIDE | !is.na(DIURETICCOMMENT) | DIURRECRUIT == 2 | DIURGOUT %in% 2:4,
-           DIABETES = DIABETES == 2,
-           HEART = HEART | ANGINA | HEARTFAILURE | HEARTSURGERY | HEARTATTACK,
-           CREAT = rowMeans(across(c(SCREAT, MRCREAT))) / 88.42,
-           EGFR = case_when(SEX == "Male" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
-           KIDNEY = KIDNEY | !is.na(KIDNEY2) | EGFR < 60,
-           LIPIDS = LIPIDS | LIPIDLOWER | STATIN | FIBRATES | EZETIMIBE | NICOTINICACID | BILEACIDSEQ,
-           STROKE = STROKE,
-           TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
-           SUGDRINK = SUGDRINK,
-           CURSMOKE = SMOKER == 2,
-           FAMGOUT = FAMGOUT,
-           FAMGOUTNUM = FAMGOUT4) %>% 
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  
-  # LPA (don't have any phenotypes of interest for this study)
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study == "LPA")
-  
-  lpa_pheno <- read_delim(here("Data/Phenotypes/LPAPheno.txt"), delim = "\t") %>% 
-    filter(SUBJECT %in% tmp$Pheno.SampleID) %>%
-    select(SUBJECT:AGE, SMOKING, SMOKEHISTORY, SUGARDRINKS:DIABETESTYPE, MAINHYPERTENSION:DYSLIPIDCOMMENT, MAINSTROKE:MAINSTROKECOM, BMHEIGHT:BMWEIGHT, SERUMCREATININE:SERUMURATE, TOTALCHOLESTEROL, TRIGLYCERIDES) %>% 
-    left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
-    rename(IID = SUBJECT,
-           GOUT = Pheno.GoutSummary,
-           SEX = Geno.GeneticSex,
-           AGECOL = AGE) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(SMOKING:SMOKEHISTORY, MAINDIABETES, MAINHYPERTENSION, DYSLIPIDEMIA), 
-                  logicfactor),
-           AGE1ATK = NA,
-           DURATION = NA,
-           NUMATK = NA,
-           TOPHIGOUT = NA,
-           EROSIONS = NA,
-           URATE = SERUMURATE,
-           ULT = NA, 
-           PROPHY = NA,
-           HEIGHT = BMHEIGHT / 100,
-           BMI = BMWEIGHT / (HEIGHT * HEIGHT),
-           HYPERTENSION = MAINHYPERTENSION,
-           DIABETES = DIABETESTYPE == 2,
-           HEART = NA,
-           CREAT = SERUMCREATININE / 88.42,
-           EGFR = case_when(SEX == "Male" ~ 175 * (SERUMCREATININE ^ -1.154) * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (SERUMCREATININE ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
-           KIDNEY = EGFR < 60,
-           LIPIDS = DYSLIPIDEMIA,
-           STROKE = MAINSTROKE,
-           TOTALALC = NA,
-           SUGDRINK = SUGARDRINKS,
-           CURSMOKE = SMOKING,
-           FAMGOUT = NA,
-           FAMGOUTNUM = NA) %>% 
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  # Ngati Porou
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study == "Ngati Porou")
-  
-  nph_pheno <- read_delim(here("Data/Phenotypes/NPHPheno.txt"), delim = "\t") %>% 
-    filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
-    select(PATIENT, DOB, CONSENT, DATEARR, AGECOL, DIABETES, FAMGOUT:HIBP, LIPIDS, LIPIDLOWER:STROKE, KIDNEY, SUGDRINK, SMOKER:SPIRITS, WEIGHT:HEIGHT, BMI, URATE:CREATDATE, DIURETICCURRENT:FRUSEMIDE, BUMETANIDE, BENDROFLUAZIDE, HCTZ, METOLAZONE, CHLORHALIDONE, SPIRONOLACTONE, AMILORIDE, COMMENT, GOUTCRITERIAB, SUSTOPHUS, AGE1ATK:ALLOP, STEROID:OTHDRUG, URATEDOX:DATEDOX, RENALTRANSPLANT, DIABETESAFFSTAT, SURICACID:SCREAT, DIURETIC:OTHDIURETIC, STATIN:BILEACIDSEQ, URATELOWERING) %>% 
-    left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
-    rename(IID = PATIENT,
-           GOUT = Pheno.GoutSummary,
-           SEX = Geno.GeneticSex) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(DIABETES, FAMGOUT, FAMGOUT3, HIBP:STROKE, KIDNEY, DIURETICCURRENT:AMILORIDE, GOUTCRITERIAB, SUSTOPHUS, TOPHUS, ALLOP:BENZOBROMARONE, RENALTRANSPLANT, DIABETESAFFSTAT, DIURETIC:URATELOWERING), 
-                  logicfactor),
-           AGE1ATK = case_when(!is.na(AGE1ATK) ~ AGE1ATK,
-                               TRUE ~ AGECOL - DURATION),
-           DURATION = AGECOL - AGE1ATK + 1,
-           NUMATK = NUMATK,
-           TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
-           EROSIONS = NA,
-           URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(URATE, URATEDOX)), na.rm = TRUE) * 1000 / 59.48,
-                             TRUE ~ SURICACID * 1000 / 59.48),
-           ULT = ALLOP | PROBEN | BENZOBROMARONE | URATELOWERING, 
-           PROPHY = STEROID | ANTIINFLAM | COLCHI,
-           HEIGHT = HEIGHT / 100,
-           BMI = WEIGHT / (HEIGHT * HEIGHT),
-           HYPERTENSION = HIBP | DIURETICCURRENT | FRUSEMIDE | BUMETANIDE | BENDROFLUAZIDE | HCTZ | METOLAZONE | CHLORHALIDONE | SPIRONOLACTONE | AMILORIDE | DIURGOUT %in% 2:4 | DIURETIC | LOOPDIURETIC | THIAZIDEDIURETIC | OTHDIURETIC,
-           DIABETES = DIABETES | DIABETESAFFSTAT,
-           HEART = HEART | ANGINA | HEARTFAILURE | HEARTSURGERY | HEARTATTACK,
-           CREAT = rowMeans(across(c(CREAT, SCREAT)), na.rm = TRUE) / 88.42,
-           EGFR = case_when(SEX == "Male" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
-           KIDNEY = KIDNEY | EGFR < 60 | RENALTRANSPLANT,
-           LIPIDS = LIPIDS | LIPIDLOWER | STATIN | FIBRATES | EZETIMIBE | NICOTINICACID | BILEACIDSEQ,
-           STROKE = STROKE,
-           TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
-           SUGDRINK = SUGDRINK,
-           CURSMOKE = SMOKER == 2,
-           FAMGOUT = FAMGOUT,
-           FAMGOUTNUM = FAMGOUT4) %>% 
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  # RD
-  tmp <- CoreExPheno_Final %>% 
-    filter(Pheno.Study == "Renal Disease")
-  
-  rd_pheno <- read_delim(here("Data/Phenotypes/RDPheno.txt"), delim = "\t") %>% 
-    filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
-    select(PATIENT, DOB, CONSENTDATE, DATECOL, DATEARR, CKDV, RENALTRANSPLANT, DIABETES, FAMGOUT, HYPERTENSION, DYSLIPIDAEMIA, IHD, CVA, CHF, HEALTHOTH:WEIGHT, BMI, SMOKER, SUGDRINK, BEER:SPIRITS, COMMENT, TYPE2D, GOUTCRITERIAB, SUSTOPHUS, AGE1ATK:OTHDRUG, ESSENTIALHYPERT, SURICACID:SCREAT, RCOMMENTS) %>% 
-    left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
-    rename(IID = PATIENT,
-           GOUT = Pheno.GoutSummary,
-           SEX = Geno.GeneticSex) %>% 
-    mutate(across(where(is_character), factor),
-           across(c(RENALTRANSPLANT:CHF, TYPE2D:SUSTOPHUS, TOPHUS, ALLOPURINOL:RASBURICASE), 
-                  logicfactor),
-           AGECOL = AGECOL,
-           AGE1ATK = AGE1ATK,
-           DURATION = AGECOL - AGE1ATK + 1,
-           NUMATK = NA,
-           TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
-           EROSIONS = NA,
-           URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(URATEFIRSTREC, URATEDOX, URATERECENT)), na.rm = TRUE) * 1000 / 59.48,
-                             TRUE ~ SURICACID * 1000 / 59.48),
-           ULT = ALLOPURINOL | PROBEN | RASBURICASE, 
-           PROPHY = STEROID | ANTIINFLAM | COLCHI,
-           HEIGHT = HEIGHT / 100,
-           BMI = WEIGHT / (HEIGHT * HEIGHT),
-           HYPERTENSION = HYPERTENSION | ESSENTIALHYPERT == 1 | DIURGOUT %in% 2:4,
-           DIABETES = DIABETES | TYPE2D,
-           HEART = IHD | CHF,
-           EGFR = case_when(SEX == "Male" ~ 175 * (SCREAT / 88.42) ^ -1.154 * (AGECOL ^ -0.203), 
-                            SEX == "Female" ~ 175 * (SCREAT / 88.42) ^ -1.154 * (AGECOL ^ -0.203) * 0.742),
-           KIDNEY = CKDV == 1 | RENALTRANSPLANT | EGFR < 60,
-           LIPIDS = DYSLIPIDAEMIA,
-           STROKE = CVA,
-           TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
-           SUGDRINK = SUGDRINK,
-           CURSMOKE = SMOKER == 2,
-           FAMGOUT = FAMGOUT,
-           FAMGOUTNUM = NA) %>% 
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  
-  # Combining all cohorts together
-  all_pheno <- rbind(agria_pheno, aotearoa_pheno, dm_pheno, eurogout_pheno, ironwood_pheno, lasso_pheno, lpa_pheno, nph_pheno, rd_pheno) %>% 
-    mutate(Pheno.Study = factor(Pheno.Study)) %>% 
-    arrange(IID) %>% 
-    filter(!(duplicated(IID) | duplicated(IID, fromLast = TRUE)))
-  
-  rm(aotearoa_pheno, agria_pheno, dm_pheno, nph_pheno, rd_pheno, eurogout_pheno, ironwood_pheno, lasso_pheno, tmp, lpa_pheno, CoreExPheno_Final)
-  
-  # UK Biobank
-  # Location of the phenotype data
-  ukbb_dir <- path("/Volumes/archive/merrimanlab/raid_backup/UKbiobank/")
-  
-  
-  ## Loading data
-  # Latest UKBB phenotype file (refresh_ukbb_data)
-  load(path(ukbb_dir,'decrypted_files/ukb27189_27190_27191_27192_27193_27194_27195_27640_30070_31460_combined_withdrawn_ids_removed_10-07-2019.RData'))
-  
- test <- refresh_ukbb_data %>% 
-    select(eid, body_mass_ind_bmi_f21001_0_0, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0)
-  
-  load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/self_report_med.RData")
-  tmp <- self_report_med %>% 
-    mutate(IID = eid,
-           ULT = allopurinol | sulphinpyrazone | probenecid) %>% 
-    select(IID, ULT)
-  
-  load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/final_data.RData")
-  ukbb_pheno <- final_data %>% 
-    mutate(eid = as.numeric(eid)) %>% 
-    left_join(test, by = "eid") %>% 
-    rename(IID = eid,
-           GOUT = gout,
-           AGECOL = age,
-           SEX = sex,
-           URATE = urate) %>% 
-    mutate(Geno.PCVector1 = NA,
-           Geno.PCVector2 = NA,
-           Geno.PCVector3 = NA,
-           Geno.PCVector4 = NA,
-           Geno.PCVector5 = NA,
-           Geno.PCVector6 = NA,
-           Geno.PCVector7 = NA,
-           Geno.PCVector8 = NA,
-           Geno.PCVector9 = NA,
-           Geno.PCVector10 = NA,
-           Geno.PCVector1_Oc = NA,
-           Geno.PCVector2_Oc = NA,
-           Geno.PCVector3_Oc = NA,
-           Geno.PCVector4_Oc = NA,
-           Geno.PCVector5_Oc = NA,
-           Geno.PCVector6_Oc = NA,
-           Geno.PCVector7_Oc = NA,
-           Geno.PCVector8_Oc = NA,
-           Geno.PCVector9_Oc = NA,
-           Geno.PCVector10_Oc = NA,
-           AGE1ATK = NA,
-           DURATION = NA,
-           TOPHIGOUT = NA, 
-           EROSIONS = NA,
-           NUMATK = NA,
-           PROPHY = NA,
-           Geno.SpecificAncestry = "European",
-           BMI = body_mass_ind_bmi_f21001_0_0,
-           HYPERTENSION = hypertension,
-           DIABETES = type2_diabetes,
-           HEART = coronary_heart_disease | heart_failure,
-           KIDNEY = ckd_stage3 | ckd_stage4 | end_stage_renal,
-           LIPIDS = dyslipidemia,
-           STROKE = cerebrovascular_disease,
-           TOTALALC = case_when(alcohol_intake_frequency_f1558_0_0 == "Daily or almost daily" ~ 14,
-                                alcohol_intake_frequency_f1558_0_0 == "Three or four times a week" ~ 4,
-                                alcohol_intake_frequency_f1558_0_0 == "Once or twice a week" ~ 2,
-                                TRUE ~ NA_real_),
-           SUGDRINK = NA,
-           CURSMOKE = current_tobacco_smoking_f1239_0_0 == "Yes, on most or all days",
-           FAMGOUT = NA,
-           FAMGOUTNUM = NA,
-           Geno.SampleID = NA,
-           Pheno.Study = "UK Biobank") %>% 
-    left_join(tmp) %>% 
-    select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
-  
-  save(all_pheno, ukbb_pheno, file = here("Output/Phenotypes.RData"))
-}
+westpoly <- CoreExPheno_Final %>% 
+  filter(Geno.PolynesianGroup == "West Polynesian",
+         !str_detect(Pheno.Study, "594|3170"))
+
+eastpoly <- CoreExPheno_Final %>% 
+  filter(Geno.PolynesianGroup == "East Polynesian",
+         Pheno.Study != "Ngati Porou",
+         !str_detect(Pheno.Study, "594|3170"))
+
+eastpoly_np <- CoreExPheno_Final %>% 
+  filter(Geno.PolynesianGroup == "East Polynesian",
+         Pheno.Study == "Ngati Porou")
+
+# Cleaning up.
+rm(aus_nz, eurogout, ardea, eastpoly, westpoly, eastpoly_np)
 ```
 
-Individuals with KING kinship coefficient of > 0.177 (i.e. first degree related or more) were removed from the analysis, preferentially keeping gout cases over controls where possible.
+<br/>
 
-```{r Relatedness, eval = FALSE}
-# Use the KING algorithm to find all pairwise relationships that are above 0.177 in the CoreExome data (just based on the 9157 IDs that are in all_pheno)
-# Need to prioritize the keeping of gout cases over controls
-# Given that we don't care about the FID column for this, we will recreate the filtered genotyped CoreExome files so that the FID and IID are matching, and all are unique
-# length(unique(all_pheno$Geno.SampleID)) # all unique
-unique_ids <- all_pheno %>% select(Geno.SampleID)
-fam <- read_delim(here("Data/Genotypes/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam"), delim = " ", col_names = F)
+Below is the code for preparing the phenotype files based on the heterogeneous phenotype files downloaded from BC SNPmax. First I will clean up phenotype information for all cohorts that contribute to the Australian/New Zealand Aotearoa cohort (including Gout in Aotearoa, AGRIA, DM, LPA, Ngati Porou, and RD). Next I will clean up the EuroGout cohort information. Finally, I will clean up the Ardea cohort phenotype files, split into Ironwood (CLEAR 1, CLEAR 2, CRYSTAL, and LIGHT), and LASSO. Throughout, disease duration will be derived from age at onset - age at recruitment + 1 (because it is derived from age in years, there is up to 1 additional year duration that needs to be accounted for).
 
+<br/>
+
+```{r, eval = FALSE}
+# Making functions for converting Boolean variables into TRUE/FALSE from 2/1 or 1/0.
+logicfactor <- function(x) {
+  as.logical(factor(x, levels = c(1, 2), labels = c("FALSE", "TRUE")))
+}
+
+logicfactor2 <- function(x) {
+  as.logical(factor(x, levels = c(0, 1), labels = c("FALSE", "TRUE")))
+}
+
+# Gout in Aotearoa.
+# Making temporary phenotype file for the Gout in Aotearoa cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Gout in Aotearoa")
+
+# Extracting IDs from the SNPmax Gout in Aotearoa phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+aotearoa_pheno <- read_delim(here("Data/Phenotypes/NZPheno.txt"), delim = "\t", guess_max = 5000) %>% 
+  filter(SUBJECT %in% tmp$Pheno.SampleID) %>% 
+  select(SUBJECT, DATEARR, DOB, AGECOL, DIABETES, FAMGOUT, FAMGOUT3:HIBP, HIBPTREAT:FRUSEMIDE, BUMETANIDE, THIAZIDEDIURETIC:BENDROFLUAZIDE, HCTZ, METOLAZONE, CHLORHALIDONE, INDAPAMIDE, OTHDIURETIC, SPIRONOLACTONE, AMILORIDE, ACETAZOLAMIDE, DIURETICCOMMENT:DIURRECRUIT, LIPIDS, LIPIDLOWER:BILEACIDSEQ, HEART:STROKE, KIDNEY:HEALTHOTH, SUGDRINK, SMOKER:OTHALCO, WEIGHT:HEIGHT, BMI:BMICALC, MRURATE:MRCREATDATE, GOUTCRITERIAB, SUSTOPHUS:DIURGOUT, ALLOPCURRENT, PROBENCURRENT, BENZBROCURRENT, FEBUXCURRENT, OTHULTCURRENT, CURULTCOMMENT:ALLOPINTOLERANCE, ALLOPSIDE, URATEDOX:HIGHESTSUDATE, CHOLES:TRIGLY, SCREAT:SURICACID, URATE1MONTH, RELATEDFILTER:RELATED) %>% 
+  left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
+  rename(IID = SUBJECT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(FAMGOUT, FAMGOUT3, HIBP, DIURETIC:ACETAZOLAMIDE, LIPIDS:KIDNEY, FATTYLIVER, GOUTCRITERIAB:SUSTOPHUS, TOPHUS, ALLOPCURRENT:OTHULTCURRENT, ALLOPINTOLERANCE), 
+                logicfactor),
+         AGE1ATK = case_when(!is.na(AGE1ATK) ~ AGE1ATK,
+                             TRUE ~ AGECOL - DURATION),
+         DURATION = AGECOL - AGE1ATK + 1,
+         NUMATK = NUMATK,
+         TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
+         EROSIONS = NA,
+         URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(MRURATE, URATEDOX, PREULTURATE, HIGHESTSU, URATE1MONTH)), na.rm = TRUE) * 1000 / 59.48,
+                           TRUE ~ SURICACID * 1000 / 59.48),
+         ULT = ALLOPCURRENT | PROBENCURRENT | BENZBROCURRENT | FEBUXCURRENT | OTHULTCURRENT, 
+         PROPHY = NA,
+         HEIGHT = HEIGHT / 100,
+         BMI = case_when(!is.na(BMI) ~ BMI,
+                         TRUE ~ WEIGHT / (HEIGHT * HEIGHT)),
+         HYPERTENSION = HIBP | !is.na(HIBPTREAT) | DIURETIC | DIURETICCURRENT | LOOPDIURETIC | FRUSEMIDE | BUMETANIDE | THIAZIDEDIURETIC | BENDROFLUAZIDE | HCTZ | METOLAZONE | CHLORHALIDONE | INDAPAMIDE | OTHDIURETIC | SPIRONOLACTONE | AMILORIDE | ACETAZOLAMIDE | !is.na(DIURETICCOMMENT) | DIURRECRUIT == 2 | DIURGOUT %in% 2:4,
+         DIABETES = DIABETES == 2,
+         HEART = HEART | ANGINA | HEARTFAILURE | HEARTSURGERY | HEARTATTACK,
+         CREAT = rowMeans(across(c(SCREAT, MRCREAT))) / 88.42,
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = KIDNEY | !is.na(KIDNEY2) | EGFR < 60,
+         LIPIDS = LIPIDS | LIPIDLOWER | STATIN | FIBRATES | EZETIMIBE | NICOTINICACID | BILEACIDSEQ,
+         STROKE = STROKE,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         SUGDRINK = SUGDRINK,
+         CURSMOKE = SMOKER == 2,
+         FAMGOUT = FAMGOUT,
+         FAMGOUTNUM = FAMGOUT4) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# AGRIA.
+# Making temporary phenotype file for the AGRIA cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "AGRIA")
+
+# Extracting IDs from the SNPmax AGRIA phenotype file based on the CoreExome file. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+agria_pheno <- read_delim(here("Data/Phenotypes/AGRIAPheno.txt"), delim = "\t") %>% 
+  filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
+  left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>%
+  rename(IID = PATIENT,
+         GOUT = Pheno.GoutSummary) %>%
+  mutate(across(where(is_character), factor),
+         across(c(DIABETES:KIDNEY, ALLOP, PROBEN, STEROID, ANTIINFLAM, COLCHI, GPGOUT:SUSTOPHUS, FAMGOUT, FAMGOUT3, FOOD, FULLCAUGTAFF:TOPHIGOUT, URATELOWERING),
+                logicfactor),
+         TOPHUS = case_when(TOPHUS == 2 ~ TRUE, 
+                            TOPHUS == 1 ~ FALSE),
+         SSBCODE = factor(SSBCODE, 
+                          levels = 0:5, 
+                          labels = c("0/day", "0.1 - 0.99", "1.0 - 1.99", "2.0 - 2.99", "3.0 - 3.99", "4.0 +")),
+         FRUITCODE = factor(FRUITCODE, 
+                            levels = 0:5, 
+                            labels = c("0/day", "0.1 - 0.99", "1.0 - 1.99", "2.0 - 2.99", "3.0 - 3.99", "4.0 +")),
+         DIURETICSUMMARY = factor(DIURETICSUMMARY, 
+                                  levels = 1:3, 
+                                  labels = c("Not taking diuretics", "Taking diuretics", "Maybe taking diuretics")),
+         SEX = Geno.GeneticSex,
+         AGESERUM = round(as.duration(interval(DOB, SERUMDATE)) / as.duration(years(1)), 
+                          digits = 0),
+         AGESCL = round(as.duration(interval(DOB, SCLDATE)) / as.duration(years(1)), 
+                        digits = 0),
+         AGE1ATK = case_when(is.na(AGEGOUTDOX) ~ round(as.duration(interval(DOB, GOUTDOXDATE)) / as.duration(years(1)), 
+                                                       digits = 0),
+                             TRUE ~ AGEGOUTDOX),
+         DURATION = AGECOL - AGE1ATK + 1,
+         TOPHIGOUT = case_when(COMMENT %in% c("No information, neither tophaceous or aspirate proven, Deceased", 
+                                              "No information, neither tophaceous or aspirate proven",
+                                              "Gout, no tophi",
+                                              "No information, neither tophaceous or aspirate proven, lymphoma") ~ FALSE, 
+                               TRUE ~ TOPHUS | GOUTCRITERIAB | SUSTOPHUS | COMMENT %in% c("Tophaceous",
+                                                                                          "Urate crystals present, tophaceous", 
+                                                                                          "Aspirate proven, tophacous", 
+                                                                                          "allopurinol intolerant, febuxostat intolerant, taking benzobromarone.  Urate crystals present, tophacious", 
+                                                                                          "Tophaceous gout", 
+                                                                                          "Polyarticular tophaceous gout", 
+                                                                                          "Chronic tophaceous gout")),
+         EROSIONS = NA,
+         NUMATK = NA,
+         URATE1 = round(URATE * 1000 / 59.48, digits = 1),
+         URATEAGE1 = AGESERUM,
+         URATE2 = round(SURICACID_SCL * 1000 / 59.48, digits = 1),
+         URATEAGE2 = AGESCL,
+         URATE = case_when(!is.na(URATE1) ~ URATE1, 
+                           TRUE ~ URATE2),
+         ULT = case_when(is.na(URATE1) & !is.na(URATE2) ~ NA,
+                         TRUE ~ ALLOP | PROBEN | COMMENT %in% c("allopurinol intolerant, febuxostat intolerant, taking benzobromarone.  Urate crystals present, tophacious",
+                                                                "Allopurinol hypersensitivity, Cholchicine induced diarrhoea, Febuxostat 40mg/day", 
+                                                                "febuxostat 40mg/day; liver toxicity with allopurinol")),
+         PROPHY = STEROID | ANTIINFLAM | COLCHI,
+         HYPERTENSION = case_when(!is.na(HIBP) ~ HIBP, 
+                                  TRUE ~ DIURETICINDUCED == "Yes" | DIURETICSUMMARY == "Maybe taking diuretics"),
+         TRIGLY = TRIGLY_SCL * 88.57,
+         CHOLES = CHOLES_SCL * 38.67,
+         STROKE = NA,
+         HDL = HDL_SCL * 38.67,
+         CREAT = CREAT / 88.42,
+         SCREAT = SCREAT / 88.42,
+         CREAT2 = rowMeans(across(c(CREAT, SCREAT)), na.rm = TRUE),
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = KIDNEY | !is.na(KIDNEY2) | EGFR < 60,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         CURSMOKE = NA,
+         FAMGOUT = FAMGOUT | FAMGOUT3,
+         FAMGOUTNUM = as.numeric(FAMGOUT4)) %>%
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Diabetes Mellitus (DM).
+# Making temporary phenotype file for the DM cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Diabetes Mellitus")
+
+# Extracting IDs from the SNPmax DM phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+dm_pheno <- read_delim(here("Data/Phenotypes/DMPheno.txt"), delim = "\t") %>% 
+  filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
+  select(PATIENT, DOB, DATECOL, AGECOL, DIABETES:DIABETESTREAT, FAMGOUT:HIBPTREAT, LIPIDS, HEART:STROKE, KIDNEY:KIDNEY2, SUGDRINK, SMOKER:OTHALCO, WEIGHT, HEIGHT, BMI, URATE:CREAT, DIURETIC:OTHDIURETIC, LIPIDLOWER:BILEACIDSEQ, COMMENT, GOUTCRITERIAB, SUSTOPHUS:OTHDRUG, URATEDOX:DATEDOX, DIABETESAFFSTAT, KIDNEYTRANSPLANT, RENALDISEASE, FASTING:TRIGLY, SURICACID:EGFR) %>% 
+  left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
+  rename(IID = PATIENT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(DIABETES, FAMGOUT, FAMGOUT3, HIBP, LIPIDS, HEART:STROKE, KIDNEY, DIURETIC:OTHDIURETIC, LIPIDLOWER:BILEACIDSEQ, GOUTCRITERIAB, SUSTOPHUS, TOPHUS, ALLOP:COLCHI, DIABETESAFFSTAT, KIDNEYTRANSPLANT, RENALDISEASE), logicfactor),
+         DURATION = AGECOL - AGE1ATK + 1,
+         TOPHIGOUT = TOPHUS | GOUTCRITERIAB | SUSTOPHUS,
+         EROSIONS = NA,
+         URATE = case_when(!is.na(SURICACID) ~ SURICACID * 1000 / 59.48,
+                           !is.na(URATE) ~ URATE * 1000 / 59.48,
+                           TRUE ~ URATEDOX * 1000 / 59.48),
+         ULT = ALLOP | PROBEN, 
+         PROPHY = STEROID | ANTIINFLAM | COLCHI | OTHDRUG != "no",
+         HEIGHT = HEIGHT / 100,
+         BMI = case_when(!is.na(BMI) ~ BMI, 
+                         TRUE ~ WEIGHT / (HEIGHT * HEIGHT)),
+         HYPERTENSION = HIBP | !is.na(HIBPTREAT) | DIURETIC | LOOPDIURETIC | THIAZIDEDIURETIC | OTHDIURETIC | DIURGOUT,
+         DIABETES = DIABETES | !is.na(DIABETESTREAT) | DIABETESAFFSTAT,
+         HEART = HEART | ANGINA | HEARTFAILURE | HEARTSURGERY | HEARTATTACK,
+         CREAT = CREAT / 88.42,
+         SCREAT = SCREAT / 88.42,
+         CREAT2 = rowMeans(across(c(CREAT, SCREAT)), na.rm = T),
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203) * 0.742,
+                          TRUE ~ EGFR),
+         KIDNEY = KIDNEY | !is.na(KIDNEY2) | EGFR < 60 | KIDNEYTRANSPLANT | RENALDISEASE,
+         LIPIDS = LIPIDS | LIPIDLOWER | STATIN | FIBRATES | EZETIMIBE | NICOTINICACID | BILEACIDSEQ,
+         STROKE = STROKE,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         SUGDRINK = SUGDRINK,
+         CURSMOKE = SMOKER == 2,
+         FAMGOUT = FAMGOUT | FAMGOUT3,
+         FAMGOUTNUM = FAMGOUT4) %>%
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# LPA.
+# Making temporary phenotype file for the LPA cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "LPA")
+
+# Extracting IDs from the SNPmax LPA phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+lpa_pheno <- read_delim(here("Data/Phenotypes/LPAPheno.txt"), delim = "\t") %>% 
+  filter(SUBJECT %in% tmp$Pheno.SampleID) %>%
+  select(SUBJECT:AGE, SMOKING, SMOKEHISTORY, SUGARDRINKS:DIABETESTYPE, MAINHYPERTENSION:DYSLIPIDCOMMENT, MAINSTROKE:MAINSTROKECOM, BMHEIGHT:BMWEIGHT, SERUMCREATININE:SERUMURATE, TOTALCHOLESTEROL, TRIGLYCERIDES) %>% 
+  left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
+  rename(IID = SUBJECT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex,
+         AGECOL = AGE) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(SMOKING:SMOKEHISTORY, MAINDIABETES, MAINHYPERTENSION, DYSLIPIDEMIA), 
+                logicfactor),
+         AGE1ATK = NA,
+         DURATION = NA,
+         NUMATK = NA,
+         TOPHIGOUT = NA,
+         EROSIONS = NA,
+         URATE = SERUMURATE * 1000 / 59.48,
+         ULT = NA, 
+         PROPHY = NA,
+         HEIGHT = BMHEIGHT / 100,
+         BMI = BMWEIGHT / (HEIGHT * HEIGHT),
+         HYPERTENSION = MAINHYPERTENSION,
+         DIABETES = DIABETESTYPE == 2,
+         HEART = NA,
+         CREAT = SERUMCREATININE / 88.42,
+         EGFR = case_when(SEX == "Male" ~ 175 * (SERUMCREATININE ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (SERUMCREATININE ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = EGFR < 60,
+         LIPIDS = DYSLIPIDEMIA,
+         STROKE = MAINSTROKE,
+         TOTALALC = NA,
+         SUGDRINK = SUGARDRINKS,
+         CURSMOKE = SMOKING,
+         FAMGOUT = NA,
+         FAMGOUTNUM = NA) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Ngati Porou (NPH).
+# Making temporary phenotype file for the NPH cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Ngati Porou")
+
+# Extracting IDs from the SNPmax NPH phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+nph_pheno <- read_delim(here("Data/Phenotypes/NPHPheno.txt"), delim = "\t") %>% 
+  filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
+  select(PATIENT, DOB, CONSENT, DATEARR, AGECOL, DIABETES, FAMGOUT:HIBP, LIPIDS, LIPIDLOWER:STROKE, KIDNEY, SUGDRINK, SMOKER:SPIRITS, WEIGHT:HEIGHT, BMI, URATE:CREATDATE, DIURETICCURRENT:FRUSEMIDE, BUMETANIDE, BENDROFLUAZIDE, HCTZ, METOLAZONE, CHLORHALIDONE, SPIRONOLACTONE, AMILORIDE, COMMENT, GOUTCRITERIAB, SUSTOPHUS, AGE1ATK:ALLOP, STEROID:OTHDRUG, URATEDOX:DATEDOX, RENALTRANSPLANT, DIABETESAFFSTAT, SURICACID:SCREAT, DIURETIC:OTHDIURETIC, STATIN:BILEACIDSEQ, URATELOWERING) %>% 
+  left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
+  rename(IID = PATIENT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(DIABETES, FAMGOUT, FAMGOUT3, HIBP:STROKE, KIDNEY, DIURETICCURRENT:AMILORIDE, GOUTCRITERIAB, SUSTOPHUS, TOPHUS, ALLOP:BENZOBROMARONE, RENALTRANSPLANT, DIABETESAFFSTAT, DIURETIC:URATELOWERING), 
+                logicfactor),
+         AGE1ATK = case_when(!is.na(AGE1ATK) ~ AGE1ATK,
+                             TRUE ~ AGECOL - DURATION),
+         DURATION = AGECOL - AGE1ATK + 1,
+         NUMATK = NUMATK,
+         TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
+         EROSIONS = NA,
+         URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(URATE, URATEDOX)), na.rm = TRUE) * 1000 / 59.48,
+                           TRUE ~ SURICACID * 1000 / 59.48),
+         ULT = ALLOP | PROBEN | BENZOBROMARONE | URATELOWERING, 
+         PROPHY = STEROID | ANTIINFLAM | COLCHI,
+         HEIGHT = HEIGHT / 100,
+         BMI = WEIGHT / (HEIGHT * HEIGHT),
+         HYPERTENSION = HIBP | DIURETICCURRENT | FRUSEMIDE | BUMETANIDE | BENDROFLUAZIDE | HCTZ | METOLAZONE | CHLORHALIDONE | SPIRONOLACTONE | AMILORIDE | DIURGOUT %in% 2:4 | DIURETIC | LOOPDIURETIC | THIAZIDEDIURETIC | OTHDIURETIC,
+         DIABETES = DIABETES | DIABETESAFFSTAT,
+         HEART = HEART | ANGINA | HEARTFAILURE | HEARTSURGERY | HEARTATTACK,
+         CREAT = rowMeans(across(c(CREAT, SCREAT)), na.rm = TRUE) / 88.42,
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = KIDNEY | EGFR < 60 | RENALTRANSPLANT,
+         LIPIDS = LIPIDS | LIPIDLOWER | STATIN | FIBRATES | EZETIMIBE | NICOTINICACID | BILEACIDSEQ,
+         STROKE = STROKE,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         SUGDRINK = SUGDRINK,
+         CURSMOKE = SMOKER == 2,
+         FAMGOUT = FAMGOUT,
+         FAMGOUTNUM = FAMGOUT4) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Renal Disease (RD).
+# Making temporary phenotype file for the RD cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Renal Disease")
+
+# Extracting IDs from the SNPmax RD phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+rd_pheno <- read_delim(here("Data/Phenotypes/RDPheno.txt"), delim = "\t") %>% 
+  filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
+  select(PATIENT, DOB, CONSENTDATE, DATECOL, DATEARR, CKDV, RENALTRANSPLANT, DIABETES, FAMGOUT, HYPERTENSION, DYSLIPIDAEMIA, IHD, CVA, CHF, HEALTHOTH:WEIGHT, BMI, SMOKER, SUGDRINK, BEER:SPIRITS, COMMENT, TYPE2D, GOUTCRITERIAB, SUSTOPHUS, AGE1ATK:OTHDRUG, ESSENTIALHYPERT, SURICACID:SCREAT, RCOMMENTS) %>% 
+  left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
+  rename(IID = PATIENT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(RENALTRANSPLANT:CHF, TYPE2D:SUSTOPHUS, TOPHUS, ALLOPURINOL:RASBURICASE), 
+                logicfactor),
+         AGECOL = AGECOL,
+         AGE1ATK = AGE1ATK,
+         DURATION = AGECOL - AGE1ATK + 1,
+         NUMATK = NA,
+         TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
+         EROSIONS = NA,
+         URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(URATEFIRSTREC, URATEDOX, URATERECENT)), na.rm = TRUE) * 1000 / 59.48,
+                           TRUE ~ SURICACID * 1000 / 59.48),
+         ULT = ALLOPURINOL | PROBEN | RASBURICASE, 
+         PROPHY = STEROID | ANTIINFLAM | COLCHI,
+         HEIGHT = HEIGHT / 100,
+         BMI = WEIGHT / (HEIGHT * HEIGHT),
+         HYPERTENSION = HYPERTENSION | ESSENTIALHYPERT == 1 | DIURGOUT %in% 2:4,
+         DIABETES = DIABETES | TYPE2D,
+         HEART = IHD | CHF,
+         EGFR = case_when(SEX == "Male" ~ 175 * (SCREAT / 88.42) ^ -1.154 * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (SCREAT / 88.42) ^ -1.154 * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = CKDV == 1 | RENALTRANSPLANT | EGFR < 60,
+         LIPIDS = DYSLIPIDAEMIA,
+         STROKE = CVA,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         SUGDRINK = SUGDRINK,
+         CURSMOKE = SMOKER == 2,
+         FAMGOUT = FAMGOUT,
+         FAMGOUTNUM = NA) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# EuroGout.
+# Making temporary phenotype file for the EuroGout cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "EuroGout")
+
+# Extracting IDs from the SNPmax EuroGout phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+eurogout_pheno <- read_delim(here("Data/Phenotypes/EuroGoutPheno.txt"), delim = "\t", guess_max = 5000) %>% 
+  filter(SUBJECT %in% tmp$Pheno.SampleID) %>% 
+  select(SUBJECT, RECRUITMENTDATE, DOB:WEIGHT, HEIGHT, BMI, TOPHUS:GOUTNOTES, ACRB, ACRC8, RENALDISEASE, T2DIABETES:HEARTFAILURE, MEDICALCOMMENT, URATETHERAPY:ALLOPURINOL, CHOLCHICINE:TLDIURETICS, ASPRIN, SUGARDRINK:FRUITJUICE, ALCOHOL:PREUTLKURATE, TCHOLESTEROL:TRIGLYCERIDES, EGFR) %>% 
+  left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
+  rename(IID = SUBJECT,
+         GOUT = Pheno.GoutSummary,
+         AGECOL = AGERECRUITMENT,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(TOPHUS, EROSIONS, ACRB, ACRC8, RENALDISEASE, T2DIABETES, HYPERTENSION, DYSLIPIDEMIA, STROKE:HEARTFAILURE, ALLOPURINOL:ASPRIN), 
+                logicfactor2),
+         AGE1ATK = case_when(!is.na(AGEFIRSTATTK) ~ AGEFIRSTATTK,
+                             TRUE ~ AGECOL - DURATIONGOUT),
+         DURATION = AGECOL - AGE1ATK + 1,
+         NUMATK = case_when(!is.na(NUMATTACKS) ~ NUMATTACKS, 
+                            NUMATTACKS_TXT == ">5" ~ 5, 
+                            NUMATTACKS_TXT == "1" ~ 1, 
+                            NUMATTACKS_TXT == "2" ~ 2, 
+                            NUMATTACKS_TXT == "3" ~ 3, 
+                            NUMATTACKS_TXT %in% c("3 to 5", "3-5") ~ 4, 
+                            NUMATTACKS_TXT %in% c("reported 'continue' I think. I assume this means ongoing.", "reported 100.") ~ 52, 
+                            NUMATTACKS_TXT == "zehn" ~ 10),
+         TOPHIGOUT = TOPHUS | NUMTOPHI %in% 1:3 | ACRB | ACRC8,
+         URATE = case_when(is.na(SERUMURATE) ~ PREUTLKURATE * 1000 / 59.48,
+                           TRUE ~ SERUMURATE * 1000 / 59.48),
+         ULT = GOUTNOTES == "Gout assumed, taking allopurinol" | (!is.na(URATETHERAPY) & !(URATETHERAPY %in% c("diet", "NIL", "no", "No uric acid lowering therapy", "none", "None", "NONE", "none listed", "Unclear"))) | ALLOPURINOL, 
+         PROPHY = CHOLCHICINE | NSAIDS | ASPRIN,
+         HEIGHT = HEIGHT / 100,
+         BMI = case_when(!is.na(BMI) ~ BMI, 
+                         TRUE ~ WEIGHT / (HEIGHT * HEIGHT)),
+         HYPERTENSION = HYPERTENSION | !is.na(HYPERTENTREATM) | MEDICALCOMMENT == "Said no to hypertension but beside BP states is on losartan" | DIURETICS | TLDIURETICS,
+         DIABETES = T2DIABETES | !is.na(T2DTREATMENT),
+         HEART = MI | IHD | HEARTFAILURE | MEDICALCOMMENT %in% c("Cardiovascular disease", "Heart problems", "Heart problems. EGFR available", "Heart problems. EGFR available. EGFR available. EGFR<60"),
+         CREAT = SERUMCREATININE / 88.42,
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742,
+                          TRUE ~ EGFR),
+         KIDNEY = RENALDISEASE | EGFR < 60,
+         LIPIDS = DYSLIPIDEMIA | !is.na(LIPIDTREATMENT),
+         STROKE = STROKE,
+         TOTALALC = ALCOHOL,
+         SUGDRINK = SUGARDRINK + FRUITJUICE,
+         CURSMOKE = SMOKER == 1,
+         FAMGOUT = FAMILYHISTORY == 1,
+         FAMGOUTNUM = NUMFAMILYGOUT) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Ardea - Ironwood (CLEAR 1, CLEAR 2, CRYSTAL, and LIGHT).
+# Making temporary phenotype file for the Ironwood cohorts based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study %in% c("Ardea: CLEAR1", "Ardea: CLEAR2", "Ardea: CRYSTAL", "Ardea: LIGHT"))
+
+# Extracting IDs from the SNPmax Ironwood phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+ironwood_pheno <- read_delim(here("Data/Phenotypes/ArdeaPheno.txt"), delim = "\t", guess_max = 5000) %>% 
+  filter(SUBJID %in% tmp$Pheno.SampleID) %>% 
+  select(SUBJID, AGE, BRTHDTC, BLWEIGHT, BLHEIGHT, BLBMI, TRT01AN, CONSDT, TRTSDT, ANGINA:HYPERTRIGLY, MI, STROKE, AGFIDDT:GFDUR, CRITBFL, PHNM8FL, ULTALLO:ULTOTH, PLACTOTSTDT:PLACTOTENDT, THIALKFL:PROPHTYPN, TOPHIFN:BLAREA, GFNUM:GFNUMGR, DATESCREENING:EGFRSCREENING, CHOLSCREENING, TRIGSCREENING, URATESCREENING, DATENEG7, URATENEG7, EGFRNEG7, DATEBASELINE, URATEBASELINE, EGFRBASELINE, DATEMONTH1, URATEMONTH1, DATEMONTH2, URATEMONTH2, DATEMONTH3, URATEMONTH3, DATEMONTH4, URATEMONTH4, DATEMONTH5, URATEMONTH5, DATEMONTH6, URATEMONTH6, DATEMONTH8, URATEMONTH8, DATEMONTH10, URATEMONTH10, DATEMONTH12, URATEMONTH12, DATEEARLYTERM, URATEEARLYTERM, DATEFOLLOWUP, URATEFOLLOWUP, CURSMOKE:ALCOHOL, TOPHIGOUT:GOUTNOTES) %>% 
+  left_join(tmp, by = c("SUBJID" = "Pheno.SampleID")) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(ANGINA:STROKE, CRITBFL:ULTOTH, THIALKFL:PROPHYFL, TOPHIFN, CURSMOKE:ALCOHOL), 
+                logicfactor2),
+         TRT01AN = factor(TRT01AN, 
+                          levels = 0:5, 
+                          labels = c("Screen Failure", "Group A (Placebo)", "Group B (Lesinurad 200 mg)", "Group C (Lesinurad 400 mg)", "Not Assigned", "Not Treated"))) %>%
+  rename(IID = SUBJID,
+         GOUT = Pheno.GoutSummary,
+         AGECOL = AGE) %>%
+  mutate(SEX = Geno.GeneticSex,
+         AGE1ATK = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), AGFIDDT)) / as.duration(years(1)), 
+                         digits = 0),
+         DURATION = AGECOL - AGE1ATK + 1,
+         TOPHIGOUT = TOPHIFN,
+         EROSIONS = NA,
+         NUMATK = GFNUM,
+         URATE = URATESCREENING,
+         ULT = ULTALLO | ULTPROB | ULTFEBU | ULTOTH | Pheno.Study %in% c("Ardea: CLEAR1", "Ardea: CLEAR2") | (Pheno.Study == "Ardea: CRYSTAL" & URATE < 8),
+         PROPHY = PROPHYFL,
+         BMI = BLBMI,
+         HEART = HEARTFAILURE | MI | ANGINA,
+         KIDNEY = EGFRSCREENING < 60,
+         LIPIDS = HYPERCHOLESTEROL | HYPERTRIGLY,
+         TOTALALC = NA,
+         SUGDRINK = NA,
+         FAMGOUT = NA,
+         FAMGOUTNUM = NA,
+         EGFR2 = case_when(SEX == "Male" ~ 175 * (SCRSCREENING ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (SCRSCREENING ^ -1.154) * (AGECOL ^ -0.203) * 0.742)) %>%
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Ardea - LASSO.
+# Making temporary phenotype file for the Ironwood cohorts based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Ardea: 401")
+
+# Reading in three LASSO cohort phenotype files.
+lassopheno1 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoFlare.txt"), delim = "\t", guess_max = 5000)
+lassopheno2 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoLabChem.txt"), delim = "\t", guess_max = 5000)
+lassopheno3 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoMain.txt"), delim = "\t", guess_max = 5000)
+
+# Combining all three phenotype files together.
+tmp1 <- full_join(lassopheno3, lassopheno2, by = "SUBJID")
+lasso_pheno <- full_join(tmp1, lassopheno1, by = "SUBJID")
+
+# Cleaning up.
+rm(lassopheno1, lassopheno2, lassopheno3, tmp1)
+
+# Extracting IDs from the SNPmax LASSO phenotype file based on the CoreExome file. Converting the DNAID into a character variable named IID. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+lasso_pheno <- lasso_pheno %>% 
+  filter(DNAID %in% tmp$Pheno.SampleID) %>% 
+  mutate(IID = as.character(DNAID)) %>% 
+  select(IID, AGE, BRTHDTC, GFNUM:ULTOSCR, BLBMI:PROPHTYP, AGFIDDT:GFDUR, TOLOCL:GFDTDURL, ANGINA:RENALIMPAIR, MI:STROKE, SCREENGFSTDT, SCREENGFENDT, SCREENGFOUT, SCREENGFSEV, SCREENPAIN, SCREENGFDUR:SCREENPAIN2, SCREENGFSTRSTP, SCREENLBDT, SCREENALT, SCREENCREAT, SCREENGGT, SCREENURATE, BASELINELBDT, BASELINEURATE, BASET1LBDT, BASET1URATE, BASET2LBDT, BASET2URATE, BASET3LBDT, BASET3URATE, MONTH1LBDT, MONTH1URATE, MONTH1T1LBDT, MONTH1T1URATE, MONTH1T2LBDT, MONTH1T2URATE, MONTH2LBDT, MONTH2URATE, MONTH2T1LBDT, MONTH2T1URATE, MONTH3LBDT, MONTH3URATE, MONTH3T1LBDT, MONTH3T1URATE, MONTH3T3LBDT, MONTH3T3URATE, MONTH4LBDT, MONTH4URATE, MONTH4T1LBDT, MONTH4T1URATE, MONTH5LBDT, MONTH5URATE, MONTH6LBDT, MONTH6URATE, UNSCHEDLBDT, UNSCHEDURATE, EARLYTERMLBDT, EARLYTERMURATE) %>% 
+  left_join(tmp, by = c("IID" = "Pheno.SampleID")) %>% 
+  rename(GOUT = Pheno.GoutSummary,
+         AGECOL = AGE,
+         NUMATK = GFNUM,
+         SEX = Geno.GeneticSex,
+         BMI = BLBMI) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(TOHANDFL:ULTOSCR, BLCDFL, ANGINA:RENALIMPAIR, MI:STROKE), 
+                logicfactor2),
+         AGE1ATK = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), AGFIDDT)) / as.duration(years(1)), 
+                         digits = 0),
+         DURATION = AGECOL - AGE1ATK + 1,
+         TOPHIGOUT = BLTPHFN,
+         EROSIONS = NA,
+         URATE = SCREENURATE,
+         ULT = ALLOSCR | ULTOSCR | SCREENURATE < 8,
+         PROPHY = PROPHTYP %in% c("Both", "Colchicine", "NSAID"),
+         HEART = ANGINA | MI,
+         EGFR = case_when(SEX == "Male" ~ 175 * (SCREENCREAT ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (SCREENCREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = RENALIMPAIR | EGFR < 60,
+         LIPIDS = HYPERCHOLESTEROL | HYPERTRIGLY,
+         TOTALALC = NA,
+         SUGDRINK = NA,
+         CURSMOKE = NA,
+         FAMGOUT = NA,
+         FAMGOUTNUM = NA) %>%
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Combining phenotypes for all cohorts together. Additionally, deduplicating the IID column so as to keep only unique individuals.
+all_pheno <- rbind(agria_pheno, aotearoa_pheno, dm_pheno, eurogout_pheno, ironwood_pheno, lasso_pheno, lpa_pheno, nph_pheno, rd_pheno) %>% 
+  mutate(Pheno.Study = factor(Pheno.Study)) %>% 
+  arrange(IID) %>% 
+  filter(!(duplicated(IID) | duplicated(IID, fromLast = TRUE)))
+
+# Cleaning up.
+rm(aotearoa_pheno, agria_pheno, dm_pheno, nph_pheno, rd_pheno, eurogout_pheno, ironwood_pheno, lasso_pheno, tmp, lpa_pheno, CoreExPheno_Final)
+
+# Extracting phenotype information for the UK Biobank cohort.
+# Saving location of the phenotype data as a variable.
+ukbb_dir <- path("/Volumes/archive/merrimanlab/raid_backup/UKbiobank/")
+
+# Saving location of the coding files for phenotypes.
+codings_dir <- path(here("Data/codings"))
+
+# Reading in list of withdrawn IDs.
+withdrawn <- read_csv(path(ukbb_dir, "w12611_20210201.new.csv"), col_names = "id")
+
+# Loading UKBB phenotype file from 2019.
+load(path(ukbb_dir,'decrypted_files/ukb27189_27190_27191_27192_27193_27194_27195_27640_30070_31460_combined_withdrawn_ids_removed_10-07-2019.RData'))
+
+# Renaming working dataset and removing withdrawn and missing IDs (leaves 488,247 individuals).
+bd_refined <- refresh_ukbb_data %>% 
+  filter(!is.na(eid) & !(eid %in% withdrawn$id)) # Total 488,247
+
+# Reading coding document for self-reported diseases.
+datacoding6 <- read_delim(path(codings_dir, "coding6.tsv"), delim = "\t")
+
+# Reading coding document for self-reported medication.
+datacoding4 <- read_delim(path(codings_dir, "coding4.tsv"), delim = "\t")
+
+# Reading Nicola Dalbeth annotated datacoding4 file.
+nd_drugs <- read_csv(path(ukbb_dir, "UKBio_drugs_ND_formatted.csv"), 
+                     col_names = TRUE, 
+                     col_types = cols(.default = "c"))
+
+# Reading coding document for ICD10 (hospital diagnoses).
+datacoding19 <- read_delim(path(codings_dir, "coding19.tsv"), delim = "\t")
+
+# Extracting columns of interest.
+test <- refresh_ukbb_data %>% 
+  select(eid, body_mass_ind_bmi_f21001_0_0, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0)
+
+# Loading in medication phenotype data file.
+load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/self_report_med.RData")
+
+# Extracting ULT column from medication phenotype file.
+tmp <- self_report_med %>% 
+  mutate(IID = eid,
+         ULT = allopurinol | sulphinpyrazone | probenecid) %>% 
+  select(IID, ULT)
+
+# Loading cleaned up UK Biobank phenotype file.
+load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/final_data.RData")
+
+# Combining all UK Biobank phenotypes of interest into a single file.
+ukbb_pheno <- final_data %>% 
+  mutate(eid = as.numeric(eid)) %>% 
+  left_join(test, by = "eid") %>% 
+  rename(IID = eid,
+         GOUT = gout,
+         AGECOL = age,
+         SEX = sex,
+         URATE = urate) %>% 
+  mutate(Geno.PCVector1 = NA,
+         Geno.PCVector2 = NA,
+         Geno.PCVector3 = NA,
+         Geno.PCVector4 = NA,
+         Geno.PCVector5 = NA,
+         Geno.PCVector6 = NA,
+         Geno.PCVector7 = NA,
+         Geno.PCVector8 = NA,
+         Geno.PCVector9 = NA,
+         Geno.PCVector10 = NA,
+         Geno.PCVector1_Oc = NA,
+         Geno.PCVector2_Oc = NA,
+         Geno.PCVector3_Oc = NA,
+         Geno.PCVector4_Oc = NA,
+         Geno.PCVector5_Oc = NA,
+         Geno.PCVector6_Oc = NA,
+         Geno.PCVector7_Oc = NA,
+         Geno.PCVector8_Oc = NA,
+         Geno.PCVector9_Oc = NA,
+         Geno.PCVector10_Oc = NA,
+         AGE1ATK = NA,
+         DURATION = NA,
+         TOPHIGOUT = NA, 
+         EROSIONS = NA,
+         NUMATK = NA,
+         PROPHY = NA,
+         Geno.SpecificAncestry = "European",
+         BMI = body_mass_ind_bmi_f21001_0_0,
+         HYPERTENSION = hypertension,
+         DIABETES = type2_diabetes,
+         HEART = coronary_heart_disease | heart_failure,
+         KIDNEY = ckd_stage3 | ckd_stage4 | end_stage_renal,
+         LIPIDS = dyslipidemia,
+         STROKE = cerebrovascular_disease,
+         TOTALALC = case_when(alcohol_intake_frequency_f1558_0_0 == "Daily or almost daily" ~ 14,
+                              alcohol_intake_frequency_f1558_0_0 == "Three or four times a week" ~ 4,
+                              alcohol_intake_frequency_f1558_0_0 == "Once or twice a week" ~ 2,
+                              TRUE ~ NA_real_),
+         SUGDRINK = NA,
+         CURSMOKE = current_tobacco_smoking_f1239_0_0 == "Yes, on most or all days",
+         FAMGOUT = NA,
+         FAMGOUTNUM = NA,
+         Geno.SampleID = NA,
+         Pheno.Study = "UK Biobank") %>% 
+  left_join(tmp) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Cleaing up.
+rm(final_control_data, final_data, final_gout_data, refresh_ukbb_data, self_report_med, test, tmp, ukbb_dir, logicfactor, logicfactor2)
+```
+
+<br/>
+
+Next, related individuals (including duplicate samples) were excluded from the various cohorts in the CoreExome data (based on the 9,157 individuals in all_pheno). Individuals with KING kinship coefficient of > 0.177 (i.e. first degree related or more) were removed from the analysis, preferentially keeping gout cases over controls where possible.
+
+<br/>
+
+```{r, eval = FALSE}
+# Given that we don't care about the FID column for this, we will recreate the filtered genotyped CoreExome files so that the FID and IID are matching, and all are unique.
+# Testing whether all Geno.SampleID values are unique in the all_pheno file.
+length(unique(all_pheno$Geno.SampleID)) == length(all_pheno$Geno.SampleID)
+
+# Extracting these IDs as a variable.
+unique_ids <- all_pheno %>% 
+  select(Geno.SampleID)
+
+# Reading in list of IDs from CoreExome fam file.
+fam <- read_delim("/Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam", delim = " ", col_names = F)
+
+# Filtering fam file to keep only those in the unique_ids file.
 fam_filtered <- fam %>% 
   filter(X2 %in% unique_ids$Geno.SampleID) %>% 
   select(X1, X2)
-# write_delim(fam_filtered, delim = "\t", file = here("Output/Temp/unique_ids.txt"), col_names = F)
 
-# system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Data/Genotypes/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted"), ' --keep ', here("Output/Temp/unique_ids.txt"), ' --chr 1-22 --make-bed --out ', here("Data/Genotypes/Clean_CoreEx_Geno")))
+# Writing out file for filtering the fam file.
+write_delim(fam_filtered, delim = "\t", file = path(scratch_path, "/Output/Temp/unique_ids.txt"), col_names = F)
 
+# Cleaning up.
+rm(fam_filtered, unique_ids, fam)
+```
+
+```{bash, engine.opts = '-l', eval = FALSE}
+# Setting directory as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
+
+# Filtering CoreExome PLINK files to only include individuals for 
+plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --keep $PRS_SCRATCH/Output/Temp/unique_ids.txt --chr 1-22 --make-bed --out $PRS_SCRATCH/Output/Temp/for_relatedness
+```
+
+```{r, eval = FALSE}
+# Extracting IDs and cleaned up SEX column for all individuals.
 all_pheno2 <- all_pheno %>% 
   select(Geno.SampleID, SEX) %>% 
   mutate(SEX = as.numeric(factor(SEX, levels = c("Male", "Female"))))
 
-fam2 <- read_delim(here("Data/Genotypes/Clean_CoreEx_Geno.fam"), delim = " ", col_names = F)
+# Reading in filtered fam file.
+fam2 <- read_delim(path(scratch_path, "/Output/Temp/for_relatedness.fam"), delim = " ", col_names = F)
 
+# Overwriting FID column with IID column and adding SEX column to fam file.
 fam_clean <- fam2 %>% 
   left_join(all_pheno2, by = c("X1" = "Geno.SampleID")) %>% 
   mutate(X1 = X2,
@@ -738,25 +790,47 @@ fam_clean <- fam2 %>%
          X4 = 0,
          X5 = SEX) %>% 
   select(-SEX)
-# write_delim(fam_clean, delim = " ", file = here("Data/Genotypes/Clean_CoreEx_Geno.fam"), col_names = F)
 
-# system(paste0(here("king"), ' -b ', here("Data/Genotypes/Clean_CoreEx_Geno.bed"), ' --kinship')) # need to run this within the PRS directory rather than via this command
+# Writing out new fam file over existing fam file.
+write_delim(fam_clean, delim = " ", file = path(scratch_path, "/Output/Temp/for_relatedness.fam"), col_names = F)
+```
 
-# relationships <- read_delim(here("king.kin0"), delim = "\t")
+```{bash, engine.opts = '-l', eval = FALSE}
+# Setting directory as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
-test <- relationships %>% 
-  filter(Kinship > 0.177) # total of 517 pairwise relationships that are at least first degree relatives
+# Downloading king binary file.
+wget -O $PRS_SCRATCH/Tools/Linux-king.tar.gz https://www.kingrelatedness.com/executables/Linux-king227.tar.gz
 
-test2 <- c(test$ID1, test$ID2) %>% 
-  unique() # 854 individuals in the 517 pairs
+# Extracting binary files from tar.gz file.
+tar xzf $PRS_SCRATCH/Tools/Linux-king.tar.gz --directory $PRS_SCRATCH/Tools
 
+# Running king function on for_relatedness PLINK files.
+$PRS_SCRATCH/Tools/king -b $PRS_SCRATCH/Output/Temp/for_relatedness.bed --kinship --prefix $PRS_SCRATCH/Output/Temp/king
+```
+
+```{r, eval = FALSE}
+# Loading in computed relationships file.
+relationships <- read_delim(path(scratch_path, "/Output/Temp/king.kin0"), delim = "\t")
+
+# Extracting all relationships that are at first degree or higher (total of 517).
+related <- relationships %>% 
+  filter(Kinship > 0.177)
+
+# Extracting all unique IDs that are in this related list (854 total).
+related_ids_unique <- c(related$ID1, related$ID2) %>% 
+  unique()
+
+# Extracting gout status for these individuals.
 all_pheno_related <- all_pheno %>%
-  filter(Geno.SampleID %in% test2) %>% 
+  filter(Geno.SampleID %in% related_ids_unique) %>% 
   select(Geno.SampleID, GOUT)
 
-related_pairs <- test %>% 
+# Extracting ID columns of related individuals.
+related_pairs <- related %>% 
   select(ID1, ID2)
 
+# Merging together with gout status then labelling pair based on combination of gout and control status.
 related_pairs2 <- related_pairs %>% 
   left_join(all_pheno_related, by = c("ID1" = "Geno.SampleID")) %>% 
   left_join(all_pheno_related, by = c("ID2" = "Geno.SampleID")) %>% 
@@ -765,70 +839,210 @@ related_pairs2 <- related_pairs %>%
                           GOUT.x == "Control" & GOUT.y == "Gout" ~ "CG",
                           GOUT.x == "Control" & GOUT.y == "Control" ~ "CC"))
 
-test3 <- c(test$ID1, test$ID2)
-test3_dup <- c(test$ID1, test$ID2) %>% duplicated()
-test3_dup2 <- test3[test3_dup]
-test3_dup3 <- test3[test3 %in% test3_dup2]
-test3_dup4 <- test3[!(test3 %in% test3_dup2)]
+# Extracting all IDs, including duplicated (1,034 total).
+related_ids_all <- c(related$ID1, related$ID2)
 
+# Isolating duplicated IDs. 
+related_ids_dup <- related_ids_all[duplicated(related_ids_all) | duplicated(related_ids_all, fromLast = TRUE)]
+
+# Isolating non-duplicated IDs.
+related_ids_notdup <- related_ids_all[!related_ids_all %in% related_ids_dup]
+
+# Extracting 349 pairs of non-duplicated IDs and adding columns for filtering to exclude the first or second of the pair based on gout status.
 related_pairs_unique <- related_pairs2 %>% 
-  filter(ID1 %in% test3_dup4,
-         ID2 %in% test3_dup4) %>% 
+  filter(ID1 %in% related_ids_notdup,
+         ID2 %in% related_ids_notdup) %>% 
   mutate(keep1 = Pair %in% c('GG', 'GC', 'CC'),
          keep2 = !keep1)
 
+# Making list of individuals for exclusion based on the above pairs (total 349).
 remove1 <- c(related_pairs_unique %>% filter(keep2) %>% pull(ID1),
              related_pairs_unique %>% filter(keep1) %>% pull(ID2))
 
+# Finding pairs including duplicated individuals as the first ID (total 168, this is all remaining pairs).
 related_pairs_multi <- related_pairs2 %>% 
-  filter(!(ID1 %in% related_pairs_unique$ID1))
+  filter(!ID1 %in% related_pairs_unique$ID1)
 
+# Filtering and adding column for removal of individuals that are controls in a pair of gout-controls (total 41 pairs).
 related_pairs_multi_gc <- related_pairs_multi %>% 
   filter(Pair %in% c("GC", "CG")) %>% 
   mutate(remove_id = case_when(Pair == "GC" ~ ID2,
                                Pair == "CG" ~ ID1))
 
-remove2 <- related_pairs_multi_gc$remove_id %>% unique()
+# Making second list of individuals for exclusion (37 controls).
+remove2 <- related_pairs_multi_gc$remove_id %>% 
+  unique()
 
+# Finding pairs with controls in both columns, excluding those with a control that was already removed.
 related_pairs_multi_cc <- related_pairs_multi %>% 
   filter(Pair == "CC",
          !(ID1 %in% remove2 | ID2 %in% remove2))
 
-remove3 <- related_pairs_multi_cc$ID1 %>% unique()
+# Making third list of individuals for exclusion (32 controls).
+remove3 <- related_pairs_multi_cc$ID1 %>% 
+  unique()
 
+# Isolating all remaining pairs (all gout/gout).
 related_pairs_multi_gg <- related_pairs_multi %>% 
   filter(Pair == "GG")
 
-remove4 <- related_pairs_multi_gg$ID1 %>% unique()
+# Making final list of 28 individuals for exclusion based on first column of each gout-gout pair.
+remove4 <- related_pairs_multi_gg$ID1 %>% 
+  unique()
 
+# Combining all removal lists together.
 remove_list <- c(remove1, remove2, remove3, remove4)
 
+# Removing all 446 individuals that were either duplicates or closely related.
 all_pheno_dedup <- all_pheno %>% 
   filter(!(Geno.SampleID %in% remove_list))
 
-save(all_pheno_dedup, ukbb_pheno, file = here("Output/Phenotypes_dedup.RData"))
+# Saving the deduplicated all_pheno file along with the UKBB phenotype file.
+save(all_pheno_dedup, ukbb_pheno, file = path(scratch_path, "/Output/Phenotypes_dedup.RData"))
+
+# Cleaning up.
+rm(list = ls()[str_detect(ls(), "relat|remov")], all_pheno2, fam2, fam_clean)
 ```
 
-The UKBB gout PRS and Tin Urate PRS's were then calculated for all European and Polynesian samples. Using the results of the UKBB GWAS (only using genotyped variants), 21 PRS metrics were generated, this includes the complete PRS, the 19 variants individually, and the PRS without either ABCG2 variant. For the Tin GWAS this number was 84 (two PRS variants and 82 unique variants, some of which overlap with the 19 of the gout GWAS).
+<br/>
 
-```{r PRS, eval = FALSE}
-load(here("Output/Phenotypes_dedup.RData"))
+## Calculating PRS
+
+The UKBB Gout PRS and Tin Urate PRS (including variants) were calculated for all European and Polynesian samples. Using the results of the UKBB GWAS (only using genotyped variants), 21 PRS metrics were generated, this includes the complete PRS, the 19 variants individually, and the PRS without either ABCG2 variant. For the Tin GWAS this number was 84 (full PRS, 19 variant PRS, and 82 unique variants, some of which overlap with the 19 of the gout GWAS).
+
+Initially, the complete list of unique variants in both lead variant files were extracted from the CoreExome PLINK files.
+
+<br/>
+
+```{r, eval = FALSE}
+# Loading lists of PRS variants.
 load(here("Output/UKBB_Gene_OR.RData"))
 load(here("Output/Tin_Gene_OR.RData"))
 
-# Extracting variants from Tin that overlap UKBB
-tin <- vroom("/Volumes/scratch/merrimanlab/Nick/PRS/tin_filtered.txt", 
+# Making list of variants and locations for extracting SNPs from the CoreExome PLINK file.
+for_plink <- UKBB_Gene_OR %>%
+  select(CHR, BP, RSID) %>% 
+  rbind(select(Tin_Gene_OR, CHR:RSID)) %>% 
+  unique() %>%
+  mutate(BP2 = BP) %>%
+  select(CHR, BP, BP2, RSID) %>% 
+  arrange(CHR, BP)
+
+# Write out variants/locations file for PLINK filtering.
+write_delim(for_plink, file = path(scratch_path, "Output/Temp/UKBB_SNPs_Plink.txt"), col_names = F)
+
+# Cleaning up.
+rm(for_plink)
+```
+
+<br/>
+
+```{bash, engine.opts = '-l', eval = FALSE}
+# Setting directory as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
+
+# Extracting SNPs of interest from CoreExome PLINK files.
+plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --extract range $PRS_SCRATCH/Output/Temp/UKBB_SNPs_Plink.txt --make-bed --out $PRS_SCRATCH/Output/Temp/SNPs
+
+# Converting binary PLINK files to non-binary format.
+plink1.9b6.10 --bfile $PRS_SCRATCH/Output/Temp/SNPs --recode --out $PRS_SCRATCH/Output/Temp/SNPs
+```
+
+<br/>
+
+NExt, the complete list of unique variants in both lead variant files were extracted from the UK Biobank BGEN files.
+
+<br/>
+
+```{r, eval = FALSE}
+# Extracting SNPs from the UK Biobank and converting to merged PLINK file.
+# Extracting unique chromosome/BP pairs of all variants in the two variant lists.
+tmp <- UKBB_Gene_OR %>%
+  select(CHR, BP) %>% 
+  rbind(select(Tin_Gene_OR, CHR, BP)) %>% 
+  unique() %>% 
+  arrange(CHR, BP)
+
+# Adding 0 before chromosomes under 10 and making BGEN filtering format.
+bgen_range1 <- tmp %>%
+  filter(CHR < 10) %>%
+  mutate(BGEN = paste0("0", CHR, ":", BP, "-", BP))
+
+# Making BGEN filtering format for remaining chromosomes.
+bgen_range2 <- tmp %>%
+  filter(CHR > 9) %>%
+  mutate(BGEN = paste0(CHR, ":", BP, "-", BP))
+
+# Combining the two lists together.
+bgen_range <- rbind(bgen_range1, bgen_range2) %>%
+  arrange(CHR, BP) %>%
+  select(BGEN)
+
+# Writing out file for filtering UK Biobank variants.
+write_delim(bgen_range, file = path(scratch_path, "Output/Temp/PRS_SNPs_BGEN.txt"), delim = "\n", col_names = F)
+
+# Writing file containing the absolute path to find plink files for merging (to be used in bash script below).
+write_delim(as_tibble(paste0(path(scratch_path, "Output/Temp"), "/chr", unique(tmp$CHR), "_PRS")), file = path(scratch_path, "Output/Temp/mergefile_prs.txt"), delim = "\n", col_names = F)
+
+# Making file with list of unique chromosomes for bash script below.
+write_delim(unique(tmp %>% select(CHR)), file = path(scratch_path, "Output/Temp/unique_chr_ukbb.txt"), col_names = F)
+
+# Cleaning up.
+rm(bgen_range1, bgen_range2, bgen_range, tmp)
+```
+
+<br/>
+
+```{bash, engine.opts = '-l', eval = FALSE}
+# Setting directories as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
+PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
+
+# Extracting variants of interest from UK Biobank genotype files in parallel plus cleaning up the resulting VCF files.
+parallel "bgenix -g {1}/ukb_imp_chr{3}_v3.bgen -vcf -incl-range {2}/Output/Temp/PRS_SNPs_BGEN.txt | bcftools reheader -h {1}/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs {1}/bgen_to_vcf/rename_contigs.txt | bgzip -c > {2}/Output/Temp/chr{3}_forPRS.vcf.gz" ::: $UKBB_DIR ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/unique_chr_ukbb.txt
+
+# Converting the VCF files made in the previous step into PLINK format.
+parallel "plink1.9b4.9 --vcf {1}/Output/Temp/chr{2}_forPRS.vcf.gz --make-bed --out {1}/Output/Temp/chr{2}_PRS" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/unique_chr_ukbb.txt
+
+# Merging the above PLINK files together based on the mergefile_prs.txt file that was made above.
+plink1.9b6.10 --merge-list $PRS_SCRATCH/Output/Temp/mergefile_prs.txt --make-bed --out $PRS_SCRATCH/Output/Temp/merged_PRS
+
+# Converting binary PLINK file into non-binary format.
+plink1.9b6.10 --bfile $PRS_SCRATCH/Output/Temp/merged_PRS --recode --out $PRS_SCRATCH/Output/Temp/merged_PRS
+```
+
+<br/>
+
+Finally, the various PRS metrics were calculated in each cohort of interest.
+
+<br/>
+
+```{r, eval = FALSE}
+# Reading in filtered Tin et al. summary statistics.
+tin <- vroom(path(scratch_path, "/Output/Temp/tin_filtered.txt"), 
              delim = "\t", 
              col_names = T)
 
-tin2 <- tin %>% filter(RSID %in% UKBB_Gene_OR$RSID) %>% mutate(risk_allele = case_when(Effect > 0 ~ toupper(Allele1),
-                                                                                       Effect < 0 ~ toupper(Allele2)))
+# Finding Tin variants that are also in the UKBB Gout GWAS 19 variant list. Also making risk allele column accurately reflect the correct allele.
+tin2 <- tin %>% 
+  filter(RSID %in% UKBB_Gene_OR$RSID) %>% 
+  mutate(risk_allele = case_when(Effect > 0 ~ toupper(Allele1),
+                                 Effect < 0 ~ toupper(Allele2)))
 
-sum(tin2$risk_allele == UKBB_Gene_OR$Effect_Allele) # all same effect direction, so can just take absolute of effect
+# Testing that all variants are in the same effect direction, so I can just take the absolute value of the urate effect.
+sum(tin2$risk_allele == UKBB_Gene_OR$Effect_Allele)
 
-different <- UKBB_Gene_OR %>% filter(!(RSID %in% Tin_Gene_OR$RSID)) %>% select(CHR:BP, BP1:Locus_Name) # 4 are the secondary hits at the same loci
-different <- different %>% filter(!(Locus_Name %in% c("ABCG2", "SLC2A9", "SLC22A11")))
+# Extracting 8 SNPs that are not in common between the two lists, 4 of which are the secondary hits at the same loci.
+different <- UKBB_Gene_OR %>% 
+  filter(!(RSID %in% Tin_Gene_OR$RSID)) %>% 
+  select(CHR:BP, BP1:Locus_Name)
 
+# Excluding the secondary hits at the same loci, leaving four variants.
+different <- different %>% 
+  filter(!(Locus_Name %in% c("SLC2A9", "WDR1", "ABCG2", "NRXN2")))
+
+# Making filtered gout GWAS lead variant table based on the variants that either directly overlap or those that are in the "different" table. Also adding Tin_Effect column based on the absolute effect of the variant on urate. Also reverting OR column to the original OR. Finally extracting the log of the gout OR and finding a ratio of the effect sizes. This variant list can be used for direct comparisons of the Tin PRS weightings and Gout PRS weightings.
 tmp_gene_or <- UKBB_Gene_OR %>% 
   mutate(Tin_Effect = abs(tin2$Effect)) %>% 
   filter(RSID %in% c(Tin_Gene_OR$RSID, different$RSID)) %>% 
@@ -838,282 +1052,952 @@ tmp_gene_or <- UKBB_Gene_OR %>%
          Effect_Ratio = Gout_Effect / Tin_Effect) %>% 
   select(CHR:BP, EAF, Locus_Name, Gout_Effect, Tin_Effect, Effect_Ratio)
 
-# Load in plink genotype files + rename column names + filter to only include IDs of cohort of interest
-map <- read_delim(here("Output/Temp/SNPs.map"), 
-                  delim = "\t", 
-                  col_names = FALSE)
-
-x <- read_delim(here("Output/Temp/SNPs.ped"), 
-                delim = " ", 
-                col_names = FALSE, 
-                col_types = cols(.default = col_character()))
-
-colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
-colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
-colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
-
-x <- x %>% filter(IID %in% (all_pheno_dedup$Geno.SampleID))
-
+# Identifying all 11 CHR/BP positions present in both PRS variant lists.
 tmp <- UKBB_Gene_OR %>%
   select(CHR, BP) %>% 
   rbind(select(Tin_Gene_OR, CHR, BP)) %>% 
   filter(duplicated(BP)) %>% 
   arrange(CHR, BP)
 
+# Extracting these 11 variants then comparing the effect allele for gout with effect allele for urate to show they are the same.
 tmp1 <- UKBB_Gene_OR %>% 
   filter(BP %in% tmp$BP) %>% 
   select(Effect_Allele) %>% 
-  cbind(Tin_Gene_OR %>% filter(BP %in% tmp$BP) %>% select(Effect_Allele)) # All risk alleles are the same
+  cbind(Tin_Gene_OR %>% filter(BP %in% tmp$BP) %>% select(Effect_Allele))
 
+# Making combined variant list with all 90 unique lead variants for both GWAS (corresponding to the PLINK files).
 Combined_Gene_OR <- UKBB_Gene_OR %>% 
   select(CHR, BP, RSID, Effect_Allele, Alternate_Allele) %>% 
   rbind(Tin_Gene_OR %>% select(CHR, BP, RSID, Effect_Allele, Alternate_Allele)) %>% 
   arrange(CHR, BP) %>% 
   unique()
 
-# Convert character genotypes into numeric genotypes based on risk allele = 1
-num_cols <- ncol(x)
-for (i in 1:nrow(Combined_Gene_OR)) {
-  x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
-    str_replace("0", "NA") %>% 
-    str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
-    as.numeric()
-  x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
-    str_replace("0", "NA") %>% 
-    str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
-    str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
-    as.numeric()
-  x <- x %>% 
-    mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
-  colnames(x) <- c(colnames(x[1:((num_cols - 1) + i)]), Combined_Gene_OR[[i, "RSID"]])
-}
-x <- x %>% 
-  select(2, (num_cols + 1):ncol(x))
-
-# Save this dataframe for individual SNP analysis
-x1 <- x
-
-# Now to calculate the PRS
-x <- x %>% select(1, UKBB_Gene_OR$RSID)
-for(i in 1:nrow(UKBB_Gene_OR)) {
-  x[i + 1] <- x[[i + 1]] * log(UKBB_Gene_OR[[i, "OR"]])
-}
-
-x$PRS <- rowSums(x[2:(ncol(x))])
-
-x <- x %>% 
-  mutate(PRS_noABCG2 = PRS - rs2231142 - rs10011796) %>%
-  select(IID, PRS, PRS_noABCG2)
-
-all_pheno_prs <- all_pheno_dedup %>%
-  left_join(x, by = c("Geno.SampleID" = "IID"))
-
-x <- x1 %>% select(1, Tin_Gene_OR$RSID)
-for(i in 1:nrow(Tin_Gene_OR)) {
-  x[i + 1] <- x[[i + 1]] * Tin_Gene_OR[[i, "Beta"]]
-}
-
-x$Urate_PRS <- rowSums(x[2:(ncol(x))])
-
-x <- x %>% 
-  mutate(Urate_PRS_noABCG2 = Urate_PRS - rs2231142) %>%
-  select(IID, Urate_PRS, Urate_PRS_noABCG2)
-
-all_pheno_prs <- all_pheno_prs %>%
-  left_join(x, by = c("Geno.SampleID" = "IID")) %>% 
-  left_join(x1, by = c("Geno.SampleID" = "IID"))
-
-x <- x1 %>% select(1, tmp_gene_or$RSID)
-for(i in 1:nrow(tmp_gene_or)) {
-  x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Gout_Effect"]]
-}
-
-x$PRS2 <- rowSums(x[2:(ncol(x))])
-
-x <- x %>% 
-  mutate(PRS2_noABCG2 = PRS2 - rs2231142) %>%
-  select(IID, PRS2, PRS2_noABCG2)
-
-all_pheno_prs <- all_pheno_prs %>%
-  left_join(x, by = c("Geno.SampleID" = "IID"))
-
-x <- x1 %>% select(1, tmp_gene_or$RSID)
-for(i in 1:nrow(tmp_gene_or)) {
-  x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Tin_Effect"]]
-}
-
-x$Urate_PRS2 <- rowSums(x[2:(ncol(x))])
-
-x <- x %>% 
-  mutate(Urate_PRS2_noABCG2 = Urate_PRS2 - rs2231142) %>%
-  select(IID, Urate_PRS2, Urate_PRS2_noABCG2)
-
-all_pheno_prs <- all_pheno_prs %>%
-  left_join(x, by = c("Geno.SampleID" = "IID"))
-
-x <- x1 %>% select(1, tmp_gene_or$RSID)
-
-x$Unweighted_PRS <- rowSums(x[2:(ncol(x))])
-
-x <- x %>% 
-  mutate(Unweighted_PRS_noABCG2 = Unweighted_PRS - rs2231142) %>%
-  select(IID, Unweighted_PRS, Unweighted_PRS_noABCG2)
-
-all_pheno_prs <- all_pheno_prs %>%
-  left_join(x, by = c("Geno.SampleID" = "IID"))
-
-
-
-
-# UK Biobank
-map <- read_delim(here("Output/Temp/merged_PRS.map"), 
+# Reading in PLINK map file for the CoreExome PLINK files with all 90 variants from the combination of the Gout PRS and Tin PRS variant lists.
+map <- read_delim(path(scratch_path, "/Output/Temp/SNPs.map"), 
                   delim = "\t", 
-                  col_names = FALSE) %>% 
-  separate(X2, into = c("X2", NA), sep = ",")
+                  col_names = FALSE)
 
-x <- read_delim(here("Output/Temp/merged_PRS.ped"), 
+# Reading in corresponding PLINK ped file.
+x <- read_delim(path(scratch_path, "/Output/Temp/SNPs.ped"), 
                 delim = " ", 
                 col_names = FALSE, 
                 col_types = cols(.default = col_character()))
 
+# Renaming columns of x based on map file.
 colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
 colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
 colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
 
-tmp <- c("FID", "IID", "PID", "MID", "SEX", "AFF", str_c(Combined_Gene_OR$RSID, "_1"), str_c(Combined_Gene_OR$RSID, "_2"))
-
-ids <- ukbb_pheno$IID
-
+# Filtering x to only include individuals that are in the all_pheno_dedup table.
 x <- x %>% 
-  select(which(colnames(x) %in% tmp)) %>% 
-  mutate(IID = as.numeric(IID)) %>% 
-  filter(IID %in% ids)
+  filter(IID %in% (all_pheno_dedup$Geno.SampleID))
 
-# Convert character genotypes into numeric genotypes based on risk allele = 1
+# Setting the number of columns of x as a variable.
 num_cols <- ncol(x)
 
-for(i in 1:nrow(Combined_Gene_OR)) {
+# Converting character genotypes into numeric genotypes based on risk allele = 1.
+# For each variant in Combined_Gene_OR (90 total).
+for(i in 1:nrow(Combined_Gene_OR)){
+  # Modifying the column at 2 * i + 5 (i.e. the column corresponding to the first allele of that variant) to first replace any 0 with NA, then replace the Effect Allele with a 1 and the Alternate allele with a 0. Finally, converting the column to a numeric column.
   x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
-      str_replace("0", "NA") %>% 
+    str_replace("0", NA_character_) %>% 
     str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
     str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
+  
+  # Doing the same for the column at 2 * i + 6 (i.e. the column corresponding to the second allele of that variant).
   x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
-      str_replace("0", "NA") %>% 
+    str_replace("0", NA_character_) %>% 
     str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
     str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
     as.numeric()
+  
+  # Making a temporary column that is the sum of both numeric alleles.
   x <- x %>% 
     mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
-  colnames(x) <- c(colnames(x[1:(num_cols - 1 + i)]), Combined_Gene_OR[[i, "RSID"]])
+  
+  # Renaming the column names such that the temporary column is renamed to the corresponding RSID.
+  colnames(x) <- c(colnames(x[1:((num_cols - 1) + i)]), Combined_Gene_OR[[i, "RSID"]])
 }
 
+# Subsetting the columns to only include the IID column and the newly defined numeric genotype columns.
 x <- x %>% 
   select(2, (num_cols + 1):ncol(x))
 
-# Save this dataframe for individual SNP analysis
+# Saving this table for individual SNP analysis.
 x1 <- x
 
-# Now to calculate the PRS
-x <- x %>% select(1, UKBB_Gene_OR$RSID)
+# Subsetting x further to only include variants in the gout PRS.
+x <- x %>% 
+  select(1, UKBB_Gene_OR$RSID)
+
+# For each of the 19 variants in the gout PRS, weighting the numeric genotype by the log of the OR for that variant.
 for(i in 1:nrow(UKBB_Gene_OR)) {
   x[i + 1] <- x[[i + 1]] * log(UKBB_Gene_OR[[i, "OR"]])
 }
 
+# Summing across all weighted genotypes to produce the PRS variable.
 x$PRS <- rowSums(x[2:(ncol(x))])
 
+# Producing the PRS without either ABCG2 variant, then extracting the IID along with two PRS's.
+x <- x %>% 
+  mutate(PRS_noABCG2 = PRS - rs2231142 - rs10011796) %>%
+  select(IID, PRS, PRS_noABCG2)
+
+# Adding the two PRS variants to the all_pheno_dedup table.
+all_pheno_prs <- all_pheno_dedup %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+# Subsetting x1 to only include variants in the urate PRS.
+x <- x1 %>% 
+  select(1, Tin_Gene_OR$RSID)
+
+# For each of the 82 variants in the urate PRS, weighting the numeric genotype by the beta for that variant.
+for(i in 1:nrow(Tin_Gene_OR)) {
+  x[i + 1] <- x[[i + 1]] * Tin_Gene_OR[[i, "Beta"]]
+}
+
+# Summing across all weighted genotypes to produce the PRS variable.
+x$Urate_PRS <- rowSums(x[2:(ncol(x))])
+
+# Extracting the IID and PRS columns.
+x <- x %>%
+  select(IID, Urate_PRS)
+
+# Adding the urate PRS column.
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+# Extracting just the 15 variants that were in common between the two PRS's.
+x <- x1 %>% 
+  select(1, tmp_gene_or$RSID)
+
+# Weighting these variants by the gout effect size.
+for(i in 1:nrow(tmp_gene_or)) {
+  x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Gout_Effect"]]
+}
+
+# Making second gout PRS based on these 15 variants.
+x$PRS2 <- rowSums(x[2:(ncol(x))])
+
+# Extracting the IID and new PRS column.
+x <- x %>%
+  select(IID, PRS2)
+
+# Adding the new PRS to the full phenotype file.
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+# Again, extracting just the 15 variants that were in common between the two PRS's.
+x <- x1 %>% select(1, tmp_gene_or$RSID)
+
+# Weighting these variants by the urate effect size.
+for(i in 1:nrow(tmp_gene_or)) {
+  x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Tin_Effect"]]
+}
+
+# Making second urate PRS based on these 15 variants.
+x$Urate_PRS2 <- rowSums(x[2:(ncol(x))])
+
+# Extracting the IID and new urate PRS column.
+x <- x %>%
+  select(IID, Urate_PRS2)
+
+# Adding the new urate PRS to the full phenotype file.
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+# Again, extracting just the 15 variants that were in common between the two PRS's.
+x <- x1 %>% select(1, tmp_gene_or$RSID)
+
+# Making unweighted PRS based on their genotypes.
+x$Unweighted_PRS <- rowSums(x[2:(ncol(x))])
+
+# Extracting the IID and unweighted PRS column.
+x <- x %>%
+  select(IID, Unweighted_PRS)
+
+# Adding the unweighted PRS to the full phenotype file.
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+# Finally adding the numeric genotypes for the 19 gout PRS variants.
+x <- x1 %>% 
+  select(1, UKBB_Gene_OR$RSID)
+
+# Adding the gout PRS variants to the full phenotype file.
+all_pheno_prs <- all_pheno_prs %>%
+  left_join(x, by = c("Geno.SampleID" = "IID"))
+
+# Now doing the same as above for the UK Biobank cohort.
+# Reading in the PLINK map file and cleaning up the variant column.
+map <- read_delim(path(scratch_path, "/Output/Temp/merged_PRS.map"), 
+                  delim = "\t", 
+                  col_names = FALSE) %>% 
+  separate(X2, into = c("X2", NA), sep = ",")
+
+# Reading in the PLINK ped file.
+x <- read_delim(path(scratch_path, "/Output/Temp/merged_PRS.ped"), 
+                delim = " ", 
+                col_names = FALSE, 
+                col_types = cols(.default = col_character()))
+
+# Renaming columns of x based on map file.
+colnames(x)[1:6] <- c("FID", "IID", "PID", "MID", "SEX", "AFF")
+colnames(x)[seq(from = 7, to = ncol(x) - 1, by = 2)] <- str_c(map$X2, "_1")
+colnames(x)[seq(from = 8, to = ncol(x), by = 2)] <- str_c(map$X2, "_2")
+
+# Making list of IDs of interest.
+ids <- ukbb_pheno$IID
+
+# Filtering x to only include the ids of interest.
+x <- x %>% 
+  mutate(IID = as.numeric(IID)) %>% 
+  filter(IID %in% ids)
+
+# Setting the number of columns of x as a variable.
+num_cols <- ncol(x)
+
+# Converting character genotypes into numeric genotypes based on risk allele = 1.
+# For each variant in Combined_Gene_OR (90 total).
+for(i in 1:nrow(Combined_Gene_OR)){
+  # Modifying the column at 2 * i + 5 (i.e. the column corresponding to the first allele of that variant) to first replace any 0 with NA, then replace the Effect Allele with a 1 and the Alternate allele with a 0. Finally, converting the column to a numeric column.
+  x[[2 * i + 5]] <- x[[2 * i + 5]] %>% 
+    str_replace("0", NA_character_) %>% 
+    str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
+    as.numeric()
+  
+  # Doing the same for the column at 2 * i + 6 (i.e. the column corresponding to the second allele of that variant).
+  x[[2 * i + 6]] <- x[[2 * i + 6]] %>% 
+    str_replace("0", NA_character_) %>% 
+    str_replace(Combined_Gene_OR[[i, "Effect_Allele"]], "1") %>% 
+    str_replace(Combined_Gene_OR[[i, "Alternate_Allele"]], "0") %>% 
+    as.numeric()
+  
+  # Making a temporary column that is the sum of both numeric alleles.
+  x <- x %>% 
+    mutate("TEMP" = (x[[2 * i + 5]] + x[[2 * i + 6]]))
+  
+  # Renaming the column names such that the temporary column is renamed to the corresponding RSID.
+  colnames(x) <- c(colnames(x[1:((num_cols - 1) + i)]), Combined_Gene_OR[[i, "RSID"]])
+}
+
+# Subsetting the columns to only include the IID column and the newly defined numeric genotype columns.
+x <- x %>% 
+  select(2, (num_cols + 1):ncol(x))
+
+# Saving this table for individual SNP analysis.
+x1 <- x
+
+# Subsetting x further to only include variants in the gout PRS.
+x <- x %>% 
+  select(1, UKBB_Gene_OR$RSID)
+
+# For each of the 19 variants in the gout PRS, weighting the numeric genotype by the log of the OR for that variant.
+for(i in 1:nrow(UKBB_Gene_OR)) {
+  x[i + 1] <- x[[i + 1]] * log(UKBB_Gene_OR[[i, "OR"]])
+}
+
+# Summing across all weighted genotypes to produce the PRS variable.
+x$PRS <- rowSums(x[2:(ncol(x))])
+
+# Producing the PRS without either ABCG2 variant, then extracting the IID along with two PRS's.
 x <- x %>% 
   mutate(PRS_noABCG2 = PRS - rs2231142 - rs10011796) %>%
   select(IID, PRS, PRS_noABCG2) %>% 
   mutate(IID = factor(IID))
 
+# Adding the two PRS variants to the ukbb_pheno table.
 all_pheno_prs2 <- ukbb_pheno %>% 
   mutate(IID = factor(IID)) %>%
   left_join(x, by = "IID")
 
+# Subsetting x1 to only include variants in the urate PRS.
+x <- x1 %>% 
+  select(1, Tin_Gene_OR$RSID)
 
-x <- x1 %>% select(1, Tin_Gene_OR$RSID)
+# For each of the 82 variants in the urate PRS, weighting the numeric genotype by the beta for that variant.
 for(i in 1:nrow(Tin_Gene_OR)) {
   x[i + 1] <- x[[i + 1]] * Tin_Gene_OR[[i, "Beta"]]
 }
 
+# Summing across all weighted genotypes to produce the PRS variable.
 x$Urate_PRS <- rowSums(x[2:(ncol(x))])
 
-x <- x %>% 
-  mutate(Urate_PRS_noABCG2 = Urate_PRS - rs2231142) %>%
-  select(IID, Urate_PRS, Urate_PRS_noABCG2) %>% 
+# Extracting the IID and PRS columns.
+x <- x %>%
+  select(IID, Urate_PRS) %>% 
   mutate(IID = factor(IID))
 
-x1a <- x1 %>% 
-  mutate(IID = factor(IID))
-
+# Adding the urate PRS to the phenotype table.
 all_pheno_prs2 <- all_pheno_prs2 %>%
-  left_join(x, by = c("IID")) %>% 
-  left_join(x1a)
+  left_join(x, by = c("IID"))
 
+# Extracting just the 15 variants that were in common between the two PRS's.
+x <- x1 %>% 
+  select(1, tmp_gene_or$RSID)
 
-x <- x1 %>% select(1, tmp_gene_or$RSID)
+# Weighting these variants by the gout effect size.
 for(i in 1:nrow(tmp_gene_or)) {
   x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Gout_Effect"]]
 }
 
+# Making second gout PRS based on these 15 variants.
 x$PRS2 <- rowSums(x[2:(ncol(x))])
 
-x <- x %>% 
-  mutate(PRS2_noABCG2 = PRS2 - rs2231142) %>%
-  select(IID, PRS2, PRS2_noABCG2) %>% 
+# Extracting the IID and new PRS column.
+x <- x %>%
+  select(IID, PRS2) %>% 
   mutate(IID = factor(IID))
 
-x1a <- x1 %>% 
-  mutate(IID = factor(IID))
-
+# Adding the new gout PRS to the phenotype table.
 all_pheno_prs2 <- all_pheno_prs2 %>%
   left_join(x, by = c("IID"))
 
-
+# Again, extracting just the 15 variants that were in common between the two PRS's.
 x <- x1 %>% select(1, tmp_gene_or$RSID)
+
+# Weighting these variants by the urate effect size.
 for(i in 1:nrow(tmp_gene_or)) {
   x[i + 1] <- x[[i + 1]] * tmp_gene_or[[i, "Tin_Effect"]]
 }
 
+# Making second urate PRS based on these 15 variants.
 x$Urate_PRS2 <- rowSums(x[2:(ncol(x))])
 
-x <- x %>% 
-  mutate(Urate_PRS2_noABCG2 = Urate_PRS2 - rs2231142) %>%
-  select(IID, Urate_PRS2, Urate_PRS2_noABCG2) %>% 
+# Extracting the IID and new urate PRS column.
+x <- x %>%
+  select(IID, Urate_PRS2) %>% 
   mutate(IID = factor(IID))
 
-x1a <- x1 %>% 
-  mutate(IID = factor(IID))
-
+# Adding the new urate PRS to the phenotype table.
 all_pheno_prs2 <- all_pheno_prs2 %>%
   left_join(x, by = c("IID"))
 
-
+# Again, extracting just the 15 variants that were in common between the two PRS's.
 x <- x1 %>% select(1, tmp_gene_or$RSID)
 
+# Making unweighted PRS based on their genotypes.
 x$Unweighted_PRS <- rowSums(x[2:(ncol(x))])
 
-x <- x %>% 
-  mutate(Unweighted_PRS_noABCG2 = Unweighted_PRS - rs2231142) %>%
-  select(IID, Unweighted_PRS, Unweighted_PRS_noABCG2) %>% 
+# Extracting the IID and unweighted PRS column.
+x <- x %>%
+  select(IID, Unweighted_PRS) %>% 
   mutate(IID = factor(IID))
 
-x1a <- x1 %>% 
-  mutate(IID = factor(IID))
-
+# Adding the unweighted PRS to the phenotype table.
 all_pheno_prs2 <- all_pheno_prs2 %>%
   left_join(x, by = c("IID"))
 
+# Finally adding the numeric genotypes for the 19 gout PRS variants.
+x <- x1 %>% 
+  select(1, UKBB_Gene_OR$RSID) %>% 
+  mutate(IID = factor(IID))
 
+# Adding the gout PRS variants to the full phenotype file.
+all_pheno_prs2 <- all_pheno_prs2 %>%
+  left_join(x, by = c("IID"))
 
+# Combining the two phenotype files together.
 all_pheno_prs <- all_pheno_prs %>% 
   mutate(GOUT = as.logical(case_when(GOUT == "Gout" ~ TRUE,
                                      GOUT == "Control" ~ FALSE))) %>% 
   full_join(all_pheno_prs2)
 
-save(all_pheno_prs, file = here("Output/all_pheno_prs.RData"))
+# Saving the combined phenotype file with the addition of the various PRS metrics.
+save(all_pheno_prs, file = path(scratch_path, "Output/all_pheno_prs.RData"))
 
-rm(all_pheno_prs2, map, x, x1, x1a, i, ids, num_cols, tmp, ukbb_pheno, tmp1, all_pheno_dedup, different, tin, tin2)
+# Cleaning up.
+rm(all_pheno_prs2, map, x, x1, i, ids, num_cols, tmp, ukbb_pheno, tmp1, all_pheno_dedup, different, tin, tin2, all_pheno, Combined_Gene_OR, tmp_gene_or)
 ```
+
+<br>
+
+The following code is for testing our definition of tophaceous disease, at the request of a co-author. This has not yet been completed (as of 19th August).
+
+<br>
+
+```{r, eval = FALSE}
+# Investigating tophus definitions.
+# Loading CoreExome QC 1-10 phenotype file into R (this was made by Tanya).
+CoreExPheno <- read_delim("/Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_MergedPhenotypes_20082020.txt", delim = "\t") %>%
+  mutate(across(where(is_character), factor))
+
+# Loading IDs of individuals genotyped on the CoreExome chip.
+All_CoreEx_ID <- read_delim("/Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted.fam", delim = " ", col_names = F)
+
+# Extracting information on the genotyped individuals from European cohorts of interest.
+CoreExPheno_Euro <- CoreExPheno %>% 
+  filter(Geno.BroadAncestry == "European",
+         Geno.SampleID %in% All_CoreEx_ID$X2,
+         General.Use != "No",
+         !(Pheno.Study %in% c("Auckland Controls", "Australian Controls", "ESR", "Rheumatoid Arthritis")))
+
+# Extracting information on the genotyped individuals from Polynesian cohorts of interest. 
+CoreExPheno_Poly <- CoreExPheno %>% 
+  filter(Geno.BroadAncestry == "Oceanian",
+         Geno.SampleID %in% All_CoreEx_ID$X2,
+         General.Use != "No",
+         !(Pheno.Study %in% c("ESR", "Pacific Trust")))
+
+# Combining the above European and Polynesian cohort information together into one phenotype file, excluding individuals with unknown genetic sex, and excluding those without gout phenotype information. Columns of interest were extracted at this step.
+CoreExPheno_Final <- full_join(CoreExPheno_Euro, CoreExPheno_Poly) %>% 
+  filter(Geno.GeneticSex != "Unknown",
+         !is.na(Pheno.GoutSummary)) %>% 
+  mutate(Pheno.GoutSummary = factor(case_when(Pheno.GoutSummary == "Gout" ~ "Gout", 
+                                              Pheno.GoutSummary %in% c("Control", "HyperU") ~ "Control")),
+         across(where(is.factor), factor)) %>% 
+  select(Pheno.SampleID:Pheno.UrateTherapy, GenStudio.ChipType, GenStudio.CallRate:Notes)
+
+# Cleaning up.
+rm(CoreExPheno, CoreExPheno_Euro, CoreExPheno_Poly, All_CoreEx_ID)
+
+
+# Making functions for converting Boolean variables into TRUE/FALSE from 2/1 or 1/0.
+logicfactor <- function(x) {
+  as.logical(factor(x, levels = c(1, 2), labels = c("FALSE", "TRUE")))
+}
+
+logicfactor2 <- function(x) {
+  as.logical(factor(x, levels = c(0, 1), labels = c("FALSE", "TRUE")))
+}
+
+# Gout in Aotearoa.
+# Making temporary phenotype file for the Gout in Aotearoa cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Gout in Aotearoa")
+
+# Extracting IDs from the SNPmax Gout in Aotearoa phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+aotearoa_pheno <- read_delim(here("Data/Phenotypes/NZPheno.txt"), delim = "\t", guess_max = 5000) %>% 
+  filter(SUBJECT %in% tmp$Pheno.SampleID) %>% 
+  select(SUBJECT, DATEARR, DOB, AGECOL, DIABETES, FAMGOUT, FAMGOUT3:HIBP, HIBPTREAT:FRUSEMIDE, BUMETANIDE, THIAZIDEDIURETIC:BENDROFLUAZIDE, HCTZ, METOLAZONE, CHLORHALIDONE, INDAPAMIDE, OTHDIURETIC, SPIRONOLACTONE, AMILORIDE, ACETAZOLAMIDE, DIURETICCOMMENT:DIURRECRUIT, LIPIDS, LIPIDLOWER:BILEACIDSEQ, HEART:STROKE, KIDNEY:HEALTHOTH, SUGDRINK, SMOKER:OTHALCO, WEIGHT:HEIGHT, BMI:BMICALC, MRURATE:MRCREATDATE, GOUTCRITERIAB, SUSTOPHUS:DIURGOUT, ALLOPCURRENT, PROBENCURRENT, BENZBROCURRENT, FEBUXCURRENT, OTHULTCURRENT, CURULTCOMMENT:ALLOPINTOLERANCE, ALLOPSIDE, URATEDOX:HIGHESTSUDATE, CHOLES:TRIGLY, SCREAT:SURICACID, URATE1MONTH, RELATEDFILTER:RELATED) %>% 
+  left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
+  rename(IID = SUBJECT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(FAMGOUT, FAMGOUT3, HIBP, DIURETIC:ACETAZOLAMIDE, LIPIDS:KIDNEY, FATTYLIVER, GOUTCRITERIAB:SUSTOPHUS, TOPHUS, ALLOPCURRENT:OTHULTCURRENT, ALLOPINTOLERANCE), 
+                logicfactor),
+         AGE1ATK = case_when(!is.na(AGE1ATK) ~ AGE1ATK,
+                             TRUE ~ AGECOL - DURATION),
+         DURATION = AGECOL - AGE1ATK + 1,
+         NUMATK = NUMATK,
+         TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
+         URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(MRURATE, URATEDOX, PREULTURATE, HIGHESTSU, URATE1MONTH)), na.rm = TRUE) * 1000 / 59.48,
+                           TRUE ~ SURICACID * 1000 / 59.48),
+         ULT = ALLOPCURRENT | PROBENCURRENT | BENZBROCURRENT | FEBUXCURRENT | OTHULTCURRENT) %>% 
+  select(IID, GOUT, AGECOL, SEX, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# AGRIA.
+# Making temporary phenotype file for the AGRIA cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "AGRIA")
+
+# Extracting IDs from the SNPmax AGRIA phenotype file based on the CoreExome file. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+agria_pheno <- read_delim(here("Data/Phenotypes/AGRIAPheno.txt"), delim = "\t") %>% 
+  filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
+  left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>%
+  rename(IID = PATIENT,
+         GOUT = Pheno.GoutSummary) %>%
+  mutate(across(where(is_character), factor),
+         across(c(DIABETES:KIDNEY, ALLOP, PROBEN, STEROID, ANTIINFLAM, COLCHI, GPGOUT:SUSTOPHUS, FAMGOUT, FAMGOUT3, FOOD, FULLCAUGTAFF:TOPHIGOUT, URATELOWERING),
+                logicfactor),
+         TOPHUS = case_when(TOPHUS == 2 ~ TRUE, 
+                            TOPHUS == 1 ~ FALSE),
+         SSBCODE = factor(SSBCODE, 
+                          levels = 0:5, 
+                          labels = c("0/day", "0.1 - 0.99", "1.0 - 1.99", "2.0 - 2.99", "3.0 - 3.99", "4.0 +")),
+         FRUITCODE = factor(FRUITCODE, 
+                            levels = 0:5, 
+                            labels = c("0/day", "0.1 - 0.99", "1.0 - 1.99", "2.0 - 2.99", "3.0 - 3.99", "4.0 +")),
+         DIURETICSUMMARY = factor(DIURETICSUMMARY, 
+                                  levels = 1:3, 
+                                  labels = c("Not taking diuretics", "Taking diuretics", "Maybe taking diuretics")),
+         SEX = Geno.GeneticSex,
+         AGESERUM = round(as.duration(interval(DOB, SERUMDATE)) / as.duration(years(1)), 
+                          digits = 0),
+         AGESCL = round(as.duration(interval(DOB, SCLDATE)) / as.duration(years(1)), 
+                        digits = 0),
+         AGE1ATK = case_when(is.na(AGEGOUTDOX) ~ round(as.duration(interval(DOB, GOUTDOXDATE)) / as.duration(years(1)), 
+                                                       digits = 0),
+                             TRUE ~ AGEGOUTDOX),
+         DURATION = AGECOL - AGE1ATK + 1,
+         TOPHIGOUT = case_when(COMMENT %in% c("No information, neither tophaceous or aspirate proven, Deceased", 
+                                              "No information, neither tophaceous or aspirate proven",
+                                              "Gout, no tophi",
+                                              "No information, neither tophaceous or aspirate proven, lymphoma") ~ FALSE, 
+                               TRUE ~ TOPHUS | GOUTCRITERIAB | SUSTOPHUS | COMMENT %in% c("Tophaceous",
+                                                                                          "Urate crystals present, tophaceous", 
+                                                                                          "Aspirate proven, tophacous", 
+                                                                                          "allopurinol intolerant, febuxostat intolerant, taking benzobromarone.  Urate crystals present, tophacious", 
+                                                                                          "Tophaceous gout", 
+                                                                                          "Polyarticular tophaceous gout", 
+                                                                                          "Chronic tophaceous gout")),
+         EROSIONS = NA,
+         NUMATK = NA,
+         URATE1 = round(URATE * 1000 / 59.48, digits = 1),
+         URATEAGE1 = AGESERUM,
+         URATE2 = round(SURICACID_SCL * 1000 / 59.48, digits = 1),
+         URATEAGE2 = AGESCL,
+         URATE = case_when(!is.na(URATE1) ~ URATE1, 
+                           TRUE ~ URATE2),
+         ULT = case_when(is.na(URATE1) & !is.na(URATE2) ~ NA,
+                         TRUE ~ ALLOP | PROBEN | COMMENT %in% c("allopurinol intolerant, febuxostat intolerant, taking benzobromarone.  Urate crystals present, tophacious",
+                                                                "Allopurinol hypersensitivity, Cholchicine induced diarrhoea, Febuxostat 40mg/day", 
+                                                                "febuxostat 40mg/day; liver toxicity with allopurinol")),
+         PROPHY = STEROID | ANTIINFLAM | COLCHI,
+         HYPERTENSION = case_when(!is.na(HIBP) ~ HIBP, 
+                                  TRUE ~ DIURETICINDUCED == "Yes" | DIURETICSUMMARY == "Maybe taking diuretics"),
+         TRIGLY = TRIGLY_SCL * 88.57,
+         CHOLES = CHOLES_SCL * 38.67,
+         STROKE = NA,
+         HDL = HDL_SCL * 38.67,
+         CREAT = CREAT / 88.42,
+         SCREAT = SCREAT / 88.42,
+         CREAT2 = rowMeans(across(c(CREAT, SCREAT)), na.rm = TRUE),
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = KIDNEY | !is.na(KIDNEY2) | EGFR < 60,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         CURSMOKE = NA,
+         FAMGOUT = FAMGOUT | FAMGOUT3,
+         FAMGOUTNUM = as.numeric(FAMGOUT4)) %>%
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Diabetes Mellitus (DM).
+# Making temporary phenotype file for the DM cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Diabetes Mellitus")
+
+# Extracting IDs from the SNPmax DM phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+dm_pheno <- read_delim(here("Data/Phenotypes/DMPheno.txt"), delim = "\t") %>% 
+  filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
+  select(PATIENT, DOB, DATECOL, AGECOL, DIABETES:DIABETESTREAT, FAMGOUT:HIBPTREAT, LIPIDS, HEART:STROKE, KIDNEY:KIDNEY2, SUGDRINK, SMOKER:OTHALCO, WEIGHT, HEIGHT, BMI, URATE:CREAT, DIURETIC:OTHDIURETIC, LIPIDLOWER:BILEACIDSEQ, COMMENT, GOUTCRITERIAB, SUSTOPHUS:OTHDRUG, URATEDOX:DATEDOX, DIABETESAFFSTAT, KIDNEYTRANSPLANT, RENALDISEASE, FASTING:TRIGLY, SURICACID:EGFR) %>% 
+  left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
+  rename(IID = PATIENT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(DIABETES, FAMGOUT, FAMGOUT3, HIBP, LIPIDS, HEART:STROKE, KIDNEY, DIURETIC:OTHDIURETIC, LIPIDLOWER:BILEACIDSEQ, GOUTCRITERIAB, SUSTOPHUS, TOPHUS, ALLOP:COLCHI, DIABETESAFFSTAT, KIDNEYTRANSPLANT, RENALDISEASE), logicfactor),
+         DURATION = AGECOL - AGE1ATK + 1,
+         TOPHIGOUT = TOPHUS | GOUTCRITERIAB | SUSTOPHUS,
+         EROSIONS = NA,
+         URATE = case_when(!is.na(SURICACID) ~ SURICACID * 1000 / 59.48,
+                           !is.na(URATE) ~ URATE * 1000 / 59.48,
+                           TRUE ~ URATEDOX * 1000 / 59.48),
+         ULT = ALLOP | PROBEN, 
+         PROPHY = STEROID | ANTIINFLAM | COLCHI | OTHDRUG != "no",
+         HEIGHT = HEIGHT / 100,
+         BMI = case_when(!is.na(BMI) ~ BMI, 
+                         TRUE ~ WEIGHT / (HEIGHT * HEIGHT)),
+         HYPERTENSION = HIBP | !is.na(HIBPTREAT) | DIURETIC | LOOPDIURETIC | THIAZIDEDIURETIC | OTHDIURETIC | DIURGOUT,
+         DIABETES = DIABETES | !is.na(DIABETESTREAT) | DIABETESAFFSTAT,
+         HEART = HEART | ANGINA | HEARTFAILURE | HEARTSURGERY | HEARTATTACK,
+         CREAT = CREAT / 88.42,
+         SCREAT = SCREAT / 88.42,
+         CREAT2 = rowMeans(across(c(CREAT, SCREAT)), na.rm = T),
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT2 ^ -1.154) * (AGECOL ^ -0.203) * 0.742,
+                          TRUE ~ EGFR),
+         KIDNEY = KIDNEY | !is.na(KIDNEY2) | EGFR < 60 | KIDNEYTRANSPLANT | RENALDISEASE,
+         LIPIDS = LIPIDS | LIPIDLOWER | STATIN | FIBRATES | EZETIMIBE | NICOTINICACID | BILEACIDSEQ,
+         STROKE = STROKE,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         SUGDRINK = SUGDRINK,
+         CURSMOKE = SMOKER == 2,
+         FAMGOUT = FAMGOUT | FAMGOUT3,
+         FAMGOUTNUM = FAMGOUT4) %>%
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# LPA.
+# Making temporary phenotype file for the LPA cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "LPA")
+
+# Extracting IDs from the SNPmax LPA phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+lpa_pheno <- read_delim(here("Data/Phenotypes/LPAPheno.txt"), delim = "\t") %>% 
+  filter(SUBJECT %in% tmp$Pheno.SampleID) %>%
+  select(SUBJECT:AGE, SMOKING, SMOKEHISTORY, SUGARDRINKS:DIABETESTYPE, MAINHYPERTENSION:DYSLIPIDCOMMENT, MAINSTROKE:MAINSTROKECOM, BMHEIGHT:BMWEIGHT, SERUMCREATININE:SERUMURATE, TOTALCHOLESTEROL, TRIGLYCERIDES) %>% 
+  left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
+  rename(IID = SUBJECT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex,
+         AGECOL = AGE) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(SMOKING:SMOKEHISTORY, MAINDIABETES, MAINHYPERTENSION, DYSLIPIDEMIA), 
+                logicfactor),
+         AGE1ATK = NA,
+         DURATION = NA,
+         NUMATK = NA,
+         TOPHIGOUT = NA,
+         EROSIONS = NA,
+         URATE = SERUMURATE,
+         ULT = NA, 
+         PROPHY = NA,
+         HEIGHT = BMHEIGHT / 100,
+         BMI = BMWEIGHT / (HEIGHT * HEIGHT),
+         HYPERTENSION = MAINHYPERTENSION,
+         DIABETES = DIABETESTYPE == 2,
+         HEART = NA,
+         CREAT = SERUMCREATININE / 88.42,
+         EGFR = case_when(SEX == "Male" ~ 175 * (SERUMCREATININE ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (SERUMCREATININE ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = EGFR < 60,
+         LIPIDS = DYSLIPIDEMIA,
+         STROKE = MAINSTROKE,
+         TOTALALC = NA,
+         SUGDRINK = SUGARDRINKS,
+         CURSMOKE = SMOKING,
+         FAMGOUT = NA,
+         FAMGOUTNUM = NA) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Ngati Porou (NPH).
+# Making temporary phenotype file for the NPH cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Ngati Porou")
+
+# Extracting IDs from the SNPmax NPH phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+nph_pheno <- read_delim(here("Data/Phenotypes/NPHPheno.txt"), delim = "\t") %>% 
+  filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
+  select(PATIENT, DOB, CONSENT, DATEARR, AGECOL, DIABETES, FAMGOUT:HIBP, LIPIDS, LIPIDLOWER:STROKE, KIDNEY, SUGDRINK, SMOKER:SPIRITS, WEIGHT:HEIGHT, BMI, URATE:CREATDATE, DIURETICCURRENT:FRUSEMIDE, BUMETANIDE, BENDROFLUAZIDE, HCTZ, METOLAZONE, CHLORHALIDONE, SPIRONOLACTONE, AMILORIDE, COMMENT, GOUTCRITERIAB, SUSTOPHUS, AGE1ATK:ALLOP, STEROID:OTHDRUG, URATEDOX:DATEDOX, RENALTRANSPLANT, DIABETESAFFSTAT, SURICACID:SCREAT, DIURETIC:OTHDIURETIC, STATIN:BILEACIDSEQ, URATELOWERING) %>% 
+  left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
+  rename(IID = PATIENT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(DIABETES, FAMGOUT, FAMGOUT3, HIBP:STROKE, KIDNEY, DIURETICCURRENT:AMILORIDE, GOUTCRITERIAB, SUSTOPHUS, TOPHUS, ALLOP:BENZOBROMARONE, RENALTRANSPLANT, DIABETESAFFSTAT, DIURETIC:URATELOWERING), 
+                logicfactor),
+         AGE1ATK = case_when(!is.na(AGE1ATK) ~ AGE1ATK,
+                             TRUE ~ AGECOL - DURATION),
+         DURATION = AGECOL - AGE1ATK + 1,
+         NUMATK = NUMATK,
+         TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
+         EROSIONS = NA,
+         URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(URATE, URATEDOX)), na.rm = TRUE) * 1000 / 59.48,
+                           TRUE ~ SURICACID * 1000 / 59.48),
+         ULT = ALLOP | PROBEN | BENZOBROMARONE | URATELOWERING, 
+         PROPHY = STEROID | ANTIINFLAM | COLCHI,
+         HEIGHT = HEIGHT / 100,
+         BMI = WEIGHT / (HEIGHT * HEIGHT),
+         HYPERTENSION = HIBP | DIURETICCURRENT | FRUSEMIDE | BUMETANIDE | BENDROFLUAZIDE | HCTZ | METOLAZONE | CHLORHALIDONE | SPIRONOLACTONE | AMILORIDE | DIURGOUT %in% 2:4 | DIURETIC | LOOPDIURETIC | THIAZIDEDIURETIC | OTHDIURETIC,
+         DIABETES = DIABETES | DIABETESAFFSTAT,
+         HEART = HEART | ANGINA | HEARTFAILURE | HEARTSURGERY | HEARTATTACK,
+         CREAT = rowMeans(across(c(CREAT, SCREAT)), na.rm = TRUE) / 88.42,
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = KIDNEY | EGFR < 60 | RENALTRANSPLANT,
+         LIPIDS = LIPIDS | LIPIDLOWER | STATIN | FIBRATES | EZETIMIBE | NICOTINICACID | BILEACIDSEQ,
+         STROKE = STROKE,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         SUGDRINK = SUGDRINK,
+         CURSMOKE = SMOKER == 2,
+         FAMGOUT = FAMGOUT,
+         FAMGOUTNUM = FAMGOUT4) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Renal Disease (RD).
+# Making temporary phenotype file for the RD cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Renal Disease")
+
+# Extracting IDs from the SNPmax RD phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+rd_pheno <- read_delim(here("Data/Phenotypes/RDPheno.txt"), delim = "\t") %>% 
+  filter(PATIENT %in% tmp$Pheno.SampleID) %>% 
+  select(PATIENT, DOB, CONSENTDATE, DATECOL, DATEARR, CKDV, RENALTRANSPLANT, DIABETES, FAMGOUT, HYPERTENSION, DYSLIPIDAEMIA, IHD, CVA, CHF, HEALTHOTH:WEIGHT, BMI, SMOKER, SUGDRINK, BEER:SPIRITS, COMMENT, TYPE2D, GOUTCRITERIAB, SUSTOPHUS, AGE1ATK:OTHDRUG, ESSENTIALHYPERT, SURICACID:SCREAT, RCOMMENTS) %>% 
+  left_join(tmp, by = c("PATIENT" = "Pheno.SampleID")) %>% 
+  rename(IID = PATIENT,
+         GOUT = Pheno.GoutSummary,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(RENALTRANSPLANT:CHF, TYPE2D:SUSTOPHUS, TOPHUS, ALLOPURINOL:RASBURICASE), 
+                logicfactor),
+         AGECOL = AGECOL,
+         AGE1ATK = AGE1ATK,
+         DURATION = AGECOL - AGE1ATK + 1,
+         NUMATK = NA,
+         TOPHIGOUT = GOUTCRITERIAB | SUSTOPHUS | TOPHUS,
+         EROSIONS = NA,
+         URATE = case_when(is.na(SURICACID) ~ rowMeans(across(c(URATEFIRSTREC, URATEDOX, URATERECENT)), na.rm = TRUE) * 1000 / 59.48,
+                           TRUE ~ SURICACID * 1000 / 59.48),
+         ULT = ALLOPURINOL | PROBEN | RASBURICASE, 
+         PROPHY = STEROID | ANTIINFLAM | COLCHI,
+         HEIGHT = HEIGHT / 100,
+         BMI = WEIGHT / (HEIGHT * HEIGHT),
+         HYPERTENSION = HYPERTENSION | ESSENTIALHYPERT == 1 | DIURGOUT %in% 2:4,
+         DIABETES = DIABETES | TYPE2D,
+         HEART = IHD | CHF,
+         EGFR = case_when(SEX == "Male" ~ 175 * (SCREAT / 88.42) ^ -1.154 * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (SCREAT / 88.42) ^ -1.154 * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = CKDV == 1 | RENALTRANSPLANT | EGFR < 60,
+         LIPIDS = DYSLIPIDAEMIA,
+         STROKE = CVA,
+         TOTALALC = rowSums(across(c(BEER, WINE, SPIRITS)), na.rm = TRUE),
+         SUGDRINK = SUGDRINK,
+         CURSMOKE = SMOKER == 2,
+         FAMGOUT = FAMGOUT,
+         FAMGOUTNUM = NA) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# EuroGout.
+# Making temporary phenotype file for the EuroGout cohort based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "EuroGout")
+
+# Extracting IDs from the SNPmax EuroGout phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+eurogout_pheno <- read_delim(here("Data/Phenotypes/EuroGoutPheno.txt"), delim = "\t", guess_max = 5000) %>% 
+  filter(SUBJECT %in% tmp$Pheno.SampleID) %>% 
+  select(SUBJECT, RECRUITMENTDATE, DOB:WEIGHT, HEIGHT, BMI, TOPHUS:GOUTNOTES, ACRB, ACRC8, RENALDISEASE, T2DIABETES:HEARTFAILURE, MEDICALCOMMENT, URATETHERAPY:ALLOPURINOL, CHOLCHICINE:TLDIURETICS, ASPRIN, SUGARDRINK:FRUITJUICE, ALCOHOL:PREUTLKURATE, TCHOLESTEROL:TRIGLYCERIDES, EGFR) %>% 
+  left_join(tmp, by = c("SUBJECT" = "Pheno.SampleID")) %>% 
+  rename(IID = SUBJECT,
+         GOUT = Pheno.GoutSummary,
+         AGECOL = AGERECRUITMENT,
+         SEX = Geno.GeneticSex) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(TOPHUS, EROSIONS, ACRB, ACRC8, RENALDISEASE, T2DIABETES, HYPERTENSION, DYSLIPIDEMIA, STROKE:HEARTFAILURE, ALLOPURINOL:ASPRIN), 
+                logicfactor2),
+         AGE1ATK = case_when(!is.na(AGEFIRSTATTK) ~ AGEFIRSTATTK,
+                             TRUE ~ AGECOL - DURATIONGOUT),
+         DURATION = AGECOL - AGE1ATK + 1,
+         NUMATK = case_when(!is.na(NUMATTACKS) ~ NUMATTACKS, 
+                            NUMATTACKS_TXT == ">5" ~ 5, 
+                            NUMATTACKS_TXT == "1" ~ 1, 
+                            NUMATTACKS_TXT == "2" ~ 2, 
+                            NUMATTACKS_TXT == "3" ~ 3, 
+                            NUMATTACKS_TXT %in% c("3 to 5", "3-5") ~ 4, 
+                            NUMATTACKS_TXT %in% c("reported 'continue' I think. I assume this means ongoing.", "reported 100.") ~ 52, 
+                            NUMATTACKS_TXT == "zehn" ~ 10),
+         TOPHIGOUT = TOPHUS | NUMTOPHI %in% 1:3 | ACRB | ACRC8,
+         URATE = case_when(is.na(SERUMURATE) ~ PREUTLKURATE * 1000 / 59.48,
+                           TRUE ~ SERUMURATE * 1000 / 59.48),
+         ULT = GOUTNOTES == "Gout assumed, taking allopurinol" | (!is.na(URATETHERAPY) & !(URATETHERAPY %in% c("diet", "NIL", "no", "No uric acid lowering therapy", "none", "None", "NONE", "none listed", "Unclear"))) | ALLOPURINOL, 
+         PROPHY = CHOLCHICINE | NSAIDS | ASPRIN,
+         HEIGHT = HEIGHT / 100,
+         BMI = case_when(!is.na(BMI) ~ BMI, 
+                         TRUE ~ WEIGHT / (HEIGHT * HEIGHT)),
+         HYPERTENSION = HYPERTENSION | !is.na(HYPERTENTREATM) | MEDICALCOMMENT == "Said no to hypertension but beside BP states is on losartan" | DIURETICS | TLDIURETICS,
+         DIABETES = T2DIABETES | !is.na(T2DTREATMENT),
+         HEART = MI | IHD | HEARTFAILURE | MEDICALCOMMENT %in% c("Cardiovascular disease", "Heart problems", "Heart problems. EGFR available", "Heart problems. EGFR available. EGFR available. EGFR<60"),
+         CREAT = SERUMCREATININE / 88.42,
+         EGFR = case_when(SEX == "Male" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (CREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742,
+                          TRUE ~ EGFR),
+         KIDNEY = RENALDISEASE | EGFR < 60,
+         LIPIDS = DYSLIPIDEMIA | !is.na(LIPIDTREATMENT),
+         STROKE = STROKE,
+         TOTALALC = ALCOHOL,
+         SUGDRINK = SUGARDRINK + FRUITJUICE,
+         CURSMOKE = SMOKER == 1,
+         FAMGOUT = FAMILYHISTORY == 1,
+         FAMGOUTNUM = NUMFAMILYGOUT) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Ardea - Ironwood (CLEAR 1, CLEAR 2, CRYSTAL, and LIGHT).
+# Making temporary phenotype file for the Ironwood cohorts based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study %in% c("Ardea: CLEAR1", "Ardea: CLEAR2", "Ardea: CRYSTAL", "Ardea: LIGHT"))
+
+# Extracting IDs from the SNPmax Ironwood phenotype file based on the CoreExome file. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+ironwood_pheno <- read_delim(here("Data/Phenotypes/ArdeaPheno.txt"), delim = "\t", guess_max = 5000) %>% 
+  filter(SUBJID %in% tmp$Pheno.SampleID) %>% 
+  select(SUBJID, AGE, BRTHDTC, BLWEIGHT, BLHEIGHT, BLBMI, TRT01AN, CONSDT, TRTSDT, ANGINA:HYPERTRIGLY, MI, STROKE, AGFIDDT:GFDUR, CRITBFL, PHNM8FL, ULTALLO:ULTOTH, PLACTOTSTDT:PLACTOTENDT, THIALKFL:PROPHTYPN, TOPHIFN:BLAREA, GFNUM:GFNUMGR, DATESCREENING:EGFRSCREENING, CHOLSCREENING, TRIGSCREENING, URATESCREENING, DATENEG7, URATENEG7, EGFRNEG7, DATEBASELINE, URATEBASELINE, EGFRBASELINE, DATEMONTH1, URATEMONTH1, DATEMONTH2, URATEMONTH2, DATEMONTH3, URATEMONTH3, DATEMONTH4, URATEMONTH4, DATEMONTH5, URATEMONTH5, DATEMONTH6, URATEMONTH6, DATEMONTH8, URATEMONTH8, DATEMONTH10, URATEMONTH10, DATEMONTH12, URATEMONTH12, DATEEARLYTERM, URATEEARLYTERM, DATEFOLLOWUP, URATEFOLLOWUP, CURSMOKE:ALCOHOL, TOPHIGOUT:GOUTNOTES) %>% 
+  left_join(tmp, by = c("SUBJID" = "Pheno.SampleID")) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(ANGINA:STROKE, CRITBFL:ULTOTH, THIALKFL:PROPHYFL, TOPHIFN, CURSMOKE:ALCOHOL), 
+                logicfactor2),
+         TRT01AN = factor(TRT01AN, 
+                          levels = 0:5, 
+                          labels = c("Screen Failure", "Group A (Placebo)", "Group B (Lesinurad 200 mg)", "Group C (Lesinurad 400 mg)", "Not Assigned", "Not Treated"))) %>%
+  rename(IID = SUBJID,
+         GOUT = Pheno.GoutSummary,
+         AGECOL = AGE) %>%
+  mutate(SEX = Geno.GeneticSex,
+         AGE1ATK = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), AGFIDDT)) / as.duration(years(1)), 
+                         digits = 0),
+         DURATION = AGECOL - AGE1ATK + 1,
+         TOPHIGOUT = TOPHIFN,
+         EROSIONS = NA,
+         NUMATK = GFNUM,
+         URATE = URATESCREENING,
+         ULT = ULTALLO | ULTPROB | ULTFEBU | ULTOTH | Pheno.Study %in% c("Ardea: CLEAR1", "Ardea: CLEAR2") | (Pheno.Study == "Ardea: CRYSTAL" & URATE < 8),
+         PROPHY = PROPHYFL,
+         BMI = BLBMI,
+         HEART = HEARTFAILURE | MI | ANGINA,
+         KIDNEY = EGFRSCREENING < 60,
+         LIPIDS = HYPERCHOLESTEROL | HYPERTRIGLY,
+         TOTALALC = NA,
+         SUGDRINK = NA,
+         FAMGOUT = NA,
+         FAMGOUTNUM = NA,
+         EGFR2 = case_when(SEX == "Male" ~ 175 * (SCRSCREENING ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (SCRSCREENING ^ -1.154) * (AGECOL ^ -0.203) * 0.742)) %>%
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Ardea - LASSO.
+# Making temporary phenotype file for the Ironwood cohorts based on the CoreExome phenotype file.
+tmp <- CoreExPheno_Final %>% 
+  filter(Pheno.Study == "Ardea: 401")
+
+# Reading in three LASSO cohort phenotype files.
+lassopheno1 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoFlare.txt"), delim = "\t", guess_max = 5000)
+lassopheno2 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoLabChem.txt"), delim = "\t", guess_max = 5000)
+lassopheno3 <- read_delim(here("Data/Phenotypes/ArdeaLassoPhenoMain.txt"), delim = "\t", guess_max = 5000)
+
+# Combining all three phenotype files together.
+tmp1 <- full_join(lassopheno3, lassopheno2, by = "SUBJID")
+lasso_pheno <- full_join(tmp1, lassopheno1, by = "SUBJID")
+
+# Cleaning up.
+rm(lassopheno1, lassopheno2, lassopheno3, tmp1)
+
+# Extracting IDs from the SNPmax LASSO phenotype file based on the CoreExome file. Converting the DNAID into a character variable named IID. Selecting columns of interest. Adding CoreExome file columns. Renaming variables. Converting all character variables to factors. Converting boolean variables with the logicfactor function. Further cleaning up columns and producing new columns of interest. Finally selecting all columns of interest.
+lasso_pheno <- lasso_pheno %>% 
+  filter(DNAID %in% tmp$Pheno.SampleID) %>% 
+  mutate(IID = as.character(DNAID)) %>% 
+  select(IID, AGE, BRTHDTC, GFNUM:ULTOSCR, BLBMI:PROPHTYP, AGFIDDT:GFDUR, TOLOCL:GFDTDURL, ANGINA:RENALIMPAIR, MI:STROKE, SCREENGFSTDT, SCREENGFENDT, SCREENGFOUT, SCREENGFSEV, SCREENPAIN, SCREENGFDUR:SCREENPAIN2, SCREENGFSTRSTP, SCREENLBDT, SCREENALT, SCREENCREAT, SCREENGGT, SCREENURATE, BASELINELBDT, BASELINEURATE, BASET1LBDT, BASET1URATE, BASET2LBDT, BASET2URATE, BASET3LBDT, BASET3URATE, MONTH1LBDT, MONTH1URATE, MONTH1T1LBDT, MONTH1T1URATE, MONTH1T2LBDT, MONTH1T2URATE, MONTH2LBDT, MONTH2URATE, MONTH2T1LBDT, MONTH2T1URATE, MONTH3LBDT, MONTH3URATE, MONTH3T1LBDT, MONTH3T1URATE, MONTH3T3LBDT, MONTH3T3URATE, MONTH4LBDT, MONTH4URATE, MONTH4T1LBDT, MONTH4T1URATE, MONTH5LBDT, MONTH5URATE, MONTH6LBDT, MONTH6URATE, UNSCHEDLBDT, UNSCHEDURATE, EARLYTERMLBDT, EARLYTERMURATE) %>% 
+  left_join(tmp, by = c("IID" = "Pheno.SampleID")) %>% 
+  rename(GOUT = Pheno.GoutSummary,
+         AGECOL = AGE,
+         NUMATK = GFNUM,
+         SEX = Geno.GeneticSex,
+         BMI = BLBMI) %>% 
+  mutate(across(where(is_character), factor),
+         across(c(TOHANDFL:ULTOSCR, BLCDFL, ANGINA:RENALIMPAIR, MI:STROKE), 
+                logicfactor2),
+         AGE1ATK = round(as.duration(interval(ymd(BRTHDTC, truncated = 2L), AGFIDDT)) / as.duration(years(1)), 
+                         digits = 0),
+         DURATION = AGECOL - AGE1ATK + 1,
+         TOPHIGOUT = BLTPHFN,
+         EROSIONS = NA,
+         URATE = SCREENURATE,
+         ULT = ALLOSCR | ULTOSCR | SCREENURATE < 8,
+         PROPHY = PROPHTYP %in% c("Both", "Colchicine", "NSAID"),
+         HEART = ANGINA | MI,
+         EGFR = case_when(SEX == "Male" ~ 175 * (SCREENCREAT ^ -1.154) * (AGECOL ^ -0.203), 
+                          SEX == "Female" ~ 175 * (SCREENCREAT ^ -1.154) * (AGECOL ^ -0.203) * 0.742),
+         KIDNEY = RENALIMPAIR | EGFR < 60,
+         LIPIDS = HYPERCHOLESTEROL | HYPERTRIGLY,
+         TOTALALC = NA,
+         SUGDRINK = NA,
+         CURSMOKE = NA,
+         FAMGOUT = NA,
+         FAMGOUTNUM = NA) %>%
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Combining phenotypes for all cohorts together. Additionally, deduplicating the IID column so as to keep only unique individuals.
+all_pheno <- rbind(agria_pheno, aotearoa_pheno, dm_pheno, eurogout_pheno, ironwood_pheno, lasso_pheno, lpa_pheno, nph_pheno, rd_pheno) %>% 
+  mutate(Pheno.Study = factor(Pheno.Study)) %>% 
+  arrange(IID) %>% 
+  filter(!(duplicated(IID) | duplicated(IID, fromLast = TRUE)))
+
+# Cleaning up.
+rm(aotearoa_pheno, agria_pheno, dm_pheno, nph_pheno, rd_pheno, eurogout_pheno, ironwood_pheno, lasso_pheno, tmp, lpa_pheno, CoreExPheno_Final)
+
+# Extracting phenotype information for the UK Biobank cohort.
+# Saving location of the phenotype data as a variable.
+ukbb_dir <- path("/Volumes/archive/merrimanlab/raid_backup/UKbiobank/")
+
+# Saving location of the coding files for phenotypes.
+codings_dir <- path(here("Data/codings"))
+
+# Reading in list of withdrawn IDs.
+withdrawn <- read_csv(path(ukbb_dir, "w12611_20210201.new.csv"), col_names = "id")
+
+# Loading UKBB phenotype file from 2019.
+load(path(ukbb_dir,'decrypted_files/ukb27189_27190_27191_27192_27193_27194_27195_27640_30070_31460_combined_withdrawn_ids_removed_10-07-2019.RData'))
+
+# Renaming working dataset and removing withdrawn and missing IDs (leaves 488,247 individuals).
+bd_refined <- refresh_ukbb_data %>% 
+  filter(!is.na(eid) & !(eid %in% withdrawn$id)) # Total 488,247
+
+# Reading coding document for self-reported diseases.
+datacoding6 <- read_delim(path(codings_dir, "coding6.tsv"), delim = "\t")
+
+# Reading coding document for self-reported medication.
+datacoding4 <- read_delim(path(codings_dir, "coding4.tsv"), delim = "\t")
+
+# Reading Nicola Dalbeth annotated datacoding4 file.
+nd_drugs <- read_csv(path(ukbb_dir, "UKBio_drugs_ND_formatted.csv"), 
+                     col_names = TRUE, 
+                     col_types = cols(.default = "c"))
+
+# Reading coding document for ICD10 (hospital diagnoses).
+datacoding19 <- read_delim(path(codings_dir, "coding19.tsv"), delim = "\t")
+
+# Extracting columns of interest.
+test <- refresh_ukbb_data %>% 
+  select(eid, body_mass_ind_bmi_f21001_0_0, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0)
+
+# Loading in medication phenotype data file.
+load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/self_report_med.RData")
+
+# Extracting ULT column from medication phenotype file.
+tmp <- self_report_med %>% 
+  mutate(IID = eid,
+         ULT = allopurinol | sulphinpyrazone | probenecid) %>% 
+  select(IID, ULT)
+
+# Loading cleaned up UK Biobank phenotype file.
+load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/final_data.RData")
+
+# Combining all UK Biobank phenotypes of interest into a single file.
+ukbb_pheno <- final_data %>% 
+  mutate(eid = as.numeric(eid)) %>% 
+  left_join(test, by = "eid") %>% 
+  rename(IID = eid,
+         GOUT = gout,
+         AGECOL = age,
+         SEX = sex,
+         URATE = urate) %>% 
+  mutate(Geno.PCVector1 = NA,
+         Geno.PCVector2 = NA,
+         Geno.PCVector3 = NA,
+         Geno.PCVector4 = NA,
+         Geno.PCVector5 = NA,
+         Geno.PCVector6 = NA,
+         Geno.PCVector7 = NA,
+         Geno.PCVector8 = NA,
+         Geno.PCVector9 = NA,
+         Geno.PCVector10 = NA,
+         Geno.PCVector1_Oc = NA,
+         Geno.PCVector2_Oc = NA,
+         Geno.PCVector3_Oc = NA,
+         Geno.PCVector4_Oc = NA,
+         Geno.PCVector5_Oc = NA,
+         Geno.PCVector6_Oc = NA,
+         Geno.PCVector7_Oc = NA,
+         Geno.PCVector8_Oc = NA,
+         Geno.PCVector9_Oc = NA,
+         Geno.PCVector10_Oc = NA,
+         AGE1ATK = NA,
+         DURATION = NA,
+         TOPHIGOUT = NA, 
+         EROSIONS = NA,
+         NUMATK = NA,
+         PROPHY = NA,
+         Geno.SpecificAncestry = "European",
+         BMI = body_mass_ind_bmi_f21001_0_0,
+         HYPERTENSION = hypertension,
+         DIABETES = type2_diabetes,
+         HEART = coronary_heart_disease | heart_failure,
+         KIDNEY = ckd_stage3 | ckd_stage4 | end_stage_renal,
+         LIPIDS = dyslipidemia,
+         STROKE = cerebrovascular_disease,
+         TOTALALC = case_when(alcohol_intake_frequency_f1558_0_0 == "Daily or almost daily" ~ 14,
+                              alcohol_intake_frequency_f1558_0_0 == "Three or four times a week" ~ 4,
+                              alcohol_intake_frequency_f1558_0_0 == "Once or twice a week" ~ 2,
+                              TRUE ~ NA_real_),
+         SUGDRINK = NA,
+         CURSMOKE = current_tobacco_smoking_f1239_0_0 == "Yes, on most or all days",
+         FAMGOUT = NA,
+         FAMGOUTNUM = NA,
+         Geno.SampleID = NA,
+         Pheno.Study = "UK Biobank") %>% 
+  left_join(tmp) %>% 
+  select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
+
+# Cleaing up.
+rm(final_control_data, final_data, final_gout_data, refresh_ukbb_data, self_report_med, test, tmp, ukbb_dir, logicfactor, logicfactor2)
+```
+

@@ -4,7 +4,7 @@ We ran a genome-wide association study in the UK Biobank European cohort with go
 
 Initially, the full list of variants for each chromosome was used to define regions that contained 100,000 variants (or the remaining variants if the last region of a chromosome). These splits were converted into a series of files (one per chromosome) with the format of "splitnumber chromosomenumber:startcoord-endcoord" for each row (representing each region). The following code was saved as a script called split_chr.sh in /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/splits.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -35,7 +35,7 @@ rm $UKBB_DIR/splits/chr${i}_*
 
 This script was then run using the following code:
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -47,7 +47,7 @@ parallel --progress -P $UKBB_DIR/splits/parallel_process.txt --tmp $UKBB_DIR/spl
 
 Next, we aimed to convert the genotypes from bgen format into vcf.gz for each split of each chromosome as defined above. The following code was saved as a script called extract_convert.sh in /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/splits.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -76,7 +76,7 @@ bcftools view -S $UKBB_DIR/splits/gwas_keep_ids.txt -O z -o $UKBB_DIR/splits/bge
 
 Given that the X chromosome had to be analyzed in a different manner, the following code only applies to the X chromosome splits. This was saved as extract_convert_chrX.sh in /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/splits.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -105,7 +105,7 @@ bcftools view -S $UKBB_DIR/splits/gwas_keep_ids.txt --force-samples -O z -o $UKB
 
 Finally the XY chromosome had to be analyzed in a different manner, thus the following code only applies to the XY chromosome splits. This was saved as extract_convert_chrXY.sh in /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/splits.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -134,7 +134,7 @@ bcftools view -S $UKBB_DIR/splits/gwas_keep_ids.txt --force-samples -O z -o $UKB
 
 The above scripts were run in parallel to produce vcf.gz files for each split of each chromosome using the following code.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -152,7 +152,7 @@ parallel --progress -P $UKBB_DIR/splits/parallel_process.txt --tmp $UKBB_DIR/spl
 
 Next, the following code was saved as do_gout_gwas.sh in /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/splits.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -162,19 +162,19 @@ file=$1
 # Setting the "mem" variable to 36000, representing 36 Gb of RAM in plink code.
 mem=36000
 
-# Converting the file from  the vcf.gz format to the plink binary format "bed/bim/fam".
+# Converting the file from  the vcf.gz format to the PLINK binary format "bed/bim/fam".
 plink1.9b6.10 --vcf $UKBB_DIR/splits/${file}.vcf.gz --make-bed --out $UKBB_DIR/splits/${file} --memory $mem
 
-# Creating temporary plink fileset which is filtered to keep only individuals with IDs in the gout_gwas_keep_ids_w_sex.txt file, then adding the phenotype information based on the plink_goutaff column of gout_gwas_covar.covar, finally updating the sex variable based on the gout_gwas_keep_ids_w_sex.txt file.
+# Creating temporary PLINK fileset which is filtered to keep only individuals with IDs in the gout_gwas_keep_ids_w_sex.txt file, then adding the phenotype information based on the plink_goutaff column of gout_gwas_covar.covar, finally updating the sex variable based on the gout_gwas_keep_ids_w_sex.txt file.
 plink1.9b6.10 --bfile $UKBB_DIR/splits/${file} --out $UKBB_DIR/splits/${file}_tmp --keep $UKBB_DIR/splits/gout_gwas_keep_ids_w_sex.txt --pheno $UKBB_DIR/splits/gout_gwas_covar.covar  --pheno-name plink_goutaff --update-sex $UKBB_DIR/splits/gout_gwas_keep_ids_w_sex.txt --make-bed --memory $mem
 
-# Running the logistic regression GWAS, additionally outputting a minor allele frequency report, filtering for SNPs with less than 10% missingness, producing a report of missingness, adding 95% confidence intervals to the logistic regression results, filtering variants to exclude those with minor allele frequency of less than 0.0001 (0.01%), filtering to exclude variants that fail the hardy weinberg equilibrium test with p < 0.000001, producing a hardy weinberg report, then providing the covariates (age and the first 40 principal components) from the gout_gwas_covar.covar file.
+# Running the logistic regression GWAS, additionally outputting a minor allele frequency report, filtering for SNPs with less than 10% missingness, producing a report of missingness, adding 95% confidence intervals to the logistic regression results, filtering variants to exclude those with minor allele frequency of less than 0.0001 (0.01%), filtering to exclude variants that fail the Hardy-Weinberg equilibrium test with p < 0.000001, producing a Hardy-Weinberg report, then providing the covariates (age and the first 40 principal component vectors) from the gout_gwas_covar.covar file.
 plink1.9b6.10 --bfile $UKBB_DIR/splits/${file}_tmp --logistic sex --freq case-control --geno 0.1 --missing --ci 0.95 --maf 0.0001 --hwe 0.000001 --hardy --out $UKBB_DIR/splits/gout_gwas/${file} --covar $UKBB_DIR/splits/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --memory $mem
 
-# Deleting all created plink binary files.
+# Deleting all created PLINK binary files.
 rm $UKBB_DIR/splits/${file}.{bed,bim,fam} $UKBB_DIR/splits/${file}_tmp.{bed,bim,fam}
 
-# Modifying each of the plink reports from running the gwas function to first convert multiple spaces into a single space, then convert spaces to tabs, then remove leading tabs from each row, then remove trailing tabs from each row, then compress the result and save it as a .tsv.gz file, then also remove the original file.
+# Modifying each of the PLINK reports from running the GWAS function to first convert multiple spaces into a single space, then convert spaces to tabs, then remove leading tabs from each row, then remove trailing tabs from each row, then compress the result and save it as a .tsv.gz file, then also remove the original file.
 tr -s ' ' < $UKBB_DIR/splits/gout_gwas/${file}.assoc.logistic | tr ' ' '\t' | sed 's/^\t//g' | sed 's/\t$//g' | gzip -c > $UKBB_DIR/splits/gout_gwas/${file}.assoc.logistic.tsv.gz && rm $UKBB_DIR/splits/gout_gwas/${file}.assoc.logistic
 
 tr -s ' ' < $UKBB_DIR/splits/gout_gwas/${file}.frq.cc  | tr ' ' '\t' | sed 's/^\t//g' | sed 's/\t$//g' | gzip -c > $UKBB_DIR/splits/gout_gwas/${file}.frq.cc.tsv.gz && rm $UKBB_DIR/splits/gout_gwas/${file}.frq.cc
@@ -190,7 +190,7 @@ tr -s ' ' < $UKBB_DIR/splits/gout_gwas/${file}.lmiss | tr ' ' '\t' | sed 's/^\t/
 
 The above script was run in parallel to run a GWAS for gout for each split of each chromosome using the following code.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -202,7 +202,7 @@ parallel --progress -P $UKBB_DIR/splits/parallel_process.txt --tmp $UKBB_DIR/spl
 
 The gout GWAS output files (*.assoc.logistic.tsv.gz) were then filtered and concatenated together for each chromosome. The following code was saved as concat_gout_gwas.sh in /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/splits
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -219,7 +219,7 @@ done | sort -nk 3 > $UKBB_DIR/splits/gout_gwas/gout_gwas_chr${i}_add_unfiltered_
 
 The above script was run in parallel for each chromosome using the following code.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -229,9 +229,9 @@ parallel --progress -P $UKBB_DIR/splits/parallel_process.txt --tmp $UKBB_DIR/spl
 
 <br/> 
 
-Finally, these chromosome wide summary stats were concatenated into ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv which was copied to the Data/GWAS directory for our study.
+Finally, these chromosome wide summary stats were concatenated into ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting UKBB_DIR variable.
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
@@ -240,11 +240,8 @@ zcat $UKBB_DIR/splits/gout_gwas/bgenix_convert_chr10_1.assoc.logistic.tsv.gz | h
 
 # Concatenating all summary stats files together.
 for file in $UKBB_DIR/splits/gout_gwas/gout_gwas_chr*_add_unfiltered_p.tsv
-    do cat $file >> $UKBB_DIR/splits/gout_gwas/ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv
+    do cat $file >> $UKBB_DIR/splits/GWAS_results/gout/ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv
 done
-
-# Copying file to Data/GWAS directory for this study.
-cp $UKBB_DIR/splits/gout_gwas/ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv /Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS/Data/GWAS
 ```
 
 <br/>
@@ -255,7 +252,7 @@ Next, I filtered the gout GWAS summary statistics to only include SNPs that were
 
 To determine which SNPs were genotyped in the CoreExome, I first had to remove poorly genotyped variants (greater than 5% missingness). This was done by first extracting the IDs of the individuals to be studied in the CoreExome, as these IDs would be needed for accurately removing poorly genotyped variants.
 
-```{r, eval = F}
+```{r, eval = FALSE}
 # Loading phenotype file for CoreExome data.
 CoreExPheno <- read_delim(here("Data/Phenotypes/CZ-MB1.2-QC1.10_MergedPhenotypes_20082020.txt"), delim = "\t")
 
@@ -283,7 +280,7 @@ all_coreex_ids <- rbind(CoreExPheno_Euro, CoreExPheno_Poly) %>%
   select(Geno.FamilyID, Geno.SampleID)
 
 # Writing out FID and IID columns as a txt file for filtering.
-write_delim(all_coreex_ids, delim = "\t", file = here("Output/Temp/all_coreex_ids.txt"), col_names = F)
+write_delim(all_coreex_ids, delim = "\t", file = path(scratch_path, "Output/Temp/all_coreex_ids.txt"), col_names = F)
 
 # Cleaning up environment.
 rm(CoreExPheno, CoreExPheno_Euro, CoreExPheno_Poly, all_coreex_ids, All_CoreEx_ID)
@@ -291,51 +288,44 @@ rm(CoreExPheno, CoreExPheno_Euro, CoreExPheno_Poly, all_coreex_ids, All_CoreEx_I
 
 <br/>
 
-Next, we used plink to filter the CoreExome genotype file, keeping the list of IDs that we generated above. We then use these IDs to filter out genotypes that are missing in more than 5% of individuals.
+Next, we used PLINK to filter the CoreExome genotype file, keeping the list of IDs that we generated above. We then use these IDs to filter out genotypes that are missing in more than 5% of individuals.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
-PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
-# Filtering CoreExome plink files to only keep IDs in all_coreex_ids.txt, then filtering out genotypes with more than 5% missingness.
+# Filtering CoreExome PLINK files to only keep IDs in all_coreex_ids.txt, then filtering out genotypes with more than 5% missingness.
 plink1.9b4.9 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted \
---keep $PRS_DIR/Output/Temp/all_coreex_ids.txt \
+--keep $PRS_SCRATCH/Output/Temp/all_coreex_ids.txt \
 --geno 0.05 \
---make-bed --out $PRS_DIR/Output/Temp/inCoreExGeno
+--make-bed --out $PRS_SCRATCH/Output/Temp/inCoreExGeno
 ```
 
 <br/>
 
 The resulting list of variants was then used to filter the gout GWAS summary statistics prior to reading the summary statistics file into R.
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
+UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
 # Reordering the summary statistics columns to put chr and bp next to each other (and removing useless columns).
-cat $PRS_DIR/Data/GWAS/ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv | awk -v OFS="\t" '{print $1, $3, $2, $4, $7, $8, $9, $10, $11, $12}' > $PRS_DIR/Data/GWAS/ukbb_gout_sumstat.tsv
+cat $UKBB_DIR/splits/GWAS_results/gout/ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv | awk -v OFS="\t" '{print $1, $3, $2, $4, $7, $8, $9, $10, $11, $12}' > $PRS_SCRATCH/Data/GWAS/ukbb_gout_sumstat.tsv
 
 # Reordering CoreExome bim file for filtering.
-cat $PRS_DIR/Output/Temp/inCoreExGeno.bim | awk -v OFS="\t" '{print "^" $1, $4}' > $PRS_DIR/Output/Temp/for_filtering.txt
+cat $PRS_SCRATCH/Output/Temp/inCoreExGeno.bim | awk -v OFS="\t" '{print $1, $4}' > $PRS_SCRATCH/Output/Temp/for_filtering.txt
 
 # Filtering the summary statistics to only include variants that were genotyped in the CoreExome file (using chromosome and BP location).
-cat $PRS_DIR/Data/GWAS/ukbb_gout_sumstat.tsv | grep -Ff $PRS_DIR/Output/Temp/for_filtering.txt > $PRS_DIR/Output/Temp/filtered_ukbb_gout_sumstat.tsv
+cat $PRS_SCRATCH/Data/GWAS/ukbb_gout_sumstat.tsv | grep -wFf $PRS_SCRATCH/Output/Temp/for_filtering.txt > $PRS_SCRATCH/Output/Temp/filtered_ukbb_gout_sumstat.tsv
 ```
 
 <br/>
 
-```{r, eval = F}
-# Reading list of filtered variants into R.
-# geno <- read_delim(here("Output/Temp", "inCoreExGeno.bim"), delim = "\t", col_names = FALSE) %>% 
-#   mutate(CHR_BP = paste0(X1, "_", X4))
-# 
-# # Reading in summary statistics for gout GWAS.
-# sumstat <- vroom(here("Data/GWAS/ukbb_gout-allcontrol_chr1-22.X.XY.add_unfiltered_p.tsv"), 
-#                  delim = "\t", 
-#                  col_names = TRUE)
-
+```{r, eval = FALSE}
 # Reading in filtered summary statistics for gout GWAS.
-sumstat <- vroom(here("Output/Temp/filtered_ukbb_gout_sumstat.tsv"), 
+sumstat <- vroom(path(scratch_path, "Output/Temp/filtered_ukbb_gout_sumstat.tsv"), 
                  delim = "\t", 
                  col_names = FALSE) %>% 
   rename(CHR = X1,
@@ -349,7 +339,7 @@ sumstat <- vroom(here("Output/Temp/filtered_ukbb_gout_sumstat.tsv"),
          STAT = X9,
          P = X10)
 
-# Performing initial filtering of summary statistics to keep only autosomal variants that remained after filtering for high quality CoreExome genotypes. Additionally, some early filtering for indels was performed by keeping only alleles that had length of 1. Finally cleaning up the SNP column by separating into 2 columns using the comma delimiter. This resulted in 324,560 (previously 307,368) remaining variants.
+# Performing initial filtering of summary statistics to keep only autosomal variants that remained after filtering for high quality CoreExome genotypes. Additionally, some early filtering for indels was performed by keeping only alleles that had length of 1. Finally cleaning up the SNP column by separating into 2 columns using the comma delimiter. This resulted in 307,368 remaining variants.
 sumstat2 <- sumstat %>% 
   filter(CHR %in% 1:22,
          str_length(A1) == 1) %>% 
@@ -362,134 +352,135 @@ table(sumstat2$SNP3)
 sumstat2 <- sumstat2 %>% 
   select(-SNP3)
 
-# Extracting 323,467 (previously 307,066) variants with an rsID in the SNP1 column.
+# Extracting 307,066 variants with an rsID in the SNP1 column.
 rsid_col1 <- sumstat2 %>% 
   filter(str_detect(SNP1, regex("^rs[0-9]+")))
 
-# Extracting 75,332 (previously 74,955) variants with an rsID in the SNP1 and SNP2 columns.
-rsid_col1_col2 <- rsid_col1 %>%
+# Extracting 74,955 variants with an rsID in the SNP1 and SNP2 columns.
+rsid_rsid <- rsid_col1 %>%
   filter(str_detect(SNP2, regex("^rs[0-9]+")))
 
 # Extracting 63 variants with two different rsIDs, for the most part SNP1 appears to be the newest rsID, but I will keep the extra rsID in a separate column.
-different_rsids <- rsid_col1_col2 %>%
+different_rsids <- rsid_rsid %>%
   filter(SNP1 != SNP2)
 
-# Extracting 247,189 (previously 231,166) variants with an rsID in the SNP1 column and a SNP name of the format chr:bp_a1_a2 in the SNP2 column.
-rsid_col1_other_col2 <- rsid_col1 %>% 
+# Extracting 231,166 variants with an rsID in the SNP1 column and a SNP ID of the format chr:bp_a1_a2 in the SNP2 column.
+rsid_snpid <- rsid_col1 %>% 
   filter(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")))
 
 # Splitting SNP2 column into various parts.
-rsid_col1_other_col2 <- rsid_col1_other_col2 %>% 
-  mutate(CHR2 = SNP2 %>% str_split(":", simplify = TRUE) %>% .[,1] %>% as.numeric(),
-         BP2 = SNP2 %>% str_split(":", simplify = TRUE) %>% .[,2] %>% str_split("_", simplify = TRUE) %>% .[,1] %>% as.numeric(),
-         Allele1 = SNP2 %>% str_split("_", simplify = TRUE) %>% .[,2],
-         Allele2 = SNP2 %>% str_split("_", simplify = TRUE) %>% .[,3])
+rsid_snpid <- rsid_snpid %>% 
+  separate(SNP2, into = c("CHR2", "Extra"), sep = ":", remove = FALSE, convert = TRUE) %>% 
+  separate(Extra, into = c("BP2", "Allele1", "Allele2"), sep = "_", convert = TRUE)
 
 # Showing that the BP and BP2 columns are equal.
-sum(rsid_col1_other_col2$BP != rsid_col1_other_col2$BP2)
+sum(rsid_snpid$BP != rsid_snpid$BP2)
 
 # Showing that the CHR and CHR2 columns are equal.
-sum(rsid_col1_other_col2$CHR != rsid_col1_other_col2$CHR2)
+sum(rsid_snpid$CHR != rsid_snpid$CHR2)
 
 # Testing whether the A1 and Allele2 columns are equal shows that they are not always equal.
-sum(rsid_col1_other_col2$A1 != rsid_col1_other_col2$Allele2) # Allele2 is not always A1
+sum(rsid_snpid$A1 != rsid_snpid$Allele2)
 
-# Removing CHR2 and BP2 columns then further filtering out indels based on Allele1 and Allele2 columns. This removes a further 175 (previously 13) indels resulting in 247,014 (previously 231,153) variants.
-rsid_col1_other_col2 <- rsid_col1_other_col2 %>% 
+# Removing CHR2 and BP2 columns then further filtering out indels based on Allele1 and Allele2 columns. This removes a further 13 indels resulting in 231,153 variants.
+rsid_snpid <- rsid_snpid %>% 
   select(-CHR2, -BP2) %>% 
   filter(str_length(Allele1) == 1,
          str_length(Allele2) == 1)
 
 # Isolating SNP, Allele1 and Allele2 columns.
-rsid_col1_other_col2 <- rsid_col1_other_col2 %>% 
+rsid_snpid <- rsid_snpid %>% 
   select(SNP, Allele1, Allele2)
 
 # Filtering to keep 945 variants with neither rsID nor chr:bp_a1_a2 in the SNP2 column.
-rsid_col1_unknown_col2 <- rsid_col1 %>%
+rsid_other <- rsid_col1 %>%
   filter(!str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$|^rs[0-9]+$")))
 
 # Showing that all of these remaining SNPs are in the format Affx-<number>.
-sum(!str_detect(rsid_col1_unknown_col2$SNP2, regex("^Affx-[0-9]+$"))) # 
+sum(!str_detect(rsid_other$SNP2, regex("^Affx-[0-9]+$")))
 
-# Making clean final list of variants from those with an rsID in the SNP1 column.
+# Making clean final list of variants from those with an rsID in the SNP1 column, ensuring that we remove indels that were removed in the steps above.
 rsid_col1_final <- rsid_col1 %>% 
   mutate(RSID = SNP1,
-         ALT_RSID = case_when(str_detect(SNP2, regex("^rs[0-9]+$")) & SNP1 != SNP2 ~ SNP2, TRUE ~ NA_character_),
-         AFFYID = case_when(str_detect(SNP2, regex("^Affx-[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
-         SNP_ID = case_when(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")) ~ SNP2, TRUE ~ NA_character_)) %>% 
-  left_join(rsid_col1_other_col2, by = "SNP") %>% 
-  filter(is.na(SNP_ID) | (!is.na(SNP_ID) & !is.na(Allele1))) # removing the indels
+         ALT_RSID = case_when(str_detect(SNP2, regex("^rs[0-9]+$")) & SNP1 != SNP2 ~ SNP2, 
+                              TRUE ~ NA_character_),
+         AFFYID = case_when(str_detect(SNP2, regex("^Affx-[0-9]+$")) ~ SNP2, 
+                            TRUE ~ NA_character_),
+         SNP_ID = case_when(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")) ~ SNP2, 
+                            TRUE ~ NA_character_)) %>% 
+  left_join(rsid_snpid, by = "SNP") %>% 
+  filter(is.na(SNP_ID) | (!is.na(SNP_ID) & !is.na(Allele1)))
 
-# Extracting variants without an rsID in the SNP1 column. 1,093 (previously 302 variants) don't have an rsID in SNP1 column.
+rm(rsid_col1, rsid_other, rsid_rsid, rsid_snpid, different_rsids)
+
+# Extracting variants without an rsID in the SNP1 column. 302 don't have an rsID in SNP1 column.
 not_rsid_col1 <- sumstat2 %>% 
   filter(!str_detect(SNP1, regex("^rs[0-9]+")))
 
-# Extracting variants with snp_id format in the SNP1 column. 1,091 (previously 300) have the snp_id format in SNP1.
-snp_id_col1 <- not_rsid_col1 %>% 
+# Extracting variants with snp_id format in the SNP1 column. 300 have the snp_id format in SNP1.
+snpid_col1 <- not_rsid_col1 %>% 
   filter(str_detect(SNP1, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")))
 
 # Splitting up the snp_id column.
-snp_id_col1 <- snp_id_col1 %>% 
-  mutate(CHR2 = SNP1 %>% str_split(":", simplify = TRUE) %>% .[,1] %>% as.numeric(),
-         BP2 = SNP1 %>% str_split(":", simplify = TRUE) %>% .[,2] %>% str_split("_", simplify = TRUE) %>% .[,1] %>% as.numeric(),
-         Allele1 = SNP1 %>% str_split("_", simplify = TRUE) %>% .[,2],
-         Allele2 = SNP1 %>% str_split("_", simplify = TRUE) %>% .[,3])
+snpid_col1 <- snpid_col1 %>% 
+  separate(SNP1, into = c("CHR2", "Extra"), sep = ":", remove = FALSE, convert = TRUE) %>% 
+  separate(Extra, into = c("BP2", "Allele1", "Allele2"), sep = "_", convert = TRUE)
 
 # Showing that the BP and BP2 columns are equal.
-sum(snp_id_col1$BP != snp_id_col1$BP2)
+sum(snpid_col1$BP != snpid_col1$BP2)
 
 # Showing that the CHR and CHR2 columns are equal.
-sum(snp_id_col1$CHR != snp_id_col1$CHR2)
+sum(snpid_col1$CHR != snpid_col1$CHR2)
 
 # Testing whether the A1 and Allele2 columns are equal shows that they are not always equal.
-sum(snp_id_col1$A1 != snp_id_col1$Allele2)
+sum(snpid_col1$A1 != snpid_col1$Allele2)
 
-# Removing indels (1,091 down to 482 remaining (288 previously) - 609 removed (previously 12))
-snp_id_col1 <- snp_id_col1 %>% 
+# Removing indels (300 down to 288 remaining - 12 removed)
+snpid_col1 <- snpid_col1 %>% 
   select(-CHR2, -BP2) %>% 
   filter(str_length(Allele1) == 1,
          str_length(Allele2) == 1)
 
 # Isolating SNP, Allele1 and Allele2 columns.
-snp_id_col1_final <- snp_id_col1 %>% 
+snpid_col1_final <- snpid_col1 %>% 
   select(SNP, Allele1, Allele2)
 
-# Isolating 7 of the 482 variants with an rsID in the SNP2 column (previously 7 of 300).
-snp_id_col1_rsid_col2 <- snp_id_col1 %>%
+# Isolating 7 of the 288 variants with an rsID in the SNP2 column.
+snpid_rsid <- snpid_col1 %>%
   filter(str_detect(SNP2, regex("^rs[0-9]+")))
 
-# Isolating 474 of the 482 variants with a snp_id in the SNP2 column (previously 292 of 300).
-snp_id_col1_snp_id_col2 <- snp_id_col1 %>%
+# Isolating 280 of the 288 variants with a snp_id in the SNP2 column.
+snpid_snpid <- snpid_col1 %>%
   filter(str_detect(SNP2, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")))
 
 # Showing that all of these variants have identical SNP1 and SNP2 columns.
-sum(snp_id_col1_snp_id_col2$SNP1 != snp_id_col1_snp_id_col2$SNP2)
+sum(snpid_snpid$SNP1 != snpid_snpid$SNP2)
 
 # Remaining SNP has an affy ID in SNP2 column.
-snp_id_col1_affy_col2 <- snp_id_col1 %>%
+snpid_affyid <- snpid_col1 %>%
   filter(str_detect(SNP2, regex("^Affx-[0-9]+$")))
 
 # Two total SNPs have an affy ID in the SNP1 column.
-affy_col1 <- not_rsid_col1 %>%
+affyid_col1 <- not_rsid_col1 %>%
   filter(str_detect(SNP1, regex("^Affx-[0-9]+$")))
 
 # Both have an affy ID in the SNP2 column.
-affy_col1_affy_col2 <- affy_col1 %>%
+affyid_affyid <- affyid_col1 %>%
   filter(str_detect(SNP2, regex("^Affx-[0-9]+$")))
 
 # Showing that both of these variants have identical SNP1 and SNP2 columns.
-sum(affy_col1_affy_col2$SNP1 != affy_col1_affy_col2$SNP2)
+sum(affyid_affyid$SNP1 != affyid_affyid$SNP2)
 
-# Creating final list of SNPs without an rsID in column 1.
+# Creating final list of SNPs without an rsID in column 1, ensuring that we remove indels that were removed in the steps above.
 not_rsid_col1_final <- not_rsid_col1 %>% 
   mutate(RSID = case_when(str_detect(SNP2, regex("^rs[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
          ALT_RSID = NA_character_,
          AFFYID = case_when(str_detect(SNP2, regex("^Affx-[0-9]+$")) ~ SNP2, TRUE ~ NA_character_),
          SNP_ID = case_when(str_detect(SNP1, regex("^[0-9]+:[0-9]+_[ACGT]+_[ACGT]+$")) ~ SNP1, TRUE ~ NA_character_)) %>% 
-  left_join(snp_id_col1_final, by = "SNP") %>% 
-  filter(is.na(SNP_ID) | (!is.na(SNP_ID) & !is.na(Allele1))) # removing the indels
+  left_join(snpid_col1_final, by = "SNP") %>% 
+  filter(is.na(SNP_ID) | (!is.na(SNP_ID) & !is.na(Allele1)))
 
-# Combining two SNP lists back together resulting in 323,776 variants (previously 307,343)
+# Combining two SNP lists back together resulting in 307,343 variants
 sumstat3 <- rbind(rsid_col1_final, not_rsid_col1_final) %>% 
   arrange(CHR, BP)
 
@@ -499,36 +490,36 @@ remove <- as_tibble(remove) %>%
   filter(str_detect(value, "col"))
 remove <- remove$value
 rm(list = remove, remove)
-rm(different_rsids)
+rm(affyid_affyid, snpid_affyid, snpid_rsid, snpid_snpid)
 
-# 901 duplicates need to be removed.
+# Pulling out unique chr/bp coordinates, leaves 306,462 locations, suggesting 881 duplicate locations.
 tmp <- sumstat3 %>%
  select(CHR, BP) %>%
  unique()
 
 # Writing out list of locations for each chromosome.
 for(i in 1:22) {
-  write_delim(select(filter(tmp, CHR == i), BP), file = paste0(here("Output/Temp/"), "chr", i, "_snplist.txt"), delim = "\n")
+  write_delim(select(filter(tmp, CHR == i), BP), file = paste0(path(scratch_path, "Output/Temp"), "/chr", i, "_snplist.txt"), delim = "\n")
 }
 ```
 
 <br/>
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
-PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
 # Now to pull out the MAF and alleles for all SNPs using the mfi files (based on the SNP location files we just created).
-parallel "grep -Fwhf {1}/Output/Temp/chr{2}_snplist.txt /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/splits/ukb_mfi_chr{2}_v3.txt > {1}/Output/Temp/ukb_maf_info_chr{2}.txt" ::: ${PRS_DIR} ::: {1..22}'
+parallel "grep -Fwhf {1}/Output/Temp/chr{2}_snplist.txt /Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474/splits/ukb_mfi_chr{2}_v3.txt > {1}/Output/Temp/ukb_maf_info_chr{2}.txt" ::: $PRS_SCRATCH ::: {1..22}
 ```
 
 <br/> 
 
-```{r, eval = F}
+```{r, eval = FALSE}
 # Reading back in the filtered mfi files and combining them together (total of 319,376 variants).
 out <- tibble()
 for(i in 1:22) {
-  assign(paste0("chr", i, "_snps"), read_delim(here("Output/Temp", paste0("ukb_maf_info_chr", i, ".txt")), delim = "\t", col_names = FALSE) %>% mutate(CHR = i))
+  assign(paste0("chr", i, "_snps"), read_delim(path(scratch_path, "Output/Temp", paste0("ukb_maf_info_chr", i, ".txt")), delim = "\t", col_names = FALSE) %>% mutate(CHR = i))
   out <- rbind(out, get(paste0("chr", i, "_snps")))
   rm(list = paste0("chr", i, "_snps"), i)
 }
@@ -564,12 +555,12 @@ tmp <- sumstat4 %>%
   pull(CHR_BP) %>% 
   unique()
 
-# A total of 244,015 locations have only one SNP according to the mfi files. All remaining variants should be removed from further analysis.
+# A total of 244,015 locations have only one SNP according to the mfi files. All remaining variants will be removed from further analysis.
 tmp2 <- sumstat4 %>% 
   filter(!(CHR_BP %in% tmp))
 
 # Reading back in genotype file (bim file).
-geno <- read_delim(here("Output/Temp", "inCoreExGeno.bim"), delim = "\t", col_names = FALSE) %>% 
+geno <- read_delim(path(scratch_path, "Output/Temp", "inCoreExGeno.bim"), delim = "\t", col_names = FALSE) %>% 
   mutate(CHR_BP = paste0(X1, "_", X4))
 
 # Identifying locations that are biallelic in the genotype files (also removing indels for this comparison). Only 243,832 variants remain (183 fewer than tmp2).
@@ -709,7 +700,7 @@ sumstat_final <- rbind(test, test2) %>%
   arrange(CHR, BP)
 
 # Saving final summary statistic file.
-save(sumstat_final, file = here("Output/sumstat_final.RData"))
+save(sumstat_final, file = path(scratch_path, "Output/sumstat_final.RData"))
 
 # Cleaning up environment.
 rm(sumstat, sumstat2, sumstat3, sumstat4, sumstat5, sumstat5_1, test, test2)
@@ -733,14 +724,14 @@ To get from these cleaned up summary statistics to the final list of SNPs for th
 
 6. If there was a significant SNP (P < 5e-8) remaining after conditioning, the original lead SNP and the new lead SNP were used for a subsequent conditional GWAS at this locus.
 
-7. This was repeated until no more significant SNPs (P < 5e-8) remained at each locus.
+7. This was repeated until no more significant SNPs (P < 5e-8) remained at each locus after conditioning.
 
 8. Locus zooms were plotted for each locus, using both the unconditioned and conditioned GWAS results.
 
 9. Finally, the resulting list of 19 lead SNPs were saved in a single file ready for conversion to a PRS.
 
-```{r, eval = F}
-# Defining one SNP per locus ---------------------------------------------------------------------------
+```{r, eval = FALSE}
+# Defining one SNP per locus.
 # Keeping SNPs with P < 5e-8 SNPs and arranging from smallest P to largest P.
 sumstat_signif <- sumstat_final %>% 
   filter(P <= 5e-8) %>% 
@@ -802,7 +793,15 @@ for(i in 2:nrow(sumstat_signif)) {
   }
 }
 out <- rbind(out, sumstat_signif %>% slice(nrow(sumstat_signif)))
+```
 
+<br/>
+
+## Extracting regions of loci for conditional GWAS
+
+<br/>
+
+```{r, eval = FALSE}
 # Extracting regions of loci.
 # First keeping only chromosome and bp columns.
 bgen_ranges <- out %>% select(CHR, BP)
@@ -843,7 +842,7 @@ tmp <- bgen_ranges %>%
 rm(bgen_range1, bgen_range2, tmp1, tmp2, out, i)
   
 # Writing out file for filtering UK Biobank SNPs.
-write_delim(tmp, file = here("Output/Temp", "bgen_range.txt"), delim = "\n", col_names = F)
+write_delim(tmp, file = path(scratch_path, "Output/Temp", "bgen_range.txt"), delim = "\n", col_names = F)
 
 # Extracting all SNPs from the summary statistics file that fit within the boundaries of these loci.
 loci <- tibble()
@@ -857,13 +856,13 @@ for(i in 1:nrow(bgen_ranges)){
 loci <- loci %>% 
   mutate(SNP_ID2 = paste0(CHR, "_", BP, "_", Alternate_Allele, "_", Effect_Allele))
 
-# Making file for extracting variants from plink files.
+# Making file for extracting variants from PLINK files.
 tmp <- loci %>% 
   mutate(BP2 = BP) %>% 
   select(CHR, BP, BP2, SNP)
 
-# Writing out file for extracting variants from plink files.
-write_delim(tmp, file = here("Output/Temp", "loci_snps.txt"), delim = "\t", col_names = F)
+# Writing out file for extracting variants from PLINK files.
+write_delim(tmp, file = path(scratch_path, "Output/Temp", "loci_snps.txt"), delim = "\t", col_names = F)
 
 # Keeping most significant SNP at each locus (one per locus = 15 variants).
 out <- c()
@@ -883,34 +882,35 @@ gout_top <- out %>%
 rm(tmp, bgen_ranges, out, i)
 
 # Making file with list of unique chromosomes for bash script below.
-write_delim(unique(gout_top %>% select(CHR)), file = here("Output/Temp/unique_chr.txt"), col_names = F)
+write_delim(unique(gout_top %>% select(CHR)), file = path(scratch_path, "Output/Temp/unique_chr.txt"), col_names = F)
 ```
 
 <br/>
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
 PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 UKBB_DIR=/Volumes/archive/merrimanlab_nobackup/ukbio/EGAD00010001474
 
-# Extracting all SNPs at loci from bgen files and converting to vcf format.
-parallel "bgenix -g {2}/ukb_imp_chr{3}_v3.bgen -vcf -incl-range {1}/Output/Temp/bgen_range.txt | bcftools reheader -h {2}/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs {2}/bgen_to_vcf/rename_contigs.txt | bgzip -c > {1}/Output/Temp/chr{3}_forclumping.vcf.gz" ::: ${PRS_DIR} ::: ${UKBB_DIR} :::: ${PRS_DIR}/Output/Temp/unique_chr.txt
+# Extracting all SNPs at loci from BGEN files and converting to VCF format.
+parallel "bgenix -g {1}/ukb_imp_chr{2}_v3.bgen -vcf -incl-range {3}/Output/Temp/bgen_range.txt | bcftools reheader -h {1}/bgen_to_vcf/new_header.txt | bcftools annotate --rename-chrs {1}/bgen_to_vcf/rename_contigs.txt | bgzip -c > {3}/Output/Temp/chr{2}_forclumping.vcf.gz" ::: $UKBB_DIR :::: $PRS_SCRATCH/Output/Temp/unique_chr.txt ::: $PRS_SCRATCH
 
-# Converting from plink to vcf, also adding phenotype data, extracting only variants of interest, removing variants with >10% missingness, removing variants with less than 1% frequency, removing variants that fail hardy weinberg equilibrium test with a P < 0.000001
-parallel "plink1.9b4.9 --vcf {1}/Output/Temp/chr{2}_forclumping.vcf.gz --extract range {1}/Output/Temp/loci_snps.txt --pheno {1}/Data/GWAS/gout_gwas_covar.covar --pheno-name plink_goutaff --update-sex {1}/Data/GWAS/gout_gwas_keep_ids_w_sex.txt --geno 0.1 --maf 0.01 --hwe 0.000001 --make-bed --out {1}/Output/Temp/chr{2}_tmp"  ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/unique_chr.txt
+# Converting from VCF to PLINK format, also adding phenotype data, extracting only variants of interest, removing variants with >10% missingness, removing variants with less than 1% frequency, removing variants that fail Hardy-Weinberg equilibrium test with a P < 0.000001
+parallel "plink1.9b4.9 --vcf {1}/Output/Temp/chr{2}_forclumping.vcf.gz --extract range {1}/Output/Temp/loci_snps.txt --pheno {4}/splits/gout_gwas_covar.covar --pheno-name plink_goutaff --update-sex {4}/splits/gout_gwas_keep_ids_w_sex.txt --geno 0.1 --maf 0.01 --hwe 0.000001 --make-bed --out {1}/Output/Temp/chr{2}_tmp"  ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/unique_chr.txt ::: $PRS_DIR ::: $UKBB_DIR
 ```
 
 <br/>
 
-```{r, eval = F}
-# Reading the bim files into R and converting their identifiers to just the rsid.
+```{r, eval = FALSE}
+# Reading the bim files into R and converting their identifiers to just the rsID.
 # First listing all files that end in _tmp.bim.
-file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), "_tmp.bim")]
+file_names <- list.files(path(scratch_path, "Output/Temp/"))[str_detect(list.files(path(scratch_path, "Output/Temp/")), "_tmp.bim")]
 
 # Then reading in each file that matches the above format.
 for(i in file_names){
   # Reading in file and saving as the file name.
-  assign(i, read_delim(paste0(here("Output/Temp/"), i), delim = "\t", col_names = F))
+  assign(i, read_delim(paste0(path(scratch_path, "Output/Temp"), "/", i), delim = "\t", col_names = F))
   
   # Adding information from loci table and making clean SNP ID column.
   assign(i, get(i) %>% left_join(loci, (by = c("X1" = "CHR", "X4" = "BP"))) %>% mutate(SNP_clean = case_when(is.na(RSID) ~ SNP_ID, TRUE ~ RSID)))
@@ -919,63 +919,78 @@ for(i in file_names){
   assign(paste0("new_", i), get(i) %>% select(X1, SNP_clean, X3:X6))
   
   # Overwriting existing bim file with cleaned version.
-  write_delim(get(paste0("new_", i)), file = paste0(here("Output/Temp/"), i), delim = "\t", col_names = F)
+  write_delim(get(paste0("new_", i)), file = paste0(path(scratch_path, "Output/Temp"), "/", i), delim = "\t", col_names = F)
 }
 
 # Cleaning up environment.
 rm(list = ls()[str_detect(ls(), ".bim")], i, file_names)
+```
 
+<br/>
 
+## Running the conditional GWAS
 
-# Running the conditional GWAS. ----------------------------------------
-# Splitting up the plink files to have one locus per file (saves on computational time).
-# Making files for extracting SNPs from plink files.
+<br/>
+
+```{r, eval = FALSE}
+# Running the conditional GWAS.
+# Splitting up the PLINK files to have one locus per file (saves on computational time).
+# Selecting columns of interest from gout_top.
 gout_top2 <- gout_top %>% 
   select(CHR, BP1, BP2, RSID)
 
+# Making files for extracting SNPs from PLINK files.
 for(i in 1:nrow(gout_top2)){
+  
+  # Saving each row as a tmp variable.
   tmp <- gout_top2 %>% slice(i)
-  write_delim(tmp, file = paste0(here("Output/Temp/"), "extractrange_", tmp$RSID, ".txt"), delim = "\t", col_names = F)
+  
+  # Writing out tmp variable as a file for extracting the range of each variant.
+  write_delim(tmp, file = paste0(path(scratch_path, "Output/Temp"), "/extractrange_", tmp$RSID, ".txt"), delim = "\t", col_names = F)
 }
 
 # Making file with list of all chromosomes for bash script below.
-write_delim(gout_top %>% select(CHR), file = here("Output/Temp/all_chr.txt"), col_names = F)
+write_delim(gout_top %>% select(CHR), file = path(scratch_path, "Output/Temp/all_chr.txt"), col_names = F)
 
 # Making file with list of all SNPs for bash script below.
-write_delim(gout_top %>% select(RSID), file = here("Output/Temp/all_rsid.txt"), col_names = F)
+write_delim(gout_top %>% select(RSID), file = path(scratch_path, "Output/Temp/all_rsid.txt"), col_names = F)
 
-# Printing split numbers for easy copy pasting below.
-paste(paste0(0, 0:9), collapse = " ")
+# Making file with list of all split numbers for bash script below.
+write_delim(tibble(paste0(0, 0:9)), file = path(scratch_path, "Output/Temp/split_numbers.txt"), col_names = F)
 ```
 
 <br/>
 
-```{bash, engine.opts = '-l', eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
 
-# Filtering plink files to keep SNPs of interest for each conditional GWAS.
-parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_tmp --extract range {1}/Output/Temp/extractrange_{3}.txt --make-bed --out {1}/Output/Temp/{3}" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/all_chr.txt :::: ${PRS_DIR}/Output/Temp/all_rsid.txt
+# Filtering PLINK files to keep SNPs of interest for each conditional GWAS.
+parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_tmp --extract range {1}/Output/Temp/extractrange_{3}.txt --make-bed --out {1}/Output/Temp/{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/all_chr.txt :::: $PRS_SCRATCH/Output/Temp/all_rsid.txt
 
 # Cutting out list of SNPs from bim file then splitting the list into 10 parts.
-parallel "cat {1}/Output/Temp/{2}.bim | cut -f 2 > {1}/Output/Temp/{2}_snps; split -d -n l/10 {1}/Output/Temp/{2}_snps {1}/Output/Temp/{2}_snps_split" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/all_rsid.txt
+parallel "cat {1}/Output/Temp/{2}.bim | cut -f 2 > {1}/Output/Temp/{2}_snps; split -d -n l/10 {1}/Output/Temp/{2}_snps {1}/Output/Temp/{2}_snps_split" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/all_rsid.txt
 
 # Concatenating the conditioning SNP of interest onto each split file.
-parallel "echo {2} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/all_rsid.txt ::: 00 01 02 03 04 05 06 07 08 09
+parallel "echo {2} >> {1}/Output/Temp/{2}_snps_split{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/all_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt
+
+# De-duplicating each split file.
+parallel "cat {1}/Output/Temp/{2}_snps_split{3} | sort -u -o {1}/Output/Temp/{2}_snps_split{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/all_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt
 
 # Running conditional GWAS's in parallel.
-parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition {2} --out {1}/Output/Temp/{2}_split{3}" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/all_rsid.txt ::: 00 01 02 03 04 05 06 07 08 09
+parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {4}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition {2} --out {1}/Output/Temp/{2}_split{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/all_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt ::: $PRS_DIR
 ```
 
 <br/>
 
-```{r, eval = F}
+```{r, eval = FALSE}
 # Listing file names of all the newly generated GWAS summary statistics.
-file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), regex("rs[0-9]+_split[0-9]+.assoc.logistic"))]
+file_names <- list.files(path(scratch_path, "Output/Temp/"))[str_detect(list.files(path(scratch_path, "Output/Temp/")), regex("rs[0-9]+_split[0-9]+.assoc.logistic"))]
 
 # Reading all the GWAS summary statistics back into R.
 for(i in file_names){
-  assign(i, read.table(paste0(here("Output/Temp/"), i), header = T) %>% filter(TEST == "ADD"))
+  assign(i, read.table(paste0(path(scratch_path, "Output/Temp"), "/", i), header = T) %>% filter(TEST == "ADD"))
 }
 
 # Combining the summary statistics for each split together to give a complete summary stat file for each SNP. Also extracting the new lead SNP and adding a column to the unconditioned summary stats.
@@ -998,7 +1013,7 @@ for(i in 1:nrow(gout_top)){
     tmp3 <- rbind(tmp3, tmp2)
   }
   
-  # Remove any rows containing NA's (i.e. those conditioned on themselves) and save as <RSID>_gwas.
+  # Remove any rows containing NA's (i.e. those conditioned on themselves) and save as <rsID>_gwas.
   assign(paste0(gout_top$RSID[i], "_gwas"), tmp3 %>% na.omit())
   
   # Extract the most significant SNP after conditioning along with its p-value.
@@ -1025,37 +1040,41 @@ rm(list = ls()[str_detect(ls(), ".assoc")], i, tmp, tmp2, file_names, tmp3, j)
 
 # Second round of conditioning.
 # Making file with list of all remaining SNPs for bash script below.
-write_delim(gout_top_resid %>% select(RSID), file = here("Output/Temp/round1_rsid.txt"), col_names = F)
+write_delim(gout_top_resid %>% select(RSID), file = path(scratch_path, "Output/Temp/round1_rsid.txt"), col_names = F)
 
 # Making file with list of all new lead SNPs for bash script below.
-write_delim(gout_top_resid %>% select(new_lead), file = here("Output/Temp/round1_rsid2.txt"), col_names = F)
+write_delim(gout_top_resid %>% select(new_lead), file = path(scratch_path, "Output/Temp/round1_rsid2.txt"), col_names = F)
 ```
 
 <br/>
 
-```{bash, eval = F}
+```{bash, eval = FALSE}
 # Setting directory as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
 
 # Concatenating the conditioning SNP of interest onto each split file.
-parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/round1_rsid.txt ::: 00 01 02 03 04 05 06 07 08 09 :::: ${PRS_DIR}/Output/Temp/round1_rsid2.txt
+parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round1_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt :::: $PRS_SCRATCH/Output/Temp/round1_rsid2.txt
+
+# De-duplicating each split file.
+parallel "cat {1}/Output/Temp/{2}_snps_split{3} | sort -u -o {1}/Output/Temp/{2}_snps_split{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round1_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt
 
 # Writing out SNP IDs into a series of files for conditioning next round of GWAS.
-parallel --xapply "echo $'{2}\n{3}' > {1}/Output/Temp/{2}_2" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/round1_rsid.txt :::: ${PRS_DIR}/Output/Temp/round1_rsid2.txt
+parallel --xapply "echo $'{2}\n{3}' > {1}/Output/Temp/{2}_2" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round1_rsid.txt :::: $PRS_SCRATCH/Output/Temp/round1_rsid2.txt
 
 # Running second round of conditional GWAS's in parallel.
-parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_2 --out {1}/Output/Temp/{2}_split{3}_2" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/round1_rsid.txt ::: 00 01 02 03 04 05 06 07 08 09
+parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {4}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_2 --out {1}/Output/Temp/{2}_split{3}_2" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round1_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt ::: $PRS_DIR
 ```
 
 <br/>
 
 ```{r, eval = F}
 # Listing file names of all the newly generated GWAS summary statistics.
-file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), regex("rs[0-9]+_split[0-9]+_2.assoc.logistic"))]
+file_names <- list.files(path(scratch_path, "Output/Temp/"))[str_detect(list.files(path(scratch_path, "Output/Temp/")), regex("rs[0-9]+_split[0-9]+_2.assoc.logistic"))]
 
 # Reading all the new GWAS summary statistics back into R.
 for(i in file_names){
-  assign(i, read.table(paste0(here("Output/Temp/"), i), header = T) %>% filter(TEST == "ADD"))
+  assign(i, read.table(paste0(path(scratch_path, "Output/Temp"), "/", i), header = T) %>% filter(TEST == "ADD"))
 }
 
 # Combining the summary statistics for each split together to give a complete summary stat file for each SNP. Also extracting the new lead SNP and adding a column to the summary stats.
@@ -1078,7 +1097,7 @@ for(i in 1:nrow(gout_top_resid)){
     tmp3 <- rbind(tmp3, tmp2)
   }
   
-  # Remove any rows containing NA's (i.e. those conditioned on themselves) and save as <RSID>_gwas2.
+  # Remove any rows containing NA's (i.e. those conditioned on themselves) and save as <rsID>_gwas2.
   assign(paste0(gout_top_resid$RSID[i], "_gwas2"), tmp3 %>% na.omit())
   
   # Extract the most significant SNP after conditioning along with its p-value.
@@ -1105,40 +1124,44 @@ rm(list = ls()[str_detect(ls(), ".assoc")], i, tmp, tmp2, file_names, tmp3, j)
 
 # Third round of conditioning
 # Making file with list of all remaining SNPs for bash script below.
-write_delim(gout_top_resid2 %>% select(RSID), file = here("Output/Temp/round2_rsid.txt"), col_names = F)
+write_delim(gout_top_resid2 %>% select(RSID), file = path(scratch_path, "Output/Temp/round2_rsid.txt"), col_names = F)
 
 # Making file with list of all previous lead SNPs for bash script below.
-write_delim(gout_top_resid2 %>% select(new_lead), file = here("Output/Temp/round2_rsid2.txt"), col_names = F)
+write_delim(gout_top_resid2 %>% select(new_lead), file = path(scratch_path, "Output/Temp/round2_rsid2.txt"), col_names = F)
 
 # Making file with list of all new lead SNPs for bash script below.
-write_delim(gout_top_resid2 %>% select(new_lead2), file = here("Output/Temp/round2_rsid3.txt"), col_names = F)
+write_delim(gout_top_resid2 %>% select(new_lead2), file = path(scratch_path, "Output/Temp/round2_rsid3.txt"), col_names = F)
 ```
 
 <br/>
 
-```{bash, eval = F}
+```{bash, eval = FALSE}
 # Setting directory as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
 
 # Concatenating the conditioning SNP of interest onto each split file.
-parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/round2_rsid.txt ::: 00 01 02 03 04 05 06 07 08 09 :::: ${PRS_DIR}/Output/Temp/round2_rsid3.txt
+parallel "echo {4} >> {1}/Output/Temp/{2}_snps_split{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round2_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt :::: $PRS_SCRATCH/Output/Temp/round2_rsid3.txt
+
+# De-duplicating each split file.
+parallel "cat {1}/Output/Temp/{2}_snps_split{3} | sort -u -o {1}/Output/Temp/{2}_snps_split{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round1_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt
 
 # Writing out SNP IDs into a series of files for conditioning next round of GWAS.
-parallel --xapply "echo $'{2}\n{3}\n{4}' > {1}/Output/Temp/{2}_3" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/round2_rsid.txt :::: ${PRS_DIR}/Output/Temp/round2_rsid2.txt :::: ${PRS_DIR}/Output/Temp/round2_rsid3.txt
+parallel --xapply "echo $'{2}\n{3}\n{4}' > {1}/Output/Temp/{2}_3" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round2_rsid.txt :::: $PRS_SCRATCH/Output/Temp/round2_rsid2.txt :::: $PRS_SCRATCH/Output/Temp/round2_rsid3.txt
 
 # Running third round of conditional GWAS's in parallel.
-parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {1}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_3 --out {1}/Output/Temp/{2}_split{3}_3" ::: ${PRS_DIR} :::: ${PRS_DIR}/Output/Temp/round2_rsid.txt ::: 00 01 02 03 04 05 06 07 08 09
+parallel "plink1.9b6.10 --bfile {1}/Output/Temp/{2} --extract {1}/Output/Temp/{2}_snps_split{3} --logistic sex --ci 0.95 --covar {4}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/{2}_3 --out {1}/Output/Temp/{2}_split{3}_3" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round2_rsid.txt :::: $PRS_SCRATCH/Output/Temp/split_numbers.txt ::: $PRS_DIR
 ```
 
 <br/>
 
-```{r, eval = F}
+```{r, eval = FALSE}
 # Listing file names of all the newly generated GWAS summary statistics.
-file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), regex("rs[0-9]+_split[0-9]+_3.assoc.logistic"))]
+file_names <- list.files(path(scratch_path, "Output/Temp/"))[str_detect(list.files(path(scratch_path, "Output/Temp/")), regex("rs[0-9]+_split[0-9]+_3.assoc.logistic"))]
 
 # Reading all the new GWAS summary statistics back into R.
 for(i in file_names){
-  assign(i, read.table(paste0(here("Output/Temp/"), i), header = T) %>% filter(TEST == "ADD"))
+  assign(i, read.table(paste0(path(scratch_path, "Output/Temp"), "/", i), header = T) %>% filter(TEST == "ADD"))
 }
 
 # Combining the summary statistics for each split together to give a complete summary stat file for each SNP. Also extracting the new lead SNP and adding a column to the summary stats.
@@ -1158,7 +1181,7 @@ for(j in 0:9){
   tmp3 <- rbind(tmp3, tmp2)
 }
 
-# Remove any rows containing NA's (i.e. those conditioned on themselves) and save as <RSID>_gwas3.
+# Remove any rows containing NA's (i.e. those conditioned on themselves) and save as <rsID>_gwas3.
 assign(paste0(gout_top_resid2$RSID, "_gwas3"), tmp3 %>% na.omit())
 
 # Extract the most significant SNP after conditioning along with its p-value.
@@ -1175,16 +1198,21 @@ tmp <- tmp %>%
 gout_top4 <- gout_top_resid2 %>% 
   cbind(tmp)
 
-# Filtering to only keep SNPs that are still significant at P < 5e-8.
+# Filtering to only keep SNP's that are still significant at P < 5e-8.
 gout_top_resid3 <- gout_top4 %>%
   filter(new_p3 < 5e-8)
 
 # Cleaning up environment.
 rm(list = ls()[str_detect(ls(), ".assoc")], i, tmp, tmp2, file_names, tmp3, j)
+```
 
+<br/>
 
+## Producing locus zooms for gout GWAS
 
-# Locus zooms ---------------------------------------
+<br/>
+
+```{r, eval = FALSE}
 # Loading in code and gene list. This was cloned from the https://github.com/Geeketics/LocusZooms repository.
 source(here("Script/Functions/locus_zoom.R"))
 
@@ -1194,20 +1222,20 @@ UCSC_GRCh37_Genes_UniqueList.txt <- read.delim(here("Data/GWAS/UCSC_GRCh37_Genes
 
 <br/>
 
-```{bash, eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
-PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
-# Calculating LD for each original GWAS lead SNP vs all other SNPs in that chromosome.
-parallel --xapply "plink1.9b6.10 --bfile {3}/Output/Temp/chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out {3}/Output/Temp/chr{1}_{2}_ld" :::: ${PRS_DIR}/Output/Temp/all_chr.txt :::: ${PRS_DIR}/Output/Temp/all_rsid.txt ::: ${PRS_DIR}
+# Calculating LD for each original GWAS lead SNP vs all other SNP's in that chromosome.
+parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_tmp --r2 inter-chr --ld-snp {3} --ld-window-r2 0 --out {1}/Output/Temp/chr{2}_{3}_ld" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/all_chr.txt :::: $PRS_SCRATCH/Output/Temp/all_rsid.txt
 ```
 
 <br/>
 
-```{r, eval = F}
+```{r, eval = FALSE}
 # Reading the LD reports back into R.
 for(i in 1:nrow(gout_top)){
-  assign(paste0("chr", gout_top$CHR[i], "_", gout_top$RSID[i], "_ld"), read_table(paste0(here("Output/Temp/"), "chr", gout_top$CHR[i], "_", gout_top$RSID[i], "_ld.ld")))
+  assign(paste0("chr", gout_top$CHR[i], "_", gout_top$RSID[i], "_ld"), read_table(paste0(path(scratch_path, "Output/Temp"), "/chr", gout_top$CHR[i], "_", gout_top$RSID[i], "_ld.ld")))
 }
 
 # Extracting new lead SNP IDs from first round of conditioning.
@@ -1250,25 +1278,25 @@ for(i in 1:nrow(gout_top)){
 
 # Plotting the locus zooms of the first round of conditioning.
 # Making file with list of all SNPs in new_lead column for bash script below.
-write_delim(gout_top2 %>% select(new_lead), file = here("Output/Temp/round1_all_rsid.txt"), col_names = F)
+write_delim(gout_top2 %>% select(new_lead), file = path(scratch_path, "Output/Temp/round1_all_rsid.txt"), col_names = F)
 ```
 
 <br/>
 
-```{bash, eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
-PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
 # Calculating LD for each newly conditioned GWAS lead SNP vs all other SNPs in that chromosome.
-parallel --xapply "plink1.9b6.10 --bfile {3}/Output/Temp/chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out {3}/Output/Temp/chr{1}_{2}_ld" :::: ${PRS_DIR}/Output/Temp/all_chr.txt :::: ${PRS_DIR}/Output/Temp/round1_all_rsid.txt ::: ${PRS_DIR}
+parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_tmp --r2 inter-chr --ld-snp {3} --ld-window-r2 0 --out {1}/Output/Temp/chr{2}_{3}_ld" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/all_chr.txt :::: $PRS_SCRATCH/Output/Temp/round1_all_rsid.txt
 ```
 
 <br/>
 
-```{r, eval = F}
+```{r, eval = FALSE}
 # Reading the LD reports back into R.
 for(i in 1:nrow(gout_top2)){
-  assign(paste0("chr", gout_top2$CHR[i], "_", gout_top2$new_lead[i], "_ld"), read_table(paste0(here("Output/Temp/"), "chr", gout_top2$CHR[i], "_", gout_top2$new_lead[i], "_ld.ld")))
+  assign(paste0("chr", gout_top2$CHR[i], "_", gout_top2$new_lead[i], "_ld"), read_table(paste0(path(scratch_path, "Output/Temp"), "/chr", gout_top2$CHR[i], "_", gout_top2$new_lead[i], "_ld.ld")))
 }
 
 # For each SNP in gout_top2 (15 SNPs total).
@@ -1287,28 +1315,28 @@ for(i in 1:nrow(gout_top2)){
 
 # Plotting locus zooms of second round of conditioning.
 # Making file with list of all SNPs in CHR column for bash script below.
-write_delim(gout_top3 %>% select(CHR), file = here("Output/Temp/round2_all_chr.txt"), col_names = F)
+write_delim(gout_top3 %>% select(CHR), file = path(scratch_path, "Output/Temp/round2_all_chr.txt"), col_names = F)
 
 # Making file with list of all SNPs in new_lead column for bash script below.
-write_delim(gout_top3 %>% select(new_lead2), file = here("Output/Temp/round2_all_rsid.txt"), col_names = F)
+write_delim(gout_top3 %>% select(new_lead2), file = path(scratch_path, "Output/Temp/round2_all_rsid.txt"), col_names = F)
 ```
 
 <br/>
 
-```{bash, eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
-PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
 # Calculating LD for each newly conditioned GWAS lead SNP vs all other SNPs in that chromosome.
-parallel --xapply "plink1.9b6.10 --bfile {3}/Output/Temp/chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out {3}/Output/Temp/chr{1}_{2}_ld" :::: ${PRS_DIR}/Output/Temp/round1_all_chr.txt :::: ${PRS_DIR}/Output/Temp/round2_all_rsid.txt ::: ${PRS_DIR}
+parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_tmp --r2 inter-chr --ld-snp {3} --ld-window-r2 0 --out {1}/Output/Temp/chr{2}_{3}_ld" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round2_all_chr.txt :::: $PRS_SCRATCH/Output/Temp/round2_all_rsid.txt
 ```
 
 <br/>
 
-```{r, eval = F}
+```{r, eval = FALSE}
 # Reading the LD reports back into R.
 for(i in 1:nrow(gout_top3)){
-  assign(paste0("chr", gout_top3$CHR[i], "_", gout_top3$new_lead2[i], "_ld"), read_table(paste0(here("Output/Temp/"), "chr", gout_top3$CHR[i], "_", gout_top3$new_lead2[i], "_ld.ld")))
+  assign(paste0("chr", gout_top3$CHR[i], "_", gout_top3$new_lead2[i], "_ld"), read_table(paste0(path(scratch_path, "Output/Temp"), "/chr", gout_top3$CHR[i], "_", gout_top3$new_lead2[i], "_ld.ld")))
 }
 
 # For each SNP in gout_top3 (3 SNPs total).
@@ -1328,28 +1356,28 @@ for(i in 1:nrow(gout_top3)){
 
 # Plotting locus zooms of third round of conditioning.
 # Making file with list of all SNPs in CHR column for bash script below.
-write_delim(gout_top4 %>% select(CHR), file = here("Output/Temp/round3_all_chr.txt"), col_names = F)
+write_delim(gout_top4 %>% select(CHR), file = path(scratch_path, "Output/Temp/round3_all_chr.txt"), col_names = F)
 
 # Making file with list of all SNPs in new_lead column for bash script below.
-write_delim(gout_top4 %>% select(new_lead3), file = here("Output/Temp/round3_all_rsid.txt"), col_names = F)
+write_delim(gout_top4 %>% select(new_lead3), file = path(scratch_path, "Output/Temp/round3_all_rsid.txt"), col_names = F)
 ```
 
 <br/>
 
-```{bash, eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
-PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
 # Calculating LD for each newly conditioned GWAS lead SNP vs all other SNPs in that chromosome.
-parallel --xapply "plink1.9b6.10 --bfile {3}/Output/Temp/chr{1}_tmp --r2 inter-chr --ld-snp {2} --ld-window-r2 0 --out {3}/Output/Temp/chr{1}_{2}_ld" :::: ${PRS_DIR}/Output/Temp/round3_all_chr.txt :::: ${PRS_DIR}/Output/Temp/round3_all_rsid.txt ::: ${PRS_DIR}
+parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_tmp --r2 inter-chr --ld-snp {3} --ld-window-r2 0 --out {1}/Output/Temp/chr{2}_{3}_ld" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/round3_all_chr.txt :::: $PRS_SCRATCH/Output/Temp/round3_all_rsid.txt
 ```
 
 <br/>
 
-```{r, eval = F}
+```{r, eval = FALSE}
 # Reading the LD reports back into R.
 for(i in 1:nrow(gout_top4)){
-  assign(paste0("chr", gout_top4$CHR[i], "_", gout_top4$new_lead3[i], "_ld"), read_table(paste0(here("Output/Temp/"), "chr", gout_top4$CHR[i], "_", gout_top4$new_lead3[i], "_ld.ld")))
+  assign(paste0("chr", gout_top4$CHR[i], "_", gout_top4$new_lead3[i], "_ld"), read_table(paste0(path(scratch_path, "Output/Temp"), "/chr", gout_top4$CHR[i], "_", gout_top4$new_lead3[i], "_ld.ld")))
 }
 
 # Plotting locus zooms
@@ -1366,10 +1394,15 @@ for(i in 1:nrow(gout_top4)){
              secondary.snp = gout_top_full$RSID,
              secondary.label = TRUE)
 }
+```
 
+<br/>
 
+## Combining all GWAS results together into final list.
 
-# Combining all GWAS results together into final list. ----------------------------------------------
+<br/>
+
+```{r, eval = FALSE}
 # Extracting regions of all loci.
 regions <- gout_top %>%
   select(CHR, BP1, BP2)
@@ -1395,119 +1428,114 @@ gout_top_full <- out
 
 # For each of the loci with multiple SNPs, testing the association of each SNP after adjusting for all others at the locus.
 # Need to write it such that it asks: for every locus with more than one SNP after conditioning, run an association test for each SNP conditioned on all other SNPs at that locus.
-# Extracting all SNPs from those loci.
+
+# Making empty vector.
+out <- c()
+
+# Looping over each duplicated locus start site.
 for(i in unique(gout_top_full$BP1[duplicated(gout_top_full$BP1)])){
   
-  assign(paste0(i, "_locus"), gout_top_full %>% filter(BP1 == i))
+  # Extracting all lead variants at a locus.
+  assign(paste0(i, "_locus"), gout_top_full %>% filter(BP1 == i) %>% rowid_to_column() %>% select(CHR, RSID, BP1, rowid))
   
+  # Adding to out table.
+  out <- rbind(out, get(paste0(i, "_locus")))
+  
+  # Extracting the RSID list for the full locus.
+  tmp <- get(paste0(i, "_locus")) %>% 
+      select(RSID)
+  
+  # Writing out the RSIDs for the full locus in a file.
+  write_delim(tmp, file = paste0(path(scratch_path, "Output/Temp"), "/locus_", i, "_snps.txt"), delim = "\n", col_names = F)
+  
+  # Looping over each row of the locus.
   for(j in 1:NROW(get(paste0(i, "_locus")))){
+    
+    # Making temporary list of SNPs that exclude the SNP in that row of the locus table.
     tmp <- get(paste0(i, "_locus")) %>% 
       select(RSID) %>% 
       slice(-j)
   
-    write_delim(tmp, file = paste0(here("Output/Temp/"), "locus_", i, "_snps_", j, ".txt"), delim = "\n", col_names = F)
+    # Writing out this list of variants.
+    write_delim(tmp, file = paste0(path(scratch_path, "Output/Temp"), "/locus_", i, "_snps_", j, ".txt"), delim = "\n", col_names = F)
   }
-  
-  
-  
-  tmp <- get(paste0(i, "_locus")) %>% 
-    select(CHR)
-  
-  write_delim(tmp, file = paste0(here("Output/Temp/"), "locus_", i, "_chr.txt"), delim = "\n", col_names = F)
 }
 
-# Write out another file called multi_chr.txt with both chromosomes in it.
-write_delim(unique(multi_snps %>% select(CHR)), file = here("Output/Temp/multi_chr.txt"), delim = "\n", col_names = F)
+# Writing out as CHR file.
+write_delim(out %>% select(CHR), file = path(scratch_path, "Output/Temp/locus_chrs.txt"), delim = "\n", col_names = F)
 
+# Writing out as BP1 file.
+write_delim(out %>% select(BP1), file = path(scratch_path, "Output/Temp/locus_ids.txt"), delim = "\n", col_names = F)
 
+# Writing out as BP1 file.
+write_delim(out %>% select(rowid), file = path(scratch_path, "Output/Temp/locus_iteration.txt"), delim = "\n", col_names = F)
+
+# Extracting CHR and BP1 for each unique locus.
+tmp <- out %>% 
+  select(CHR, BP1) %>% 
+  filter(duplicated(BP1)) %>% 
+  unique()
+
+# Writing out as CHR file.
+write_delim(tmp %>% select(CHR), file = path(scratch_path, "Output/Temp/locus_chr.txt"), delim = "\n", col_names = F)
+
+# Writing out as BP1 file.
+write_delim(tmp %>% select(BP1), file = path(scratch_path, "Output/Temp/locus_id.txt"), delim = "\n", col_names = F)
 ```
 
 <br/>
 
-```{bash, eval = F}
+```{bash, engine.opts = '-l', eval = FALSE}
 # Setting directory as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 PRS_DIR=/Volumes/archive/userdata/student_users/nicksumpter/Documents/PhD/PRS
 
 # Extracting SNPs of interest for each chromosome of interest.
-parallel "plink1.9b6.10 --bfile {2}/Output/Temp/chr{1}_tmp --extract {2}/Output/Temp/snps_to_extract.txt --make-bed --out {2}/Output/Temp/chr{1}_test" :::: ${PRS_DIR}/Output/Temp/multi_chr.txt ::: ${PRS_DIR}
+parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_tmp --extract {1}/Output/Temp/locus_{3}_snps.txt --make-bed --out {1}/Output/Temp/chr{2}_locus{3}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/locus_chr.txt :::: $PRS_SCRATCH/Output/Temp/locus_id.txt
 
-# 
-plink1.9b6.10 --bfile ${PRS_DIR}/Output/Temp/chr4_test --bmerge ${PRS_DIR}/Output/Temp/chr11_test --make-bed --out ${PRS_DIR}/Output/Temp/merged_test
-
-while IFS= read -r RSID; do
-plink1.9b6.10 --bfile ${PRS_DIR}/Output/Temp/merged_test --logistic sex --ci 0.95 --covar ${PRS_DIR}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition ${RSID} --out ${PRS_DIR}/Output/Temp/final_gwas_${RSID}
-done < ${PRS_DIR}/Output/Temp/snps_to_extract.txt
+# Running conditioned GWAS for each locus.
+parallel --xapply "plink1.9b6.10 --bfile {1}/Output/Temp/chr{2}_locus{3} --logistic sex --ci 0.95 --covar {5}/Data/GWAS/gout_gwas_covar.covar --covar-name Age,pc1-pc40 --condition-list {1}/Output/Temp/locus_{3}_snps_{4}.txt --out {1}/Output/Temp/final_gwas_{3}_{4}" ::: $PRS_SCRATCH :::: $PRS_SCRATCH/Output/Temp/locus_chrs.txt :::: $PRS_SCRATCH/Output/Temp/locus_ids.txt :::: $PRS_SCRATCH/Output/Temp/locus_iteration.txt ::: $PRS_DIR
 ```
 
 <br/>
 
 ```{r, eval = F}
+# Getting file names for all created final GWAS tables.
+file_names <- list.files(path(scratch_path, "Output/Temp/"))[str_detect(list.files(path(scratch_path, "Output/Temp/")), "final_gwas_.+logistic")]
 
-
-for(i in 4:7){
-  system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_test --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition ', multi_snps$RSID[i], ' --out ', here("Output/Temp/"), 'final_gwas_', multi_snps$RSID[i]))
-}
-
-for(i in 1:3){
-  system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_test --logistic sex --ci 0.95 --covar ', here("Data/GWAS", "gout_gwas_covar.covar"), ' --covar-name Age,pc1-pc40 --condition-list ', here("Output/Temp/"), 'conditionlist_', multi_snps$RSID[i], '.txt --out ', here("Output/Temp/"), 'final_gwas_', multi_snps$RSID[i]))
-}
-
-file_names <- list.files(here("Output/Temp/"))[str_detect(list.files(here("Output/Temp/")), "final_gwas_.+logistic")]
-
+# Reading in GWAS summary stats and combining into a single table.
+out <- c()
 for(i in file_names){
-  assign(i, read.table(paste0(here("Output/Temp/"), i), header = T) %>% filter(TEST == "ADD"))
+  assign(i, read.table(paste0(path(scratch_path, "Output/Temp"), "/", i), header = T) %>% filter(TEST == "ADD") %>% na.omit())
+  
+  out <- rbind(out, get(i))
 }
 
-tmp <- c()
-for(i in 1:3){
-  tmp2 <- get(paste0("final_gwas_", multi_snps$RSID[i], ".assoc.logistic")) %>% slice(i)
-  tmp <- rbind(tmp, tmp2)
-}
+# Keeping columns of interest.
+out <- out %>% 
+  select(CHR, BP, OR:U95, P)
 
-tmp2 <- c()
-for(i in 4:7){
-  tmp3 <- get(paste0("final_gwas_", multi_snps$RSID[i], ".assoc.logistic")) %>% slice(-(1:3))
-  tmp2 <- rbind(tmp2, tmp3)
-}
+# Merging new SNP effects into full list of variants for PRS.
+gout_top_final <- gout_top_full %>% 
+  left_join(out, by = c("CHR", "BP")) %>% 
+  mutate(OR = case_when(is.na(OR.y) ~ OR.x, 
+                        TRUE ~ OR.y),
+         OR_old = case_when(!is.na(OR.y) ~ OR.x),
+         SE = case_when(is.na(SE.y) ~ SE.x, 
+                        TRUE ~ SE.y),
+         SE_old = case_when(!is.na(SE.y) ~ SE.x),
+         L95 = case_when(is.na(L95.y) ~ L95.x, 
+                        TRUE ~ L95.y),
+         L95_old = case_when(!is.na(L95.y) ~ L95.x),
+         U95 = case_when(is.na(U95.y) ~ U95.x, 
+                        TRUE ~ U95.y),
+         U95_old = case_when(!is.na(U95.y) ~ U95.x),
+         P = case_when(is.na(P.y) ~ P.x, 
+                        TRUE ~ P.y),
+         P_old = case_when(!is.na(P.y) ~ P.x)) %>% 
+  select(CHR, RSID, BP:Alternate_Allele, OR, SE, L95, U95, P, OR_old, SE_old, L95_old, U95_old, P_old, EAF, INFO, BP1, BP2)
 
-tmp2 <- tmp2 %>% slice(5, 2, 15, 12)
-
-multi_snps2 <- rbind(tmp, tmp2)
-
-tmp2 <- multi_snps2 %>% 
-  select(CHR:BP, OR:U95, P)
-
-multi_snps3 <- left_join(multi_snps, tmp2, by = c("CHR", "BP"))
-
-system(paste0('source ~/.bashrc; plink1.9b6.10 --bfile ', here("Output/Temp/"), 'merged_test --r2 inter-chr --ld-window-r2 0 --out ', here("Output/Temp/"), 'merged_ld'))
-
-merged_ld <- read_table(paste0(here("Output/Temp/"), "merged_ld.ld"))
-
-# test multicollinearity in SLC2A9 model in next Rmd
-
-single_snps <- gout_top_full %>% 
-  filter(!(BP1 %in% names(table(gout_top_full$BP1)[table(gout_top_full$BP1) > 1])))
-
-single_snps2 <- single_snps %>% 
-  select(CHR, RSID, BP:Alternate_Allele, OR:U95, P, EAF, INFO, BP1, BP2)
-
-multi_snps4 <- multi_snps3 %>% 
-  select(CHR, RSID, BP:Alternate_Allele, OR.y:U95.y, P.y, OR.x:U95.x, P.x, EAF, INFO, BP1, BP2) %>% 
-  rename(OR = OR.y,
-         SE = SE.y, 
-         L95 = L95.y,
-         U95 = U95.y,
-         P = P.y,
-         OR_old = OR.x,
-         SE_old = SE.x, 
-         L95_old = L95.x,
-         U95_old = U95.x,
-         P_old = P.x)
-
-gout_top_final <- full_join(multi_snps4, single_snps2) %>% 
-  arrange(CHR, BP)
-
-# Flipping allele order + OR etc so effect allele is always the gout risk allele + labelling based on locus zooms
+# Flipping allele order, OR, L95, U95, and EAF for each variant with an OR under 1. 
 smallOR <- gout_top_final %>% 
   filter(OR < 1) %>% 
   mutate(OR = as.numeric(signif(1/OR, digits = 4)),
@@ -1526,18 +1554,69 @@ smallOR <- gout_top_final %>%
   rename(Alternate_Allele = allele2,
          Effect_Allele = allele1) %>% 
   select(CHR:BP, Effect_Allele, Alternate_Allele, OR:BP2)
+
 bigOR <- gout_top_final %>% 
   filter(OR > 1)
-gout_top_final <- full_join(smallOR, bigOR) %>% 
-  arrange(CHR, BP) %>% 
-  mutate(Locus_Name = c("PDZK1", "TRIM46", "GCKR", "SFMBT1", "SLC2A9", "SLC2A9", "SLC2A9", "ABCG2", "ABCG2", "SLC17A1", "ZSCAN31", "MLXIPL", "SLC16A9", "SLC22A11", "SLC22A11", "OVOL1", "R3HDM2", "MLXIP", "PNPLA3"))
 
-UKBB_Gene_OR <- gout_top_final
+# Combining together both lists above.
+gout_top_final <- full_join(smallOR, bigOR) %>% 
+  arrange(CHR, BP)
+
+
+# Labeling each locus based on the nearest gene in the UCSC gene list.
+# Preparing the gene list (removing rRNA genes).
+genelist <- UCSC_GRCh37_Genes_UniqueList.txt %>% 
+  select(Chrom, Start, End, Gene) %>% 
+  filter(!str_detect(Gene, "rRNA"))
+
+# Making empty vector.
+out <- c()
+
+# Looping over each lead variant.
+for(i in 1:nrow(gout_top_final)){
   
+  # Making temporary table filtered to keep only genes that directly overlap with the variant.
+  tmp <- genelist %>% 
+    filter(Chrom == gout_top_final$CHR[i],
+           Start < gout_top_final$BP[i],
+           End > gout_top_final$BP[i])
+  
+  # Making merged gene name if the variant overlaps more than one gene.
+  if(nrow(tmp) > 1){
+    tmp <- tmp %>% 
+      mutate(Gene = paste(Gene, sep = "|")) %>% 
+      slice(1)
+  } 
+  
+  # If the variant doesn't overlap a gene, extracting the nearest gene based on start/end coordinates.
+  if(nrow(tmp) == 0){
+    tmp <- genelist %>% 
+      mutate(Diff_Start = abs(Start - gout_top_final$BP[i]),
+             Diff_End = abs(End - gout_top_final$BP[i]),
+             Diff = case_when(Diff_Start < Diff_End ~ Diff_Start,
+                              TRUE ~ Diff_End)) %>% 
+      filter(Chrom == gout_top_final$CHR[i]) %>% 
+      arrange(Diff) %>% 
+      select(-Diff, -Diff_Start, -Diff_End) %>% 
+      slice(1)
+  } 
+  
+  # Saving the final results to out.
+  out <- rbind(out, tmp)
+}
+
+# Adding the Nearest_Gene column based on the above results.
+gout_top_final2 <- gout_top_final %>% 
+  mutate(Locus_Name = out$Gene)
+
+# Saving this list as UKBB_Gene_OR.
+UKBB_Gene_OR <- gout_top_final2
+
+# Saving UKBB_Gene_OR as an RData object.
 save(UKBB_Gene_OR, file = here("Output/UKBB_Gene_OR.RData"))
 
-# Cleaning up
-rm(list = ls()[str_detect(ls(), "^chr|^gout_top|^final_|gwas$")], bigOR, first_round, multi_snps, multi_snps2, multi_snps3, multi_snps4, merged_ld, out, regions, second_round, single_snps, smallOR, third_round, tmp, tmp2, tmp3, file_names, i, sumstat_signif, single_snps2, loci, sumstat_final, UCSC_GRCh37_Genes_UniqueList.txt, check.rsid, elog10, gene.position, get.ld, get.region, locus.zoom, merge.gene.colour, merge.plot.dat, plot.locus, plot.secondary.point, read.plink.loci, round.up, subset.data)
+# Cleaning up.
+rm(list = ls()[str_detect(ls(), "_locus$|^chr|^final_|^gout_top|^rs")], bigOR, first_round, genelist, loci, out, regions, second_round, smallOR, tmp, file_names, i, j, sumstat_signif, sumstat_final)
 ```
 
 <br/>
@@ -1546,52 +1625,78 @@ rm(list = ls()[str_detect(ls(), "^chr|^gout_top|^final_|gwas$")], bigOR, first_r
 
 All of the locus zooms are plotted below in separate tabs:
 
-```{r Plots_tables, warning = F, message = F}
+```{r, warning = F, message = F}
+# Reading in file paths of each locus zoom that has been created so far.
 file_names <- list.files(here("Output/Plots"), full.names = T)[str_detect(list.files(here("Output/Plots"), full.names = T), "Chr")]
 
+# Extracting information from file paths/names and ensuring they are in the correct order based on chr/bp while keeping their relative position in the file_names object.
 tmp <- file_names %>% 
   as_tibble() %>% 
-  separate(value, sep = "_", into = c(NA, "X2", "BP1", NA, NA, "Cond", "CondSNPs")) %>% 
-  rownames_to_column() %>% 
-  mutate(Cond1 = case_when(Cond == "unconditioned.jpg" ~ FALSE, TRUE ~ TRUE), 
-         BP1 = as.numeric(BP1), 
-         rowname = as.numeric(rowname)) %>% 
+  separate(value, sep = "_", into = c(NA, "X2", "BP1", NA, NA, "Cond", "CondSNPs"), convert = TRUE) %>% 
+  rowid_to_column() %>% 
+  mutate(Cond = Cond == "condition",
+         CondSNPs = str_remove(CondSNPs, ".jpg")) %>% 
   separate(X2, sep = "/", into = c(NA, NA, NA, NA, NA, NA, NA, "CHR")) %>%
-  mutate(CHR = as.numeric(str_replace(CHR, "Chr", ""))) %>% 
-  arrange(CHR, BP1, Cond1, CondSNPs)
+  mutate(CHR = as.numeric(str_remove(CHR, "Chr"))) %>% 
+  arrange(CHR, BP1, Cond, CondSNPs)
 
-tmp1 <- tmp %>% 
-  pull(BP1) %>% 
-  unique() %>% 
-  as_tibble() %>% 
-  rename(BP1 = value)
-
+# Loading in the list of lead variants for the gout GWAS.
 load(here("Output/UKBB_Gene_OR.RData"))
 
-tmp2 <- UKBB_Gene_OR %>% 
-  pull(Locus_Name) %>% 
+# Extracting loci with more than one locus name.
+tmp1 <- UKBB_Gene_OR %>% 
+  select(BP1, Locus_Name) %>% 
   unique() %>% 
-  as_tibble() %>% 
-  rename(Locus_Name = value) %>% 
-  cbind(tmp1)
+  filter(duplicated(BP1) | duplicated(BP1, fromLast = TRUE))
 
+# Collapsing these locus names into a single name for each locus.
+# Making empty tibble called out.
+out <- tibble()
+
+# Looping over each locus with more than one locus name.
+for(i in unique(tmp1$BP1)){
+  # Extracting the names for that locus.
+  names <- tmp1 %>% 
+    filter(BP1 == i) %>% 
+    pull(Locus_Name)
+  
+  # Concatenating the names together separated by a | symbol.
+  name <- paste(names, collapse = "|")
+  
+  # Writing out the locus position and new name.
+  out <- rbind(out, list(i, name))
+}
+
+# Setting the column names of the out object.
+colnames(out) <- c("BP1", "Locus_Name")
+
+# Combining the above with the remaining locus position/name combinations.
+tmp2 <- UKBB_Gene_OR %>% 
+  select(BP1, Locus_Name) %>% 
+  unique() %>% 
+  filter(!BP1 %in% tmp1$BP1) %>% 
+  rbind(out)
+
+# Adding the locus name column to the locus zoom information table.
 tmp3 <- tmp %>% 
   left_join(tmp2, by = "BP1")
 
+# Finalizing the locus zoom information table prior to plotting.
 tmp4 <- tmp3 %>% 
-  mutate(CondSNPs2 = str_remove(CondSNPs, ".jpg")) %>% 
-  separate(CondSNPs2, sep = "and", into = c("SNP1", "SNP2", "SNP3", "SNP4")) %>% 
+  separate(CondSNPs, sep = "and", into = c("SNP1", "SNP2", "SNP3")) %>% 
   mutate(SNPs = case_when(is.na(SNP2) ~ SNP1,
                           !is.na(SNP2) & is.na(SNP3) ~ str_c(SNP1, SNP2, sep = " and "),
-                          !is.na(SNP3) & is.na(SNP4) ~ str_c(SNP1, SNP2, SNP3, sep = " and "),
-                          !is.na(SNP4) ~ str_c(SNP1, SNP2, SNP3, SNP4, sep = " and ")),
-         Plot_Name = case_when(!Cond1 ~ paste0(Locus_Name, " (Uncond.)"),
-                               Cond1 ~ paste0(Locus_Name, " (Cond. on ", SNPs, ")")))
+                          !is.na(SNP3) ~ str_c(SNP1, SNP2, SNP3, sep = " and ")),
+         Plot_Name = case_when(!Cond ~ paste0(Locus_Name, " (Uncond.)"),
+                               Cond ~ paste0(Locus_Name, " (Cond. on ", SNPs, ")")))
 
-file_names2 <- file_names[tmp$rowname]
+# Reordering the file based on the position that we want them to be output (chr/bp increasing order).
+file_names2 <- file_names[tmp$rowid]
 
+# Setting the names of each file path to the name of the plot.
 names(file_names2) <- tmp4$Plot_Name
 
+# Creating text template for interpretation by Rmarkdown.
 template <- c(
     "#### {{nm}}\n",
     "```{r, echo = FALSE}\n",
@@ -1600,6 +1705,7 @@ template <- c(
     "\n"
   )
 
+# Making list of plots for displaying in the output HTML file.
 plots <- lapply(
   tmp4$Plot_Name, 
   function(nm) knit_expand(text = template)
@@ -1608,41 +1714,45 @@ plots <- lapply(
 
 `r knitr::knit(text = unlist(plots))`
 
-### Summary
+<br/>
 
-In summary, I produced a list of SNPs that will be used to create a PRS. This uses SNPs genotyped on the Human CoreExome v1.0 chip. This will ensure that no imputation was done on Polynesian individuals, which should make the genotypes more reliable. Three of the 15 total loci had more than one partially independent genome-wide significant signal. These were at SLC2A9 (3 hits), ABCG2 (2 hits), and SLC22A11 (2 hits). 
+## Summary of UK Biobank Gout GWAS analysis
 
-### Tin Urate PRS
+In summary, I produced a list of 19 variants that collectively capture the independent genome-wide significant associations from the UK Biobank Gout GWAS summary statistics. These variants will be used to create a PRS for gout. Importantly, these variants were all genotyped on the either the Illumina CoreExome 24 v1.0, v1.1, or v1.3 array, or the OmniExome 8 v1.3 chip. This ensures that no genotype imputation was done on Polynesian individuals, which could bias results given the lack of a good reference panel for these populations. Three of the 15 total loci had more than one conditionally independent genome-wide significant signal. These were at or near SLC2A9 (3 hits), ABCG2 (2 hits), and SLC22A11 (2 hits). 
 
-Based on comments from reviewers, it was requested that I produce a PRS based on the results of Tin et al., 2019. The following code details the following:
+<br/>
 
-1. CoreExome genotyped plink files were filtered to exclude variants with over 10% missingness and those with MAF less than 0.01 in the entire CoreExome cohort
+## Analysis of European Urate GWAS results from Tin et al. (2019)
 
-2. The locations of these filtered SNPs were extracted from the bim file and this was filtered to only include SNPs that were also in the UK Biobank imputed genotype list
+Based on comments from reviewers, it was requested that I also produce a PRS based on the results of Tin et al., 2019. The following code details the following:
 
-3. Finally, the Tin et al. European summary statistics were filtered to only keep SNPs matching the chromosome and location of the above SNPs
+1. CoreExome genotyped PLINK files were filtered to exclude variants with over 10% missingness (up from 5% for the gout PRS) and those with MAF less than 0.01 in the entire CoreExome cohort. This was due to limitations of using a PRS with more loci, which results in a larger amount of individuals missing the PRS due to a higher chance of any one of the constituent variants being missing.
 
-```{bash Tin_bash, engine.opts = '-l', eval = F}
-mkdir -p /Volumes/scratch/merrimanlab/Nick/PRS
+2. The locations of these filtered SNPs were extracted from the CoreExome bim file and this was filtered to only include SNPs that were also in the UK Biobank imputed genotype list.
 
-cd /Volumes/scratch/merrimanlab/Nick/PRS
+3. Finally, the Tin et al. European summary statistics were filtered to only keep SNPs matching the chromosome and location of the above SNPs.
 
-# Filter tin sumstats to match both chromosome and bp of CoreEx SNPs plus remove rare SNPs (less than 1% frequency)
-plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --make-bed --geno 0.1 --maf 0.01 --out filtered_coreex
+```{bash, engine.opts = '-l', eval = F}
+# Setting directory as a variable.
+PRS_SCRATCH=/Volumes/scratch/merrimanlab/Nick/PRS
 
-cut -f1,4 filtered_coreex.bim | tr '\t' ' ' > coreex_snps.txt
+# Filtering CoreExome genotype file to only include variants with < 10% missingness and >1% frequency.
+plink1.9b6.10 --bfile /Volumes/archive/merrimanlab/raid_backup/New_Zealand_Chip_data/CoreExome/QC_MergedBatches/Final_Data/CZ-MB1.2-QC1.10_CoreExome24-1.0-3_genotyped-QCd_rsIDconverted --make-bed --geno 0.1 --maf 0.01 --out $PRS_SCRATCH/Output/Temp/filtered_coreex
 
-for i in {1..22}
-do 
-  grep -w $i coreex_snps.txt | cut -d ' ' -f2 > snplist_chr$i.txt
-done
+# Extracting the chromosome and position of each SNP in the filtered PLINK file, then changing tabs to spaces.
+cut -f1,4 $PRS_SCRATCH/Output/Temp/filtered_coreex.bim | tr '\t' ' ' > $PRS_SCRATCH/Output/Temp/coreex_snps.txt
 
-# Now filter for SNPs in the UK Biobank imputed genotype list
-parallel "cut -f3 /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/splits/ukb_mfi_chr{}_v3.txt | grep -Fwf snplist_chr{}.txt | sed 's/^/{} /' > in_ukb_chr{}.txt" ::: {1..22}
+# For each chromosome, making a list of variant locations.
+parallel "grep -w {1} {2}/Output/Temp/coreex_snps.txt | cut -d ' ' -f2 > {2}/Output/Temp/snplist_chr{1}.txt" ::: {1..22} ::: $PRS_SCRATCH
 
-cat $(ls | grep in_ukb) > snplist.txt
+# Filtering for SNPs in the UK Biobank imputed genotype list.
+parallel "cut -f3 /Volumes/scratch/merrimanlab/ukbio/EGAD00010001474/splits/ukb_mfi_chr{1}_v3.txt | grep -Fwf {2}/Output/Temp/snplist_chr{1}.txt | sed 's/^/{1} /' > {2}/Output/Temp/in_ukb_chr{1}.txt" ::: {1..22} ::: $PRS_SCRATCH
 
-cat <(head -n1 /Volumes/archive/merrimanlab/central_datasets/summary_gwas/urate/Tin_2019/cleaned/urate_chr1_22_LQ_IQ06_mac10_EA_60_rsid.txt) <(awk '$6 < 0.99 && $6 > 0.01' FS=' ' /Volumes/archive/merrimanlab/central_datasets/summary_gwas/urate/Tin_2019/cleaned/urate_chr1_22_LQ_IQ06_mac10_EA_60_rsid.txt | grep -Ff snplist.txt) | sed 's/ /\t/g' > tin_filtered.txt
+# Concatenating all the output txt files together.
+cat $(ls -d $PRS_SCRATCH/Output/Temp/* | grep in_ukb) > $PRS_SCRATCH/Output/Temp/snplist.txt
+
+# Further filtering out variants with less than 1% MAF then making a clean output file for reading into R.
+cat <(head -n1 /Volumes/archive/merrimanlab/central_datasets/summary_gwas/urate/Tin_2019/cleaned/urate_chr1_22_LQ_IQ06_mac10_EA_60_rsid.txt) <(awk '$6 < 0.99 && $6 > 0.01' FS=' ' /Volumes/archive/merrimanlab/central_datasets/summary_gwas/urate/Tin_2019/cleaned/urate_chr1_22_LQ_IQ06_mac10_EA_60_rsid.txt | grep -Ff $PRS_SCRATCH/Output/Temp/snplist.txt) | sed 's/ /\t/g' > $PRS_SCRATCH/Output/Temp/tin_filtered.txt
 ```
 
 4. The filtered Tin summary statistics were read back into R, then further cleaned up to ensure no rare variants remained
@@ -1653,18 +1763,22 @@ cat <(head -n1 /Volumes/archive/merrimanlab/central_datasets/summary_gwas/urate/
 
 7. In total, 82 common variants were defined as being associated with serum urate in Europeans, all of which were suitable for downstream analysis
 
-```{r Tin_R, eval = F}
-tin <- vroom("/Volumes/scratch/merrimanlab/Nick/PRS/tin_filtered.txt", 
+```{r, eval = F}
+# Reading the filtered summary stats back into R.
+tin <- vroom(path(scratch_path, "Output/Temp/tin_filtered.txt"), 
              delim = "\t", 
              col_names = T)
 
+# Filtering to keep only variants with an RSID.
 test <- tin %>% 
   filter(str_detect(RSID, regex("^rs[0-9]+")))
 
+# Adding SNP ID for variants without an RSID.
 test2 <- tin %>% 
   filter(!(RSID %in% test$RSID)) %>% 
   mutate(RSID = paste0(Chr, Pos_b37, Allele1, Allele2))
 
+# Joining the two tables back together and cleaning them up.
 tin2 <- rbind(test, test2) %>% 
   arrange(Chr, Pos_b37) %>% 
   rename(CHR = Chr,
@@ -1677,37 +1791,47 @@ tin2 <- rbind(test, test2) %>%
          Alternate_Allele = Allele2) %>% 
   mutate(t = abs(Beta/SE))
 
-# nrow(tin2 %>% select(CHR, BP) %>% unique()) # all unique
+# Checking the number of unique chr_bp combinations.
+nrow(tin2 %>% select(CHR, BP) %>% unique()) # all unique
 
+# Filtering to keep the significant variants that have MAF < 1% and ordering by t-value (as many P-values are 0).
 sumstat_signif <- tin2 %>% 
   filter(P <= 5e-8,
          EAF > 0.01,
          EAF < 0.99) %>% 
   arrange(desc(t))
 
-# Grouping into loci +- 500 kb of top SNPs
-gout_top <- sumstat_signif %>% 
+# Grouping into loci +- 500 kb of top SNPs.
+# Extracting 1st row (most significant variant)
+urate_top <- sumstat_signif %>% 
   slice(1)
-gout2 <- sumstat_signif %>% 
-  filter(!(CHR == gout_top$CHR[1] & BP %in% ((gout_top$BP[1] - 500000):(gout_top$BP[1] + 500000))))
 
-while(nrow(gout2) > 0) {
-  tmp <- gout2 %>% 
+# Filtering the summary stats to only keep variants outside of a +-500kb window from the top variant.
+urate2 <- sumstat_signif %>% 
+  filter(!(CHR == urate_top$CHR[1] & BP %in% ((urate_top$BP[1] - 500000):(urate_top$BP[1] + 500000))))
+
+# Repeating this process until there are no remaining significant variants.
+while(nrow(urate2) > 0) {
+  tmp <- urate2 %>% 
     slice(1)
-  gout_top <- rbind(tmp, gout_top)
-  gout2 <- gout2 %>% 
-    filter(!(CHR == gout_top$CHR[1] & BP %in% ((gout_top$BP[1] - 500000):(gout_top$BP[1] + 500000))))
+  urate_top <- rbind(tmp, urate_top)
+  urate2 <- urate2 %>% 
+    filter(!(CHR == urate_top$CHR[1] & BP %in% ((urate_top$BP[1] - 500000):(urate_top$BP[1] + 500000))))
 } 
 
-gout_top <- gout_top %>% 
+# Organizing the list by location.
+urate_top <- urate_top %>% 
   arrange(CHR, BP)
 
-
-# Finding regions of loci
+# Finding regions of loci.
+# Arranging significant summary stats by location.
 sumstat_signif <- sumstat_signif %>% 
   arrange(CHR, BP)
 
+# Setting out variable to NA.
 out <- NA
+
+# For each variant from the second to the end of the summary stats, comparing it with the previous variant and recording the difference in location if it is on the same chromosome.
 for(i in 2:nrow(sumstat_signif)) {
   if(sumstat_signif$CHR[i] == sumstat_signif$CHR[i - 1]){
     out[i] <- sumstat_signif$BP[i] - sumstat_signif$BP[i - 1]
@@ -1716,51 +1840,71 @@ for(i in 2:nrow(sumstat_signif)) {
   }
 }
 
+# Adding difference column to summary stats and highlighting those variants within 500kb of each other.
 tmp <- sumstat_signif %>% 
   mutate(Diff = out,
          Diff2 = case_when(Diff < 500000 ~ Diff))
 
+# Extracting the first significant variant in the summary stats (based on chr/bp).
 out <- sumstat_signif %>% slice(1)
+
+# For all remaining column, test if the Diff2 column is missing, if it is missing then take that variant and the previous variant for adding to the output. If it isn't missing then don't add it to the output. Variants missing this column are more than 500kb away from the previous variant.
 for(i in 2:nrow(sumstat_signif)) {
   if(is.na(tmp$Diff2[i])){
     out <- rbind(out, sumstat_signif %>% slice(i - 1), sumstat_signif %>% slice(i))
   }
 }
+
+# Add the final row to the output to complete the list of starts and ends of loci.
 out <- rbind(out, sumstat_signif %>% slice(nrow(sumstat_signif)))
 
-# Extracting regions
+# Extracting regions of these loci for BGEN filtering of UK Biobank genotypes.
+# Extracting the chromosome and position columns.
 bgen_ranges <- out %>% select(CHR, BP)
 
+# Taking every odd entry and relabel the BP to BP1.
 tmp1 <- bgen_ranges %>% slice(seq(1, nrow(bgen_ranges), by = 2)) %>% rename(BP1 = BP)
 
+# Taking every even entry and relabel the BP to BP2.
 tmp2 <- bgen_ranges %>% slice(seq(2, nrow(bgen_ranges), by = 2)) %>% rename(CHR.x = CHR, BP2 = BP)
 
+# Concatenating the two variant lists together and add a 50 kb buffer to each side of each locus.
 bgen_ranges <- tmp1 %>% 
   cbind(tmp2) %>% 
   mutate(BP1 = BP1 - 50000,
          BP2 = BP2 + 50000) %>% 
   select(-CHR.x)
 
+# Making an empty vector called out.
 out <- c()
+
+# For all rows in bgen_ranges (i.e. all loci).
 for(i in 1:nrow(bgen_ranges)){
-  tmp <- gout_top %>% 
+  
+  # Extracting the most significant variant within that window.
+  tmp <- urate_top %>% 
     filter(CHR == bgen_ranges$CHR[i] & between(BP, bgen_ranges$BP1[i], bgen_ranges$BP2[i])) %>% 
     arrange(P) %>% 
     slice(1)
+  
+  # Adding this variant to the out table.
   out <- rbind(out, tmp)
 }
 
-gout_top <- out %>% 
+# Concatenating the locus boundaries onto this output table.
+urate_top <- out %>% 
   cbind(bgen_ranges %>% select(-CHR))
 
+# Cleaning up.
 rm(tmp, bgen_ranges, out, i)
 
-# Flipping allele order + OR etc so effect allele is always the gout risk allele + labelling based on locus zooms
-gout_top <- gout_top %>% 
+# Adding confidence limits based on the effect +- 1.96 * the standard error.
+urate_top <- urate_top %>% 
   mutate(L95 = Beta - 1.96 * SE,
          U95 = Beta + 1.96 * SE)
 
-smallOR <- gout_top %>% 
+# For all protective variants, flip the allele order and corresponding statistics so that the effect is also in the risk direction for urate.
+smallOR <- urate_top %>% 
   filter(Beta < 0) %>% 
   mutate(Beta = as.numeric(signif(Beta * -1, digits = 4)),
          tmp_L = as.numeric(signif(L95 * -1, digits = 4)),
@@ -1773,25 +1917,74 @@ smallOR <- gout_top %>%
   rename(Alternate_Allele = allele2,
          Effect_Allele = allele1) %>% 
   select(CHR:BP, RSID, Effect_Allele, Alternate_Allele, Beta, L95, U95, SE:BP2)
-bigOR <- gout_top %>% 
+
+# For all variants with a risk effect, clean up the table. 
+bigOR <- urate_top %>% 
   filter(Beta > 0) %>% 
   mutate(Beta = as.numeric(signif(Beta, digits = 4)),
          L95 = as.numeric(signif(L95, digits = 4)),
          U95 = as.numeric(signif(U95, digits = 4))) %>% 
   select(CHR:BP, RSID, Effect_Allele, Alternate_Allele, Beta, L95, U95, SE:BP2)
 
-gout_top_final <- full_join(smallOR, bigOR) %>% 
+# Combine the two lists of variants together and clean up the table.
+urate_top_final <- full_join(smallOR, bigOR) %>% 
   arrange(CHR, BP) %>% 
   select(-t, -n_total_sum) %>% 
   mutate(Effect_Allele = toupper(Effect_Allele),
-         Alternate_Allele = toupper(Alternate_Allele)) #%>% 
-  #mutate(Locus_Name = c("PDZK1", "TRIM46", "GCKR", "SFMBT1", "SLC2A9", "SLC2A9", "SLC2A9", "ABCG2", "ABCG2", "SLC17A1", "ZSCAN31", "MLXIPL", "SLC16A9", "SLC22A11", "SLC22A11", "OVOL1", "R3HDM2", "MLXIP", "PNPLA3"))
+         Alternate_Allele = toupper(Alternate_Allele))
 
-Tin_Gene_OR <- gout_top_final
+# Labeling each locus based on the nearest gene in the UCSC gene list.
+# Preparing the gene list (removing rRNA genes).
+genelist <- UCSC_GRCh37_Genes_UniqueList.txt %>% 
+  select(Chrom, Start, End, Gene) %>% 
+  filter(!str_detect(Gene, "rRNA"))
+
+# Making empty vector.
+out <- c()
+
+# Looping over each lead variant.
+for(i in 1:nrow(urate_top_final)){
   
+  # Making temporary table filtered to keep only genes that directly overlap with the variant.
+  tmp <- genelist %>% 
+    filter(Chrom == urate_top_final$CHR[i],
+           Start < urate_top_final$BP[i],
+           End > urate_top_final$BP[i])
+  
+  # Making merged gene name if the variant overlaps more than one gene.
+  if(nrow(tmp) > 1){
+    tmp <- tmp %>% 
+      mutate(Gene = paste(Gene, sep = "|")) %>% 
+      slice(1)
+  } 
+  
+  # If the variant doesn't overlap a gene, extracting the nearest gene based on start/end coordinates.
+  if(nrow(tmp) == 0){
+    tmp <- genelist %>% 
+      mutate(Diff_Start = abs(Start - urate_top_final$BP[i]),
+             Diff_End = abs(End - urate_top_final$BP[i]),
+             Diff = case_when(Diff_Start < Diff_End ~ Diff_Start,
+                              TRUE ~ Diff_End)) %>% 
+      filter(Chrom == urate_top_final$CHR[i]) %>% 
+      arrange(Diff) %>% 
+      select(-Diff, -Diff_Start, -Diff_End) %>% 
+      slice(1)
+  } 
+  
+  # Saving the final results to out.
+  out <- rbind(out, tmp)
+}
+
+# Adding the Nearest_Gene column based on the above results.
+urate_top_final2 <- urate_top_final %>% 
+  mutate(Locus_Name = out$Gene)
+
+# Saving the result as Tin_Gene_OR.
+Tin_Gene_OR <- urate_top_final2
+
+# Saving the Tin_Gene_OR object.
 save(Tin_Gene_OR, file = here("Output/Tin_Gene_OR.RData"))
 
-# Cleaning up
-rm(list = ls()[str_detect(ls(), "^chr|^gout_top|^final_|gwas$")], bigOR, smallOR, tmp1, tmp2, sumstat_signif, gout2, test, test2, tin, tin2)
+# Cleaning up.
+rm(list = ls()[str_detect(ls(), "^chr|^urate_top|^final_|gwas$")], bigOR, smallOR, tmp1, tmp2, sumstat_signif, urate2, test, test2, tin, tin2, i, file_names, file_names2, name, names, template, genelist, out, tmp, tmp3, tmp4, plots)
 ```
-

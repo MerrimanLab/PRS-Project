@@ -14,7 +14,7 @@ output:
 
 ## Introduction
 
-This document details the code for the manuscript entitled "Association of Gout Polygenic Risk Score with Age at Disease Onset and Tophaceous Disease in European and Polynesian Men with Gout". This manuscript was submitted to Arthritis and Rheumatology on May 13th 2022 and received reviewers comments on June 14th 2022. We resubmitted the revised manuscript in early August 2022.
+This document details the code for the manuscript entitled "Association of Gout Polygenic Risk Score with Age at Disease Onset and Tophaceous Disease in European and Polynesian Men with Gout". This manuscript was submitted to Arthritis and Rheumatology on May 13th 2022 and received reviewers comments on June 14th 2022. We resubmitted the revised manuscript in August 2022.
 
 Note that you can hide or show the code for a particular section by clicking the "Code" button on the right. If you wish to hide all code you can do so with the "Code" drop-down menu at the top right of the document.
 
@@ -31,6 +31,7 @@ library(sciplot)
 library(meta)
 library(broom)
 library(MASS)
+library(gmodels)
 library(ez)
 library(car)
 library(pastecs)
@@ -48,6 +49,9 @@ knitr::opts_chunk$set(fig.width = 8.5, warning = FALSE, message = FALSE, engine.
 
 # Setting theme for ggplot.
 theme_set(theme_bw())
+
+# Setting scratch path as a variable
+scratch_path <- path("/Volumes/scratch/merrimanlab/Nick/PRS")
 ```
 
 ```{r GWAS, child = here::here("Script/Rmds", "PRS_GWAS.Rmd")}
