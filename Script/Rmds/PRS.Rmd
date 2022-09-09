@@ -42,6 +42,7 @@ library(grid)
 library(tiff)
 library(lm.beta)
 library(rsq)
+library(ukbtools)
 library(tidyverse)
 
 # Setting options for knitr.

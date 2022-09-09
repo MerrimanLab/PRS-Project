@@ -659,26 +659,584 @@ nd_drugs <- read_csv(path(ukbb_dir, "UKBio_drugs_ND_formatted.csv"),
 # Reading coding document for ICD10 (hospital diagnoses).
 datacoding19 <- read_delim(path(codings_dir, "coding19.tsv"), delim = "\t")
 
-# Extracting columns of interest.
-test <- refresh_ukbb_data %>% 
-  select(eid, body_mass_ind_bmi_f21001_0_0, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0)
+# Cleaning up.
+rm(withdrawn, codings_dir)
 
-# Loading in medication phenotype data file.
-load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/self_report_med.RData")
+# Making variables for the coding of each self-report phenotype of interest.
+gout_code <- datacoding6 %>% 
+  filter(str_detect(meaning, "gout")) %>%
+  pull(coding) %>% 
+  as.character()
+hypertension_code1 <- "1072"
+hypertension_code2 <- "1065"
+diabetes_code1 <- "1220"
+diabetes_code2 <- "1222"
+diabetes_code3 <- "1223"
+cholesterol_code <- "1473"
+mi_code <- "1075"
+angina_code <- "1074"
+heartfail_code <- "1076"
+renal_code <- "1192"
+liver_code <- "1158"
+stroke_code1 <- "1081"
+stroke_code2 <- "1583"
 
-# Extracting ULT column from medication phenotype file.
-tmp <- self_report_med %>% 
-  mutate(IID = eid,
-         ULT = allopurinol | sulphinpyrazone | probenecid) %>% 
-  select(IID, ULT)
+# Extracting true/false columns for each of the above codes. First selecting only the 102 columns that contain self-report non-cancer illness data (+ the eid column). Next concatenating all columns into a single column with each value separated by an "_". Removing all "NA_" or "_NA" strings from all observations.
+self_report_illness_data <- bd_refined %>%
+  select(eid, contains('f20002_')) %>%
+  unite("self_report", contains("f20002_"), sep = "_") %>%
+  mutate(self_report_illness = str_remove_all(self_report, "NA_|_NA"),
+         gout_self_report = str_detect(self_report_illness, gout_code),
+         hypertension_self_report1 = str_detect(self_report_illness, hypertension_code1),
+         hypertension_self_report2 = str_detect(self_report_illness, hypertension_code2),
+         diab_self_report = str_detect(self_report_illness, diabetes_code1),
+         t1d_self_report = str_detect(self_report_illness, diabetes_code2),
+         t2d_self_report = str_detect(self_report_illness, diabetes_code3),
+      	 chol_self_report = str_detect(self_report_illness, cholesterol_code),
+      	 mi_self_report = str_detect(self_report_illness, mi_code),
+      	 angina_self_report = str_detect(self_report_illness, angina_code),
+      	 heartfailure_self_report = str_detect(self_report_illness, heartfail_code),
+      	 renalfailure_self_report = str_detect(self_report_illness, renal_code),
+      	 liver_self_report = str_detect(self_report_illness, liver_code),
+         stroke_self_report1 = str_detect(self_report_illness, stroke_code1),
+         stroke_self_report2 = str_detect(self_report_illness, stroke_code2)) %>%
+  select(eid, gout_self_report, hypertension_self_report1, hypertension_self_report2, diab_self_report, t1d_self_report, t2d_self_report, chol_self_report, mi_self_report, angina_self_report, heartfailure_self_report, renalfailure_self_report, liver_self_report, stroke_self_report1, stroke_self_report2)
 
-# Loading cleaned up UK Biobank phenotype file.
-load("/Volumes/userdata/student_users/nicksumpter/Documents/PhD/Cluster/Temp/final_data.RData")
+# Cleaning up.
+rm(datacoding6, gout_code, hypertension_code1, hypertension_code2, diabetes_code1, diabetes_code2, diabetes_code3, cholesterol_code, mi_code, angina_code, heartfail_code, renal_code, liver_code, stroke_code2, stroke_code1)
+
+# Defining codes for various drugs.
+colchicine_codes <- nd_drugs %>% 
+  filter(Colchicine == "y") %>% 
+  pull(coding)
+allopurinol_codes <- nd_drugs %>% 
+  filter(Allopurinol == "y") %>% 
+  pull(coding)
+sulphinpyrazone_codes <- nd_drugs %>% 
+  filter(Sulphinpyrazone == 'y') %>% 
+  pull(coding)
+probenecid_codes <- nd_drugs %>% 
+  filter(Probenecid == "y") %>% 
+  pull(coding)
+diuretics_codes <- nd_drugs %>% 
+  filter(Diuretic == 'y' ) %>% 
+  pull(coding)
+betablocker_codes <- c("1140916342", 
+                       "1140866738", 
+                       "1140879818", 
+                       "1140879854", 
+                       "1140909368", 
+                       "1140879760")
+antihyper_code <- "1140888578"
+ace_inhib_codes <- c("1140860750", 
+                     "1140888552", 
+                     "1140860696", 
+                     "1140860806")
+atiir_antag_codes <- c("1141156836", 
+                       "1141145660", 
+                       "1140916356")
+calc_block_codes <- c("1140879806", 
+                      "1140888510", 
+                      "1140879802")
+insulin_code <- "1140883066"
+metformin_code <- "1140884600"
+statin_codes <- c("1141146234", 
+                  "1140888594", 
+                  "1140888648", 
+                  "1141192410", 
+                  "1140861958")
+ezetimibe_code <- "1141192736"
+fenofibrate_code <- "1140861954"
+cortico_prednisone_codes <- nd_drugs %>% 
+  filter(`Corticosteroids/prednisone` == 'y' ) %>% 
+  pull(coding)
+nsaids_codes <- nd_drugs %>% 
+  filter(NSAIDs == 'y') %>% 
+  pull(coding)
+control_drug_exclusion_codes <- nd_drugs %>% 
+  filter(Allopurinol == 'y' | Colchicine == 'y' | Febuxostat == 'y' | Sulphinpyrazone == 'y' | Probenecid == 'y' | `Corticosteroids/prednisone` == 'y' | NSAIDs == 'y') %>% 
+  pull(coding)
+
+# Making TRUE/FALSE columns for each drug.
+self_report_med <- bd_refined %>% 
+  select(eid, contains("f20003_")) %>% 
+  unite("medications", contains("f20003_"), sep = "_") %>% 
+  mutate(colchicine = str_detect(medications, colchicine_codes),
+         allopurinol = str_detect(medications, paste(allopurinol_codes, collapse = '|')),
+         sulphinpyrazone = str_detect(medications, paste(sulphinpyrazone_codes, collapse = '|')),
+         probenecid = str_detect(medications, paste(probenecid_codes, collapse = '|')),
+         diuretics = str_detect(medications, paste(diuretics_codes, collapse = '|')),
+         beta_blockers = str_detect(medications, paste(betablocker_codes, collapse = '|')),
+         antihyper = str_detect(medications, antihyper_code),
+         ace_inhibitors = str_detect(medications, paste(ace_inhib_codes, collapse = '|')),
+         atiir_antagonists = str_detect(medications, paste(atiir_antag_codes, collapse = '|')),
+         calcium_blockers = str_detect(medications, paste(calc_block_codes, collapse = '|')),
+         insulin = str_detect(medications, insulin_code),
+         metformin = str_detect(medications, metformin_code),
+         statin = str_detect(medications, paste(statin_codes, collapse = '|')),
+         ezetimibe = str_detect(medications, ezetimibe_code),
+         fenofibrate = str_detect(medications, fenofibrate_code),
+         afs = ifelse(allopurinol | sulphinpyrazone, TRUE, FALSE),
+         nsaids = str_detect(medications, paste(nsaids_codes, collapse = '|')),
+         cortico_prednisone = str_detect(medications, paste(cortico_prednisone_codes, collapse = '|')), 
+         control_exclude_drug_criteria = str_detect(medications, paste(control_drug_exclusion_codes, collapse = '|')),
+         ULT = ifelse(allopurinol | sulphinpyrazone | probenecid, TRUE, FALSE))
+
+# Cleaning up.
+rm(nd_drugs, datacoding4, colchicine_codes, allopurinol_codes, sulphinpyrazone_codes, probenecid_codes, diuretics_codes, nsaids_codes, cortico_prednisone_codes, insulin_code, antihyper_code, statin_codes, control_drug_exclusion_codes, betablocker_codes, metformin_code, ezetimibe_code, fenofibrate_code, ace_inhib_codes, atiir_antag_codes, calc_block_codes)
+
+# Recording gout codes.
+icd_gout_codes <- datacoding19 %>% 
+    filter(str_detect(coding, 'M10')) %>% 
+    pull(coding)
+
+# Recording all blood cancer codes. 
+hospital_blood_cancer_codes <- paste0("C", 81:96) 
+
+# Recording all renal disease codes.
+rd_icd_10_codes <- c("I12", "I13", paste0("N0", 0:5), "N07", "N11", "N14", paste0("N", 17:19), "Q61", "N250", "Z49", "Z940", "Z992")
+
+# Making table of ICD-10 data.
+icd10_data <- bd_refined %>% 
+  select(eid, contains("f41202"), contains("f41204")) %>% 
+  unite("hospital_diagnoses", contains("diagnoses")) %>% 
+  mutate(filtered_codes = str_remove_all(hospital_diagnoses, "NA_|_NA|NA")) %>% 
+  select(eid, hospital_diagnoses, filtered_codes) %>% 
+  mutate(gout_hospital = str_detect(filtered_codes, paste0(icd_gout_codes, collapse = "|")),
+         hosp_hypertension = str_detect(filtered_codes, paste0(paste0("I",10:15), collapse = "|")),
+         hosp_t1d = str_detect(filtered_codes, "E10"),
+         hosp_t2d = str_detect(filtered_codes, "E11"),
+         hosp_other_diab = str_detect(filtered_codes, "E13"),
+         hosp_hyperlipidemia = str_detect(filtered_codes, "E78"),
+         hosp_ischemic_heart = str_detect(filtered_codes, paste0(paste0("I",20:25), collapse = "|")),
+         hosp_heartfail = str_detect(filtered_codes, "I50"),
+         hosp_cerebrovascular = str_detect(filtered_codes, paste0(paste0("I",60:69), collapse = "|")),
+         hosp_general_renal = str_detect(filtered_codes, paste0(rd_icd_10_codes, collapse = "|")),
+         hosp_ckd_stage3 = str_detect(filtered_codes, "N183"),
+         hosp_ckd_stage4 = str_detect(filtered_codes, "N184"),
+         hosp_ckd_stage5 = str_detect(filtered_codes, "N185"),
+         hosp_ckd_endstage = str_detect(filtered_codes, "N186"),
+         hosp_liver_disease = str_detect(filtered_codes, paste0(paste0("K",70:77), collapse = "|")),
+         hosp_other_liver = str_detect(filtered_codes, "K75"),
+         hospital_ult_exclude = str_detect(filtered_codes, paste0(hospital_blood_cancer_codes, collapse = "|"))
+  )
+
+# Cleaning up.
+rm(datacoding19, hospital_blood_cancer_codes, icd_gout_codes, rd_icd_10_codes)
+
+# Extracting other columns of interest, converting to consistent units and defining high levels of biomarkers.
+diagnostics <- bd_refined %>% select(eid, body_mass_ind_bmi_f21001_0_0, glucose_f30740_0_0, triglycerides_f30870_0_0, cholesterol_f30690_0_0, creatinine_f30700_0_0, age_when_attended_assessment_centre_f21003_0_0, s_f31_0_0, alanine_aminotransferase_f30620_0_0, gamma_glutamyltransferase_f30730_0_0, urate_f30880_0_0, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0, contains("ethnic")) %>%
+	mutate(sex = (as.numeric(s_f31_0_0) - 2) * -1, #converts males to 0, females to 1
+    		 age = age_when_attended_assessment_centre_f21003_0_0,
+    		 bmi = body_mass_ind_bmi_f21001_0_0,
+    		 creat = creatinine_f30700_0_0 / 88.42, #converts to mg/dL
+    		 eGFR_f = 175*(creat^-1.154)*(age^-0.203)*0.742, 
+    		 eGFR_m = 175*(creat^-1.154)*(age^-0.203), 
+    		 CKD3_f = eGFR_f < 60 & eGFR_f >= 30,
+    		 CKD3_m = eGFR_m < 60 & eGFR_m >= 30, 
+    		 CKD4_f = eGFR_f < 30 & eGFR_f >= 15,
+    		 CKD4_m = eGFR_m < 30 & eGFR_m >= 15, 
+    		 CKD5_f = eGFR_f < 15,
+    		 CKD5_m = eGFR_m < 15,
+    		 obese = bmi >= 30, 
+    		 chol = cholesterol_f30690_0_0 * 0.385, #converts to g/L
+    		 trig = triglycerides_f30870_0_0 * 0.88, #converts to g/L
+    		 gluc = glucose_f30740_0_0 * 0.18, #converts to g/L
+    		 hyperchol = chol > 2,
+    		 hypertrig = trig > 2.5,
+    		 hypergluc = gluc > 2,
+    		 alamino = alanine_aminotransferase_f30620_0_0,
+    		 gamglut = gamma_glutamyltransferase_f30730_0_0,
+    		 hyperalamino_m = alamino > 30,
+    		 hyperalamino_f = alamino > 19,
+    		 hypergamglut_m = gamglut > 51,
+    		 hypergamglut_f = gamglut > 33,
+    		 hyperalt = alamino > 110,
+    		 hyperggt = gamglut > 100,
+    		 urate = urate_f30880_0_0)
+
+# Carefully defining blood pressure measurements based on first instance.
+bp <- bd_refined %>% 
+  select(eid, contains("f4079_0"), contains("f4080_0"), contains("f94_0"),contains("f93_0")) %>% 
+  gather("measure", "value", -eid) %>% filter(!is.na(value)) %>% 
+  mutate(measure_num = str_extract(measure, "([0-9])+$")) %>% 
+  mutate(visit = str_remove_all(measure, "(_0$)|(_1$)")) %>% 
+  mutate(bp_type = case_when(str_detect(visit, "systolic") ~ "systolic", str_detect(visit, "diastolic") ~ "diastolic" ),
+         bp_method = case_when(str_detect(visit, "automated") ~ "auto", str_detect(visit, "manual") ~ "manual")) %>% 
+  mutate(visit_num = str_extract(visit, "_([0-9])+$")) %>% 
+  mutate(visit_num = str_remove_all(visit_num, "_"))
+
+# Calculating hypertension columns.
+ht_calc <- bp %>% 
+  select(-visit, -measure) %>% 
+  spread("bp_type", "value") %>% 
+  group_by(eid) %>% 
+  summarise(diastolic_ht = sum(diastolic > 90) >= 2, diastolic_ht_n = sum(diastolic >90),  
+            systolic_ht = sum(systolic > 140) >= 2, systolic_ht_n = sum(systolic > 140), 
+            hypertension_measured = ifelse(diastolic_ht | systolic_ht, TRUE, FALSE))
+
+# Again, carefully defining blood pressure measurements based on second instance.
+bp2 <- bd_refined %>% 
+  select(eid, contains("f4079_1"), contains("f4080_1"), contains("f94_1"),contains("f93_1")) %>% 
+  gather("measure", "value", -eid) %>% filter(!is.na(value)) %>% 
+  mutate(measure_num = str_extract(measure, "([0-9])+$")) %>% 
+  mutate(visit = str_remove_all(measure, "(_0$)|(_1$)")) %>% 
+  mutate(bp_type = case_when(str_detect(visit, "systolic") ~ "systolic", str_detect(visit, "diastolic") ~ "diastolic" ),
+         bp_method = case_when(str_detect(visit, "automated") ~ "auto", str_detect(visit, "manual") ~ "manual")) %>% 
+  mutate(visit_num = str_extract(visit, "_([0-9])+$")) %>% 
+  mutate(visit_num = str_remove_all(visit_num, "_"))
+
+# Calculating hypertension columns.
+ht_calc2 <- bp2 %>% 
+  select(-visit, -measure) %>% 
+  spread("bp_type", "value") %>% 
+  group_by(eid) %>% 
+  summarise(diastolic_ht = sum(diastolic > 90) >= 2, diastolic_ht_n = sum(diastolic >90),  
+            systolic_ht = sum(systolic > 140) >= 2, systolic_ht_n = sum(systolic > 140), 
+            hypertension_measured2 = ifelse(diastolic_ht | systolic_ht, TRUE, FALSE))
+
+# Combining columns together.
+ht_calc3 <- ht_calc2 %>% 
+  left_join(ht_calc, by = "eid") %>% 
+  mutate(hypertension_measured3 = hypertension_measured2 + hypertension_measured,
+         hypertension_measured_both = ifelse(hypertension_measured3 == 2, TRUE, FALSE))
+
+# Adding hypertension columns.
+diagnostics <- diagnostics %>% 
+  left_join((ht_calc %>% select(1, 6)), by = "eid") %>% 
+  left_join((ht_calc3 %>% select(1, 13)), by = "eid")
+
+# Calculating eGFR columns in men.
+diagnostics_m <- diagnostics %>% 
+  filter(sex == 0) %>%
+	mutate(eGFR_f = rep(NA, (nrow(diagnostics) - sum(diagnostics$sex))),
+		eGFR = eGFR_m,
+		CKD3_f = rep(NA, (nrow(diagnostics) - sum(diagnostics$sex))),
+		CKD3 = CKD3_m,
+		CKD4_f = rep(NA, (nrow(diagnostics) - sum(diagnostics$sex))),
+		CKD4 = CKD4_m,
+		CKD5_f = rep(NA, (nrow(diagnostics) - sum(diagnostics$sex))),
+		CKD5 = CKD5_m,
+		hyperalamino_f = rep(NA, (nrow(diagnostics) - sum(diagnostics$sex))),
+		hyperalamino = hyperalamino_m,
+		hypergamglut_f = rep(NA, (nrow(diagnostics) - sum(diagnostics$sex))),
+		hypergamglut = hypergamglut_m)
+
+# Calculating eGFR columns in women.
+diagnostics_f <- diagnostics %>% 
+  filter(sex == 1) %>%
+        mutate(eGFR_m = rep(NA, sum(diagnostics$sex)),
+                eGFR = eGFR_f,
+                CKD3_m = rep(NA, sum(diagnostics$sex)),
+                CKD3 = CKD3_f,
+                CKD4_m = rep(NA, sum(diagnostics$sex)),
+                CKD4 = CKD4_f,
+                CKD5_m = rep(NA, sum(diagnostics$sex)),
+                CKD5 = CKD5_f,
+                hyperalamino_m = rep(NA, sum(diagnostics$sex)),
+                hyperalamino = hyperalamino_f,
+                hypergamglut_m = rep(NA, sum(diagnostics$sex)),
+                hypergamglut = hypergamglut_f)
+
+# Combining together
+diagnostics <- rbind(diagnostics_m, diagnostics_f)
+
+# Making final diagnostics dataset.
+diagnostics <- diagnostics %>% 
+  arrange(eid) %>% 
+	select(eid, sex, age, bmi, obese, creat, eGFR, CKD3, CKD4, CKD5, chol, trig, gluc, hyperchol, hypertrig, hypergluc, alamino, gamglut, hyperalamino, hypergamglut, hyperalt, hyperggt, hypertension_measured, hypertension_measured_both, urate, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0, contains("ethnic"))
+
+# Cleaning up.
+rm(diagnostics_f, diagnostics_m, bp, bp2, ht_calc, ht_calc2, ht_calc3)
+
+# Combining phenotypes files together.
+combined_data <- self_report_med %>% 
+  left_join(icd10_data, by = "eid") %>%
+  left_join(self_report_illness_data, by = 'eid') %>% 
+  left_join(diagnostics, by = 'eid') %>% 
+  mutate(gout_ult = ifelse(hospital_ult_exclude, FALSE, afs),
+         gout_winnard = gout_hospital | gout_ult | colchicine,
+         gout_drug = gout_ult | colchicine | (probenecid & !hospital_ult_exclude),
+         goutall = ifelse(gout_self_report | gout_hospital | gout_drug, TRUE, FALSE))
+
+# Cleaning up.
+rm(diagnostics, icd10_data, self_report_illness_data, self_report_med)
+
+# Making a dataframe with QC metrics for each individual.
+sample_qc_ukbtool <- ukb_gen_sqc_names(read_delim(path(ukbb_dir,'genetic_files/ukb_sqc_v2.txt'), delim = " ", col_names = FALSE))
+
+# Reading fam file into R.
+fam <- read_table(path(ukbb_dir, 'genetic_files/ukb12611_cal_chr22_v2_s488285.fam'), col_names= c("FID", "IID", "PID", "MID", "SEX", "AFF")) %>% 
+  rownames_to_column()
+
+# Adding fam file columns onto qc dataframe.
+sample_qc_fam <- cbind(sample_qc_ukbtool, fam)
+
+# Making the QC exclusion column, based on sex chromosome aneuploidy, gender mismatch or heterozygosity outliers (1,812 total).
+sample_qc_fam <- sample_qc_fam %>% 
+  mutate(eid = IID, 
+         qc_exclude = ifelse(putative_sex_chromosome_aneuploidy == 1 | submitted_gender != inferred_gender | het_missing_outliers == 1, TRUE, FALSE))
+
+# Cleaning up.
+rm(fam, sample_qc_ukbtool)
+
+# Defining controls (to aid in gout definitions) as anyone without any gout definition (ULT, colchicine, hospital, self-report) and they can't be on corticosteroids or NSAIDs.
+combined_data <- combined_data %>% 
+  mutate(control = !goutall & !control_exclude_drug_criteria)
+
+# Assigning gout affection status and remove qc excluded individuals.
+gout_affection <- sample_qc_fam %>%
+  mutate(eid = IID) %>% 
+  left_join(combined_data, by = "eid") %>% 
+  filter(!qc_exclude) %>% 
+  mutate(goutaff1 = case_when(gout_self_report | gout_ult ~ TRUE, 
+                              control ~ FALSE),
+         goutaff2 = case_when(gout_self_report | gout_ult | gout_hospital ~ TRUE, 
+                              control ~ FALSE)) %>%
+  filter(!is.na(goutaff1))
+
+# Cleaning up.
+rm(sample_qc_fam)
+
+# Making vector for filtering for self-reported ethnicity groups.
+inc_eth_groups <- c("White", "British", "Irish", "Any other white background")
+
+# Extracting individuals in the above ethnicity groups.
+gout_pca <- gout_affection %>% 
+  select(eid, contains("ethnic"), starts_with("pc"), goutaff1, in_white_british_ancestry_subset, used_in_pca_calculation, in_kinship_table, excess_relatives) %>% 
+  filter(ethnic_background_f21000_0_0 %in% inc_eth_groups)
+
+# Defining boundaries of caucasian PCs.
+brit_boundaries <- gout_pca %>% 
+  filter(genetic_ethnic_grouping_f22006_0_0 == "Caucasian") %>% 
+  select(starts_with("pc")) %>% 
+  gather("PC", "value") %>% 
+  group_by(PC) %>% 
+  summarise_at(vars(value), list(min = min, max = max))
+
+# Filtering all individuals who fit within the PCA limits of the Caucasian group (including non-self-report).
+eth_goutaff <- gout_pca %>% 
+  gather("PC", "PC_value", starts_with("pc")) %>% 
+  left_join(brit_boundaries, by = "PC") %>% 
+  filter(PC_value > min & PC_value < max) %>% 
+  select(eid, ethnic_background_f21000_0_0, goutaff1) %>% 
+  group_by(eid, ethnic_background_f21000_0_0, goutaff1) %>% 
+  tally() %>% 
+  filter(n == 40) %>%
+  ungroup()
+
+# Filtering gout cases for PC exclusions.
+gout_affection <- gout_affection %>% 
+  filter(eid %in% unique(eth_goutaff$eid))
+
+# Cleaning up.
+rm(eth_goutaff, brit_boundaries, gout_pca, inc_eth_groups)
+
+# Loading relatedness data.
+related <- read_delim(path(ukbb_dir, "genetic_files/ukb12611_rel_s488363.dat"), col_names = TRUE, delim = " ")
+
+# Extracting affected related individuals.
+affected_related <- related %>% 
+  filter(ID1 %in% gout_affection$eid,
+         ID2 %in% gout_affection$eid)
+
+# Extracting gout case ids.
+gout_ids <- gout_affection %>% 
+  filter(goutaff1) %>% 
+  pull(eid)
+
+# Extracting control ids.
+control_ids <- gout_affection %>% 
+  filter(!goutaff1) %>% 
+  pull(eid)
+
+# Identifying first degree relatives and their gout status.
+first_degree <- affected_related %>% 
+  filter(Kinship > 0.177) %>% 
+  mutate(related_category = case_when(ID1 %in% gout_ids & ID2 %in% gout_ids ~ "gout_gout", 
+                                      (ID1 %in% gout_ids & ID2 %in% control_ids) | (ID1 %in% control_ids & ID2 %in% gout_ids) ~ "gout_control", 
+                                      ID1 %in% control_ids & ID2 %in% control_ids ~ "control_control"))
+
+# Making function to create a table showing the number of people an individual is related to and affection status.
+create_related_table <- function(related_df){
+  
+  # Creating temporary tibbles for each category.
+  gg <- tibble(eid = c(related_df %>% filter(related_category == "gout_gout") %>% pull(ID1), 
+                       related_df %>% filter(related_category == "gout_gout") %>% pull(ID2)), 
+               category = "gout_gout")
+  
+  gc <- tibble(eid = c(related_df %>% filter(related_category == "gout_control") %>% pull(ID1), 
+                       related_df %>% filter(related_category == "gout_control") %>% pull(ID2)), 
+               category = "gout_control")
+  
+  cc <- tibble(eid = c(related_df %>% filter(related_category == "control_control") %>% pull(ID1), 
+                       related_df %>% filter(related_category == "control_control") %>% pull(ID2)), 
+               category = "control_control")
+  
+  # Combining together and making table.
+  indiv_categories <- bind_rows(gg, gc, cc) %>% 
+    group_by(eid, category) %>% 
+    tally() %>% 
+    spread(category, n, fill = 0) %>% 
+    mutate(control_control = ifelse("control_control" %in% names(.), control_control, 0),
+           gout_control = ifelse("gout_control" %in% names(.), gout_control, 0),
+           gout_gout = ifelse("gout_gout" %in% names(.), gout_gout, 0),
+           total = control_control + gout_control + gout_gout) %>% 
+    left_join(., gout_affection %>% select(eid, goutaff1), by = "eid") %>% 
+    ungroup()
+  
+  return(indiv_categories)
+}
+
+# Removing one of the pair for people with only one pair relationship.
+start <- ukb_gen_rel_count(affected_related)
+
+# Defining number of relations by person.
+temp_table <- create_related_table(related_df = first_degree)
+
+# Finding people with more than one relationship and the part of pair to be dealt with later.
+multi_relations <- first_degree %>% 
+  filter(ID1 %in% (temp_table %>% filter(total > 1) %>% pull(eid)) | ID2 %in% (temp_table %>% filter(total > 1) %>% pull(eid)))
+
+# Creating a list of all people involved with multirelation relationships.
+multi_relations_ids <- c(multi_relations$ID1, multi_relations$ID2)
+
+# Listing all controls with only a single relationship that aren't also part of a multi-relationship pair.
+single_controls <- temp_table %>% 
+  filter(control_control == 1,
+         total == 1,
+         !(eid %in% multi_relations_ids)) %>% 
+  pull(eid)
+
+# Extracting 1st IDs of these pairs.
+trc1 <- first_degree %>% 
+  filter(ID1 %in% single_controls,
+         ID2 %in% single_controls) %>% 
+  pull(ID1)
+
+# Extracting 2nd IDs of these pairs.
+trc2 <- first_degree %>% 
+  filter(ID1 %in% single_controls,
+         ID2 %in% single_controls) %>% 
+  pull(ID2)
+
+# Removing the IDs that were in column 2.
+mid <- ukb_gen_rel_count((first_degree %>% filter(!(ID1 %in% trc2 | ID2 %in% trc2))))
+
+# Making table of single gout_control relationship pairs where we remove the control.
+single_gout_controls <- temp_table %>% 
+  filter(gout_control == 1,
+         total == 1,
+         !(eid %in% multi_relations_ids)) %>% 
+  filter(!goutaff1) %>% 
+  pull(eid)
+
+# Making list of samples to remove.
+remove_samples <- c(trc2, single_gout_controls)
+
+# Making midpoint file.
+mid2 <- ukb_gen_rel_count((first_degree %>% filter(!(ID1 %in% remove_samples | ID2 %in% remove_samples))))
+
+# Finding total number of rows of first_degree table.
+curr_rows <- nrow(first_degree)
+
+# Setting i to 1.
+i <- 1
+
+# Making empty list for output of below while statement.
+order_removed <- list()
+
+# Making loop that runs while curr_rows is greater than or equal to 0.
+while(curr_rows >= 0){
+  
+  # Making temporary related table.
+  temp_related <- first_degree %>% 
+    filter(!(ID1 %in% remove_samples | ID2 %in% remove_samples))
+  
+  # Setting curr_rows to the number of rows in temp_related.
+  curr_rows <- nrow(temp_related)
+  
+  # If there are no more rows, then ending the loop.
+  if(curr_rows == 0){
+    break
+  }
+  
+  # Making temporary table with relatedness metrics.
+  temp_table <- create_related_table(related_df = temp_related)
+  
+  # Removing all related gout to gout relationships, then removing controls from gout to control, then removing related controls.
+  if(sum(temp_table$gout_gout) > 0){
+    remove_id <- temp_table %>% 
+      arrange(desc(gout_gout), desc(total)) %>% 
+      slice(1) %>% 
+      pull(eid)
+    
+    message("gg")
+  } else if(sum(temp_table$gout_control) > 0){
+    remove_id <- temp_table %>% 
+      arrange(desc(gout_control), desc(total)) %>% 
+      filter(!goutaff1) %>% 
+      slice(1) %>% 
+      pull(eid)
+    
+    message("gc")
+  } else if(sum(temp_table$control_control) > 0){
+    remove_id <- temp_table %>% 
+      arrange(desc(control_control), desc(total)) %>% 
+      filter(!goutaff1) %>% 
+      slice(1) %>% 
+      pull(eid)
+    
+    message("cc")
+  }
+  
+  # Assigning the removed id to the order_removed list.
+  order_removed[[i]] <- remove_id 
+  
+  # Adding the removed id to the remove_samples vector.
+  remove_samples <- c(remove_samples, remove_id)
+  
+  # Outputting the current state of this loop.
+  message(nrow(temp_related))
+  
+  # Adding one to the iteration number.
+  i <- i + 1
+}
+
+# Reporting statistics after removing related ids.
+end <- ukb_gen_rel_count((affected_related %>% filter(!(ID1 %in% remove_samples | ID2 %in% remove_samples))))
+
+# Saving out as a new dataframe.
+gout_affection2 <- gout_affection %>% filter(!eid %in% remove_samples)
+
+# Cleaning up.
+rm(affected_related, start, end, first_degree, gout_affection, mid, mid2, multi_relations, order_removed, related, temp_related, temp_table, control_ids, curr_rows, gout_ids, i, multi_relations_ids, remove_id, remove_samples, single_controls, single_gout_controls, trc1, trc2, create_related_table)
+
+# Filtering combined data based on gout_affection2.
+combined_data <- combined_data %>% 
+  filter(eid %in% (gout_affection2 %>% filter(!is.na(goutaff1)) %>% pull(eid)))
+
+# Defining final phenotypes.
+final_data <- combined_data %>%
+  mutate(gout = gout_ult | gout_self_report,
+         hypertension = hypertension_self_report1 | hypertension_self_report2 | hosp_hypertension | antihyper | diuretics | beta_blockers | ace_inhibitors | atiir_antagonists | calcium_blockers,
+         dyslipidemia = chol_self_report | statin | ezetimibe | fenofibrate | hosp_hyperlipidemia,
+         type2_diabetes = ((diab_self_report | t2d_self_report | hosp_t2d | insulin | metformin | hypergluc) & !t1d_self_report & !hosp_t1d),
+         ckd_stage3 = hosp_ckd_stage3 | CKD3,
+         ckd_stage4 = hosp_ckd_stage4 | CKD4,
+         end_stage_renal = renalfailure_self_report | hosp_ckd_endstage | hosp_ckd_stage5 | CKD5,
+         obese = obese,
+         coronary_heart_disease = mi_self_report | angina_self_report | hosp_ischemic_heart,
+         heart_failure = heartfailure_self_report | hosp_heartfail,
+         liver_disease = hosp_liver_disease | liver_self_report | hyperggt | hyperalt,
+         cerebrovascular_disease = hosp_cerebrovascular | stroke_self_report1,
+         sex = factor(sex, levels = c(0, 1), labels = c("Male", "Female")),
+         urate = urate / 59.48) %>% 
+  select(eid, gout, hypertension, dyslipidemia, type2_diabetes, ckd_stage3, ckd_stage4, end_stage_renal, obese, coronary_heart_disease, heart_failure, liver_disease, cerebrovascular_disease, age, sex, urate, alcohol_intake_frequency_f1558_0_0, current_tobacco_smoking_f1239_0_0, bmi, ULT)
 
 # Combining all UK Biobank phenotypes of interest into a single file.
 ukbb_pheno <- final_data %>% 
   mutate(eid = as.numeric(eid)) %>% 
-  left_join(test, by = "eid") %>% 
   rename(IID = eid,
          GOUT = gout,
          AGECOL = age,
@@ -711,7 +1269,7 @@ ukbb_pheno <- final_data %>%
          NUMATK = NA,
          PROPHY = NA,
          Geno.SpecificAncestry = "European",
-         BMI = body_mass_ind_bmi_f21001_0_0,
+         BMI = bmi,
          HYPERTENSION = hypertension,
          DIABETES = type2_diabetes,
          HEART = coronary_heart_disease | heart_failure,
@@ -728,11 +1286,10 @@ ukbb_pheno <- final_data %>%
          FAMGOUTNUM = NA,
          Geno.SampleID = NA,
          Pheno.Study = "UK Biobank") %>% 
-  left_join(tmp) %>% 
   select(IID, GOUT, AGECOL, SEX, Geno.PCVector1:Geno.PCVector10, Geno.PCVector1_Oc:Geno.PCVector10_Oc, AGE1ATK, DURATION, TOPHIGOUT, EROSIONS, NUMATK, URATE, ULT, PROPHY, Geno.SpecificAncestry, BMI, HYPERTENSION, DIABETES, HEART, KIDNEY, LIPIDS, STROKE, TOTALALC, SUGDRINK, CURSMOKE, FAMGOUT, FAMGOUTNUM, Pheno.Study, Geno.SampleID)
 
 # Cleaing up.
-rm(final_control_data, final_data, final_gout_data, refresh_ukbb_data, self_report_med, test, tmp, ukbb_dir, logicfactor, logicfactor2)
+rm(refresh_ukbb_data, bd_refined, gout_affection2, ukbb_dir, logicfactor, logicfactor2, combined_data, final_data)
 ```
 
 <br/>
